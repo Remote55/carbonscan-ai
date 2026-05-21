@@ -19,6 +19,13 @@
 [![PostGIS](https://img.shields.io/badge/PostGIS-3.4-336791?logo=postgresql)](https://postgis.net)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?logo=typescript)](https://www.typescriptlang.org)
 
+<!-- CI Status -->
+[![CI Web](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-web.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-web.yml)
+[![CI API](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-api.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-api.yml)
+[![CI ML](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-ml.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-ml.yml)
+[![CI Mobile](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-mobile.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-mobile.yml)
+[![CodeQL](https://github.com/Remote55/carbonscan-ai/actions/workflows/codeql.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/codeql.yml)
+
 <!-- Repo Stats -->
 [![Stars](https://img.shields.io/github/stars/Remote55/carbonscan-ai?style=social)](https://github.com/Remote55/carbonscan-ai/stargazers)
 [![Code Size](https://img.shields.io/github/languages/code-size/Remote55/carbonscan-ai)](https://github.com/Remote55/carbonscan-ai)

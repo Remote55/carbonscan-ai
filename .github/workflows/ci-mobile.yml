@@ -1,0 +1,136 @@
+name: CI Mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/ci-mobile.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/ci-mobile.yml"
+
+concurrency:
+  group: ci-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.24.5"
+  JAVA_VERSION: "17"
+
+jobs:
+  analyze-and-test:
+    name: Analyze + Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Verify Flutter install
+        run: flutter --version
+
+      - name: Generate platform files (android only for CI)
+        working-directory: apps/mobile
+        # Mobile repo doesn't commit android/ + ios/ — generate fresh each run
+        run: |
+          flutter create . \
+            --platforms=android \
+            --project-name=carbonscan_mobile \
+            --org=com.carbonscan \
+            --description="CarbonScan AI Mobile — สแกนต้นไม้ → คำนวณคาร์บอน"
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Check formatting (advisory — does not fail build)
+        working-directory: apps/mobile
+        # Phase 1: re-enable --set-exit-if-changed once Person/User runs
+        # `dart format lib/ test/` locally and commits the formatted output.
+        # For now we only print diffs to surface formatting drift without
+        # blocking PRs (formatter wasn't run locally — User has no Dart
+        # tooling on Windows dev machine yet).
+        run: dart format --output=show lib/ test/ || true
+
+      - name: Static analysis
+        working-directory: apps/mobile
+        # --no-fatal-infos so prefer_const_constructors info-level hints
+        # don't fail CI; --no-fatal-warnings keeps mild warnings advisory.
+        # Errors still fail the build.
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Run tests
+        working-directory: apps/mobile
+        run: flutter test --coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-coverage-${{ github.run_id }}
+          path: apps/mobile/coverage/lcov.info
+          retention-days: 7
+          if-no-files-found: ignore
+
+  build-apk:
+    name: Build APK (debug)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Only build APK on push to main (saves CI time on PRs)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Generate platform files
+        working-directory: apps/mobile
+        run: |
+          flutter create . \
+            --platforms=android \
+            --project-name=carbonscan_mobile \
+            --org=com.carbonscan
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Build debug APK
+        working-directory: apps/mobile
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-${{ github.sha }}
+          path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14

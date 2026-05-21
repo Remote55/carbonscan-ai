@@ -90,7 +90,14 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "B", "C4", "PIE", "RUF", "NPY"]
-ignore = ["E501"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "RUF001", # ambiguous unicode in strings (× and ρ are intentional in math docs)
+    "RUF002", # ambiguous unicode in docstrings
+    "RUF003", # ambiguous unicode in comments
+    "N803",   # function args lowercase (allow physics/math variable names)
+    "N806",   # variable in function should be lowercase (allow math notation)
+]
 
 [tool.black]
 line-length = 100
