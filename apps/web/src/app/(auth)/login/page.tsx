@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { signIn } from '@/lib/auth';
 
+// useSearchParams() requires dynamic rendering in App Router (Next 14+)
+export const dynamic = 'force-dynamic';
+
 export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
