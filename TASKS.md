@@ -1,192 +1,238 @@
 # CarbonScan AI — Task List
 
 > **Project:** CarbonScan AI — NSC 2026 (หมวด 14 อุดมศึกษา)
-> **Deadline ใกล้สุด:** 29 พ.ค. 2569 17:00 น. (ส่ง Proposal)
+> **Deadline ใกล้สุด:** 29 พ.ค. 2569 17:00 น. — **เหลือ 7 วัน**
 > **ทีม:** User (Core/Lead), Person A (Web), Person B (Design)
 
 ---
 
-## ✅ Just Completed (Repo Scaffold)
+## 📊 Progress Snapshot
 
-- [x] **[User]** Monorepo structure (apps/, services/, packages/, docs/, proposal/, data/, .github/)
-- [x] **[User]** Root config: README.md, .gitignore, .editorconfig, LICENSE, CONTRIBUTING.md
-- [x] **[User]** Monorepo tooling: package.json, pnpm-workspace.yaml, turbo.json
-- [x] **[User]** Core docs (7): ONBOARDING, ARCHITECTURE, ROADMAP, DEVELOPMENT, API, DATA_MODEL, DEPLOYMENT
-- [x] **[User]** App/Service READMEs (5): web, mobile, api, ml, packages
-- [x] **[User]** Person-specific guide: apps/web/PERSON_A_GUIDE.md
-- [x] **[User]** ML docs (3): PIPELINE, ALLOMETRIC, DATASETS
-- [x] **[User]** Design docs (2): DESIGN_SYSTEM, BRAND + packages/design-tokens/README
-- [x] **[User]** ADRs (6): monorepo, no-iphone-lidar, tech-stack, dual-input, cloud-gpu, team-ownership
-- [x] **[User]** Proposal docs (4): README, outline, 5-questions-answers, references
-- [x] **[User]** GitHub templates: PR, bug, feature, CODEOWNERS
-- [x] **[User]** Setup scripts: setup.sh (mac/linux), setup.ps1 (windows)
-
-> **Total:** 44 markdown files + 7 config files = **51 files** scaffolded
+| Phase | Status | Completion |
+|---|---|---|
+| **Phase 0 — Proposal Sprint** (20-29 พ.ค.) | 🟡 In progress | 60% — เหลือ User actions |
+| **Phase 1 — Foundation** (12-30 มิ.ย.) | 🟢 Ahead of schedule | 50% — scaffold done in Phase 0 |
+| **Phase 2 — Core AI** (1-14 ก.ค.) | ⚪ Not started | 0% (allometric core ทำแล้ว 1/8 steps) |
+| **Phase 3 — Mobile + Submit** (15-17 ก.ค.) | ⚪ Not started | 0% (mobile scaffold done) |
+| **Phase 4 — Pitching** (7-21 ส.ค.) | ⚪ Not started | 0% |
 
 ---
 
-## 🔥 PHASE 0: Proposal Sprint (เหลือ ~8 วัน ถึง 29 พ.ค.) — CRITICAL
+## ✅ Completed (5 PRs Merged — 2026-05-20 → 22)
 
-### Day 1 ✅ (Scaffold + Setup — DONE)
-- [x] **[User]** Repo scaffold complete (ดู section ด้านบน)
-- [ ] **[All]** ตั้งกลุ่ม Line/Discord สำหรับทีม + Pin แผนนี้ไว้บนสุด
-- [ ] **[User]** ลงทะเบียนระบบ SIMs (https://www.nstda.or.th/sims) ทุกคนในทีม
-- [ ] **[User]** ติดต่อ ที่ปรึกษา → นัดส่ง Proposal v1 อ่านในวันที่ 23 พ.ค.
-- [ ] **[User]** สร้าง GitHub Organization + Repo: `carbonscan-ai` → push scaffold
-- [ ] **[Person B]** เริ่ม Brand Direction: Logo concept + Color palette (Forest Green + Sky Blue) — ดู `docs/design/BRAND.md`
-- [ ] **[Person A]** Read `apps/web/PERSON_A_GUIDE.md` → Setup Next.js 14 boilerplate ใน `apps/web/`
+### Infrastructure (PRs #1-2)
+- [x] Monorepo scaffold (54 files, 12,481 lines) — apps/, services/, packages/, docs/, proposal/, .github/
+- [x] Root config: README, .gitignore, .editorconfig, LICENSE, CONTRIBUTING, package.json, pnpm-workspace, turbo.json
+- [x] Documentation hub (15 files): ONBOARDING, ARCHITECTURE, ROADMAP, DEVELOPMENT, API, DATA_MODEL, DEPLOYMENT, SUPABASE_SETUP
+- [x] ADRs (6): monorepo, no-iphone-lidar, tech-stack, dual-input, cloud-gpu, team-ownership
+- [x] App/Service READMEs + PERSON_A_GUIDE
+- [x] GitHub: PR template, bug/feature issue templates, CODEOWNERS, branch protection (linear history, no force push, code-owner reviews)
+- [x] 5 CI Workflows: Web (Vitest+Build), API (Ruff+Pytest+PostGIS), ML (Pytest+coverage), Mobile (analyze+test), CodeQL
+- [x] Setup scripts (setup.sh + setup.ps1)
+- [x] **GitHub repo published**: https://github.com/Remote55/carbonscan-ai
 
-### Day 2 — 21 พ.ค.
-- [ ] **[User]** ร่าง Proposal v1 (8-10 หน้า) — section 1 หลักการและเหตุผล + 2 วัตถุประสงค์
-- [ ] **[User]** ร่าง section 3 เทคโนโลยี (Tech Stack ครบ) + section 4 วิธีดำเนินงาน
-- [ ] **[Person B]** ออกแบบ Logo draft 3 ตัว ส่งให้ User เลือก
-- [ ] **[Person B]** เริ่ม Wireframe Web Dashboard (Mobile + Desktop)
-- [ ] **[Person A]** Setup Tailwind + shadcn/ui + Folder structure
+### Web (PR #1 → integrated with PR #4)
+- [x] Next.js 14 boilerplate (TypeScript, Tailwind, shadcn/ui-ready, Three.js + Leaflet + Supabase deps)
+- [x] Landing page (hero + features + stats + footer with team logo)
+- [x] Tailwind config with forest/sky brand palette + shadcn CSS vars
+- [x] Layout.tsx with 4 Google Fonts + SEO + OG/Twitter metadata
+- [x] cn() helper + formatCarbon/formatTHB/formatGPS utils
+- [x] API client (typed fetch wrapper + ApiError + upload helper)
+- [x] Supabase browser client
 
-### Day 3 — 22 พ.ค.
-- [ ] **[User]** Research สูตร TGO Allometric Equation + Wood density 5 ชนิด (สัก, ยางนา, ไผ่, ยางพารา, มะค่าโมง)
-- [ ] **[User]** ร่าง section 5 ผลที่คาดว่าจะได้รับ + ตอบ 5 คำถามอาจารย์ในเอกสาร
-- [ ] **[Person B]** Logo Final + ส่ง Brand Asset (PNG/SVG) ให้ Person A
-- [ ] **[Person A]** Setup Supabase project + Database schema draft
+### Mobile (PR #1 + PR #5 prep)
+- [x] Flutter 3.22+ scaffold (22 files)
+- [x] Riverpod + go_router + Material 3 with brand theme
+- [x] Core: AppConfig (dart-define env), routes, theme, Dio client, permissions helper
+- [x] 5 screens: Home, TreeScan checklist, Camera multi-shot, Results pipeline, SpeciesClassifier stub
+- [x] AppButton widget + 2 widget smoke tests
+- [x] **NEW**: `.env.example` + `scripts/run-dev.sh`/`.ps1` helpers (read .env → dart-defines)
 
-### Day 4 — 23 พ.ค.
-- [ ] **[User]** ส่ง Proposal v1 ให้ที่ปรึกษาอ่าน (ทาง LINE/Email)
-- [ ] **[Person B]** Layout Cover page + Section dividers + Charts ใน Word
-- [ ] **[Person A]** Setup Three.js + React Three Fiber demo scene
+### Backend (PR #5)
+- [x] FastAPI 0.111 + async SQLAlchemy 2.0 + GeoAlchemy2
+- [x] JWT auth + bcrypt + 8 typed exceptions
+- [x] V1 endpoint stubs (auth, upload, jobs, trees, health)
+- [x] ORM models (User, Tree with PostGIS POINT)
+- [x] Pydantic schemas (GpsPoint validation)
+- [x] **NEW**: Alembic initial migration — 6 tables + indexes + triggers ready
+- [x] **NEW**: `setup_supabase.sql` (extensions) + `seed_species_db.sql` (5 species)
 
-### Day 5 — 24 พ.ค.
-- [ ] **[User]** แก้ Proposal v2 ตาม feedback ที่ปรึกษา
-- [ ] **[User]** Lock Scope ชนิดต้นไม้ Prototype (3-5 ชนิด)
-- [ ] **[Person B]** Wireframe Mobile App (Flutter screens)
-- [ ] **[Person A]** Implement Landing Page + Routing
+### ML (PRs #3 + #5)
+- [x] PyTorch + Open3D + laspy + COLMAP scaffold (8-step pipeline structure)
+- [x] **Allometric calculator FULLY IMPLEMENTED** — 16/16 pytest passing locally
+- [x] species_db.csv (5 species verified against literature)
+- [x] Worked example verified: ไม้สัก DBH=30/H=18 = 1.233 tCO₂eq
+- [x] 5-species comparison table in ALLOMETRIC.md
+- [x] RunPod handler stub + COLMAP/OpenMVS wrappers
 
-### Day 6 — 25 พ.ค. ⚠️ START SIGNATURE PROCESS
-- [ ] **[User]** Print Proposal v2 → ส่งให้ที่ปรึกษาเซ็น (ตัวจริง)
-- [ ] **[User]** ส่งเอกสารเข้าระบบสถาบัน → ขอลายเซ็นคณบดี/ผอ.
-- [ ] **[Person B]** Hi-fidelity Prototype (Figma)
-- [ ] **[Person A]** Implement Auth + Dashboard skeleton
+### Design (PR #4)
+- [x] Official team logo v1.0 (illustrated tree + hands + CO₂ + analytics)
+- [x] Wired up to Web (favicon, OG image, header, footer)
+- [x] BRAND.md updated with official concept + element breakdown
+- [x] assets/brand/README.md (usage rules, do/don't, changelog)
 
-### Day 7 — 26 พ.ค. (Buffer Day)
-- [ ] **[User]** ตามเรื่องลายเซ็น + เตรียม PDF version
-- [ ] **[Person B]** Infographic: Pipeline LiDAR → AI → Carbon
-- [ ] **[Person A]** Implement Map (Leaflet basic)
+### Proposal (PRs #1 + #3)
+- [x] outline.md expanded to 8-10 page document with all sections
+- [x] 5-questions-answers.md ready to paste into Proposal
+- [x] references.md with 20+ academic citations
 
-### Day 8 — 27 พ.ค.
-- [ ] **[All]** Final check: Proposal + เอกสารแนบ
-- [ ] **[User]** แปลง Proposal เป็น PDF (รวมลายเซ็น)
-- [ ] **[Person B]** Mockup สำหรับ Pitching (เผื่อ Future)
+---
 
-### Day 9 — 28 พ.ค. ⚠️ UPLOAD DAY
-- [ ] **[User]** อัปโหลด Proposal เข้าระบบ SIMs ล่วงหน้า 24 ชม.
-- [ ] **[User]** Verify submission status
+## 🔥 PHASE 0: Proposal Sprint — Remaining 7 Days
 
-### Day 10 — 29 พ.ค. DEADLINE
-- [ ] **[User]** Final verification ก่อน 17:00 น.
-- [ ] **[All]** เฉลิมฉลอง 🎉
+### 🔴 CRITICAL Path (User Actions Required)
+
+| Days | Owner | Task | Status |
+|---|---|---|---|
+| **22 พ.ค. (TODAY)** | User | Copy `proposal/outline.md` → Word template + format | [ ] |
+| **22 พ.ค.** | User | ติดต่อที่ปรึกษา → นัดส่ง Proposal v1 อ่าน 23-24 พ.ค. | [ ] |
+| **22 พ.ค.** | User | ลงทะเบียน SIMs (https://www.nstda.or.th/sims) | [ ] |
+| **23 พ.ค.** | User | ส่ง Proposal v1 ให้ที่ปรึกษา (Line/Email) | [ ] |
+| **23-24 พ.ค.** | All | ตั้งกลุ่ม Line/Discord ทีม + share repo + roles | [ ] |
+| **24 พ.ค.** | User | แก้ Proposal v2 ตาม feedback ที่ปรึกษา | [ ] |
+| **24 พ.ค.** | User | Lock ชนิดต้นไม้ Prototype (5 ชนิด — ตามที่อยู่ใน species_db.csv) | [x] ✓ ทำแล้ว |
+| **25 พ.ค.** ⚠️ | User | **เริ่มเดินขอลายเซ็น** ที่ปรึกษา (จริง) | [ ] |
+| **25 พ.ค.** | User | ส่งเอกสารเข้าระบบสถาบัน → ขอลายเซ็นคณบดี/ผอ. | [ ] |
+| **26 พ.ค.** | User | Buffer day — ตามเรื่องลายเซ็น | [ ] |
+| **27 พ.ค.** | All | Final check Proposal + เอกสารแนบ | [ ] |
+| **27 พ.ค.** | User | แปลง Proposal → PDF (รวมลายเซ็น) | [ ] |
+| **28 พ.ค.** ⚠️ | User | อัปโหลดเข้า SIMs (1 day buffer) | [ ] |
+| **29 พ.ค. < 17:00** | User | Verify submission status | [ ] |
+
+### 🟠 Person B Tasks (Parallel, ใน Phase 0)
+
+- [ ] **[Person B]** Layout Cover Page (ใช้ logo + project title)
+- [ ] **[Person B]** Section dividers + Page numbers
+- [ ] **[Person B]** Architecture diagram (1200×800 PNG)
+- [ ] **[Person B]** Infographic: Pipeline LiDAR → AI → Carbon (สำหรับ section 6)
+- [ ] **[Person B]** Infographic: Anti-Fraud Mechanism (4 layers)
+
+### 🟡 Person A Tasks (Parallel — ไม่ block Proposal)
+
+- [x] Setup Next.js 14 boilerplate ✓
+- [x] Tailwind + shadcn/ui ✓
+- [ ] **[Person A]** Run `pnpm dev` → verify localhost:3000 ทำงาน
+- [ ] **[Person A]** Implement Login page UI (no auth backend yet)
+- [ ] **[Person A]** Read PERSON_A_GUIDE.md ทั้งหมด
+
+### 🚀 Optional User Tasks (Phase 1 head-start)
+
+- [ ] **O — Setup Supabase project จริง** (15 min, ดู `docs/SUPABASE_SETUP.md`)
+- [ ] **R — Generate favicons multi-res จาก logo.png** (10 min, realfavicongenerator.net)
+- [ ] **S — Setup Vercel deploy preview** (20 min)
 
 ---
 
 ## 📦 PHASE 1: Foundation (12 มิ.ย. — 30 มิ.ย.) — After Proposal Result
 
-### User (Core/Lead)
-- [ ] Setup Python environment (conda) + PyTorch + CUDA + Open3D + laspy + PDAL
-- [ ] Setup Google Colab Pro+ account
-- [ ] Download NEON LiDAR Dataset (sample plot, ~5GB)
-- [ ] Run lidR R workflow บน sample dataset (ทำความเข้าใจ pipeline)
-- [ ] Port `classify_ground` (csf algorithm) เป็น Python ด้วย PDAL
-- [ ] Port `normalize_height` เป็น Python
-- [ ] Port `pitfree` + `grid_canopy` (CHM generation)
+### User — ML / Backend (mostly done!)
 
-### Person A (Web)
-- [ ] Setup Vercel deployment + Connect GitHub
-- [ ] Implement full Authentication flow (NextAuth + Supabase)
-- [ ] Implement Landing Page (final version) + Marketing copy
+- [x] FastAPI service scaffold ✓ (PR #5)
+- [x] Alembic schema migration ✓ (PR #5)
+- [x] Allometric calculator + 16 tests ✓ (PRs #3, #5)
+- [ ] **[User]** Setup local Postgres + PostGIS for offline dev (Docker)
+- [ ] **[User]** Download NEON LiDAR sample dataset (~5GB) — see `services/ml/scripts/download_neon.py`
+- [ ] **[User]** Implement `classify_ground` (PDAL CSF) — Phase 2 step 1
+- [ ] **[User]** Implement `normalize_height` — Phase 2 step 2
+- [ ] **[User]** Implement `pitfree CHM` — Phase 2 step 3
+- [ ] **[User]** Implement `watershed segmentation` — Phase 2 step 4
+- [ ] **[User]** Get Google Colab Pro+ subscription (for PointNet++ training)
+- [ ] **[User]** Run lidR R workflow on sample (understand reference impl)
+
+### Person A — Web
+
+- [ ] Setup Vercel deployment + connect GitHub
+- [ ] Implement Authentication flow (NextAuth + Supabase) — depends on User finishing Supabase setup
 - [ ] Implement Community Dashboard (user profile, scanned trees list)
+- [ ] Implement Industrial Dashboard
 
-### Person B (Design)
-- [ ] Finalize Design System ใน Figma (button, card, color tokens)
-- [ ] Component Library export → ให้ Person A ใช้
-- [ ] Infographic: B2B Flow (โรงงาน → ระบบจับคู่ → ชุมชน)
-- [ ] Infographic: Anti-Fraud Mechanism
+### Person B — Design
+
+- [ ] Finalize Design System ใน Figma (button, card, dialog variants)
+- [ ] Design Token export — push tokens เป็น JSON ใน `packages/design-tokens/tokens/`
+- [ ] Wireframe Mobile App final
+- [ ] Infographics for marketing
+- [ ] Logo variants: SVG version, monochrome, reversed, wordmark, mark-only (see assets/brand/README.md TODO)
 
 ---
 
 ## 🔬 PHASE 2: Core AI Pipeline (1 ก.ค. — 14 ก.ค.)
 
-### User (Core)
-- [ ] Implement Watershed Tree Segmentation (Python port from lidR)
-- [ ] Setup PointNet++ training pipeline (PyTorch)
-- [ ] Fine-tune PointNet++ for Wood-Leaf Segmentation บน NEON
+### User (Core ML)
+- [ ] Setup PointNet++ training pipeline (PyTorch + Open3D-ML)
+- [ ] Fine-tune Wood-Leaf Segmentation บน NEON (target IoU ≥ 0.70)
 - [ ] Implement TLSeparation as baseline (fallback)
 - [ ] Implement QSM (Cylinder Fitting per tree)
-- [ ] Implement Allometric Equation calculator (TGO formulas + Wood density DB)
 - [ ] Test pipeline end-to-end with sample .las file
-- [ ] Optimize for Google Colab T4 (chunking large point clouds)
+- [ ] Optimize for Colab T4 (chunking large point clouds)
 
-### User (Backend)
-- [ ] Setup FastAPI service skeleton
-- [ ] Implement REST endpoints: `/api/upload`, `/api/process`, `/api/results/{id}`
-- [ ] WebSocket endpoint for job progress
-- [ ] Job Queue setup (Supabase Queues)
-- [ ] Setup RunPod Serverless GPU worker (Docker image)
+### User (Backend Integration)
+- [ ] Implement `/upload/las` endpoint (chunked upload to Supabase Storage)
+- [ ] Implement `/upload/photos` endpoint
+- [ ] Implement `/jobs/{id}` status endpoint
+- [ ] WebSocket `/ws/jobs` for real-time progress
+- [ ] Job Queue setup (Supabase Queues or Redis)
+- [ ] Build RunPod Serverless Docker image (services/ml/Dockerfile.gpu)
 - [ ] Deploy FastAPI to Railway
 
-### Person A
-- [ ] Implement File Upload component (.las/.laz with progress bar — tus protocol)
-- [ ] Implement 3D Point Cloud Viewer (Three.js + potree-core)
-- [ ] Implement Tree detail view (DBH, Height, Volume, Carbon kg/yr)
-- [ ] Implement GIS Map (Leaflet + PostGIS API + GPS pins per tree)
+### Person A (Web Core Features)
+- [ ] File Upload component (.las/.laz with progress bar — tus protocol)
+- [ ] **3D Point Cloud Viewer** (Three.js + potree-core + R3F) — Wow feature
+- [ ] Tree detail view (DBH, Height, Volume, Carbon chart)
+- [ ] GIS Map (Leaflet + PostGIS API + GPS pins)
 
-### Person B
-- [ ] Hi-fidelity Mockup (Flutter Mobile screens — final)
-- [ ] App Icon (Android + iOS)
+### Person B (Design — Mobile)
+- [ ] Hi-fidelity Mobile mockups (Flutter screens — final)
+- [ ] App Icon (1024×1024 PNG)
 - [ ] Splash screen animation (Lottie)
-- [ ] In-app illustrations
 
 ---
 
 ## 📱 PHASE 3: Mobile App + Submit Final (15 ก.ค. — 17 ก.ค.)
 
 ### User (Mobile)
-- [ ] Setup Flutter project + Riverpod state management
-- [ ] Camera UI (multi-shot, 30-50 frames around tree)
-- [ ] GPS capture with 6-decimal precision + EXIF metadata
-- [ ] Photo upload to Backend (chunked)
-- [ ] Tree Species Classifier on-device (TFLite)
+- [x] Flutter scaffold ✓ (PR #1, prep with PR #5)
+- [ ] Install Flutter SDK + Android Studio locally
+- [ ] `flutter create . --platforms=android --org=com.carbonscan`
+- [ ] `flutter pub get` + `flutter run` (verify boots)
+- [ ] Implement Camera UI (multi-shot, GPS embedded)
+- [ ] Implement Photo upload pipeline (chunked, with retry)
+- [ ] Tree Species Classifier on-device (TFLite — needs trained model from Phase 2)
 - [ ] Results screen with charts
 - [ ] Anti-fraud: Real-time camera lock (no gallery upload)
-- [ ] Build APK + sign + test on Android device
+- [ ] Build signed APK + test on real Android device
 
-### Backend
-- [ ] Implement Photogrammetry pipeline (COLMAP wrapper)
-- [ ] Add to Job Queue for mobile-uploaded photos
-- [ ] Tree Species ID API (RGB image → species)
+### User (Backend — Photogrammetry)
+- [ ] COLMAP wrapper (services/ml/photogrammetry/colmap_wrapper.py)
+- [ ] OpenMVS wrapper (services/ml/photogrammetry/openmvs_wrapper.py)
+- [ ] Job chain: photogrammetry → pipeline (auto-trigger second job)
 
-### Person A
-- [ ] Carbon Credit Marketplace UI
-- [ ] Report Generator (PDF download per tree/plot)
-- [ ] Final QA + Bug fixes
+### Person A (Web Final)
+- [ ] Carbon Credit Marketplace UI (listings + checkout)
+- [ ] Report Generator (PDF per tree/plot, react-pdf)
+- [ ] Final QA + bug fixes
 - [ ] Deploy production to Vercel
 
-### Person B
+### Person B (Pitching Prep)
 - [ ] Demo Video 3-5 นาที (script + record + edit)
-- [ ] Voice-over recording
-- [ ] Pitch deck draft (สำหรับรอบนำเสนอ)
+- [ ] Voice-over recording (Thai + English subs)
+- [ ] Pitch deck draft
 
 ### All
-- [ ] **17 ก.ค.** ส่งรายงานฉบับสมบูรณ์ในระบบ SIMs (ก่อน 17:00 น.)
+- [ ] **17 ก.ค. < 17:00** — ส่งรายงานฉบับสมบูรณ์ใน SIMs
 
 ---
 
 ## 🎤 PHASE 4: Presentation Round (7 ส.ค. — 24 ส.ค.)
 
 - [ ] **7 ส.ค.** ตรวจรายชื่อเข้ารอบนำเสนอ
-- [ ] เตรียม Slide Deck final
-- [ ] Rehearse pitching (3 รอบขั้นต่ำ)
+- [ ] เตรียม Slide Deck final (8-10 slides)
+- [ ] Rehearse pitching (3+ รอบ, ถ่ายวิดีโอตัวเอง)
 - [ ] เตรียม Q&A คำตอบ 10 ข้อ
-- [ ] เตรียม Backup demo (offline + online)
+- [ ] เตรียม Backup demo (offline videos + cached data)
+- [ ] เตรียม Poster A1 + นามบัตร
 - [ ] **21 ส.ค.** รอบชิงชนะเลิศ
-- [ ] **24 ส.ค.** ประกาศผล
+- [ ] **24 ส.ค.** 🏆 ประกาศผล
 
 ---
 
@@ -196,11 +242,14 @@
 - [x] = Completed
 - [!] = Blocked (เขียนเหตุผลต่อท้าย)
 
-## 🚨 Open Questions (รอ User ตอบ)
-1. ทีม 3 คนชื่ออะไรบ้าง?
-2. ที่ปรึกษาโครงการชื่ออะไร? คณะอะไร?
-3. มี Template Proposal ของสถาบัน/NSC ฉบับ Word ให้กรอกหรือยัง?
-4. งบประมาณที่อยากตั้งใน Proposal เท่าไหร่?
-5. ลงทะเบียน SIMs แล้วหรือยัง?
-6. ที่ปรึกษามี Background ป่าไม้/CV/AI ฯลฯ?
-7. Android phone รุ่นไหนในทีม? (ARCore Depth check)
+---
+
+## 🚨 Open Questions (รอ User ตอบ — สำคัญสำหรับ Proposal)
+
+1. **ทีม 3 คนชื่ออะไรบ้าง?** (ใส่ใน Proposal cover + section 1)
+2. **ที่ปรึกษาโครงการชื่ออะไร? คณะอะไร? ตำแหน่งวิชาการ?**
+3. **มี Template Proposal ของสถาบัน/NSC ฉบับ Word ให้กรอกหรือยัง?**
+4. **งบประมาณที่อยากตั้งใน Proposal เท่าไหร่?** (NSC สนับสนุน ~3,000-5,000 บาท/โครงการ)
+5. **ลงทะเบียน SIMs แล้วหรือยัง?**
+6. **ที่ปรึกษามี Background ป่าไม้/CV/AI/อะไร?** (เพื่อปรับ technical depth)
+7. **Android phone รุ่นไหนในทีม?** (ARCore Depth check สำหรับ Phase 3)
