@@ -8,9 +8,12 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <nav className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest-gradient">
-              <span className="font-display text-lg font-bold text-white">C</span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="CarbonScan AI logo"
+              className="h-9 w-9 object-contain"
+            />
             <span className="font-display text-lg font-bold tracking-tight">
               CarbonScan AI
             </span>
@@ -162,9 +165,12 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-12">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-forest-gradient">
-                <span className="font-display text-xs font-bold text-white">C</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="CarbonScan AI logo"
+                className="h-7 w-7 object-contain"
+              />
               <span className="text-sm text-muted-foreground">
                 © 2026 CarbonScan AI · NSC 2026 หมวด 14
               </span>
