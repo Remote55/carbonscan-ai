@@ -148,6 +148,7 @@ carbonscan-ai/
 | [docs/ROADMAP.md](docs/ROADMAP.md) | ทุกคน | แผนงาน phases |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Developer | Workflow, Git, PR |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | DevOps | Deployment guide |
+| [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) | Backend setup | Supabase project + migrations + seed |
 | [docs/API.md](docs/API.md) | Backend/Frontend | API reference |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Backend | DB schema |
 | [docs/ml/PIPELINE.md](docs/ml/PIPELINE.md) | ML Engineer | ML pipeline |

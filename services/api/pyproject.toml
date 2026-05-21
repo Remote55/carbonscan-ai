@@ -86,6 +86,9 @@ packages = ["app"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = [
+    "alembic/",       # auto-generated migrations have non-standard import patterns
+]
 
 [tool.ruff.lint]
 select = [

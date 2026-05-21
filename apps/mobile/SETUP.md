@@ -27,16 +27,18 @@ cd apps/mobile
 
 # 1. Generate platform-specific files (android/, ios/)
 #    This is needed because we don't commit those folders
-flutter create . --platforms=android,ios --project-name=carbonscan_mobile
+flutter create . --platforms=android,ios --project-name=carbonscan_mobile --org=com.carbonscan
 
 # 2. Install Dart deps
 flutter pub get
 
-# 3. Run code generation (Freezed, JSON, Riverpod)
-dart run build_runner build --delete-conflicting-outputs
+# 3. Copy env template (no code-gen needed yet — freezed/riverpod_generator
+#    will be re-enabled in Phase 1)
+cp .env.example .env
+# Edit .env with real Supabase URL + anon key
 
 # 4. Verify
-flutter analyze
+flutter analyze --no-fatal-warnings --no-fatal-infos
 flutter test
 ```
 
@@ -49,12 +51,21 @@ flutter test
 # List devices
 flutter devices
 
-# Run (auto-detects emulator)
-flutter run
+# RECOMMENDED: use helper script (reads .env automatically)
+./scripts/run-dev.sh                    # macOS/Linux
+.\scripts\run-dev.ps1                   # Windows PowerShell
 
-# Or specify device
-flutter run -d emulator-5554
+# Or run manually (must pass dart-defines)
+flutter run \
+    --dart-define=API_BASE_URL=http://10.0.2.2:8000 \
+    --dart-define=SUPABASE_URL=https://xxx.supabase.co \
+    --dart-define=SUPABASE_ANON_KEY=eyJ...
 ```
+
+> 💡 **Why dart-defines?** Flutter doesn't read `.env` files at runtime (security
+> — would bake into APK). `--dart-define` passes values at compile time, baked
+> into the binary as `const String.fromEnvironment(...)`. The helper scripts
+> read `.env` and convert each line to a `--dart-define` flag.
 
 ### Physical Android Device
 1. Enable Developer Options + USB Debugging on phone
