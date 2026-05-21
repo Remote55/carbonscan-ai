@@ -137,8 +137,8 @@ def upgrade() -> None:
         ),
     )
     op.create_index("idx_plots_owner", "plots", ["owner_id"])
-    # GIST spatial index — created manually via raw SQL (geoalchemy doesn't autogen)
-    op.execute("CREATE INDEX idx_plots_geometry ON plots USING GIST(geometry)")
+    # Note: GIST index on `geometry` column is auto-created by GeoAlchemy2
+    # (Geometry column has spatial_index=True by default → idx_plots_geometry)
     op.create_index("idx_plots_province", "plots", ["province"])
 
     # --- jobs ---
@@ -294,9 +294,10 @@ def upgrade() -> None:
     op.create_index("idx_trees_plot", "trees", ["plot_id"])
     op.create_index("idx_trees_owner", "trees", ["owner_id"])
     op.create_index("idx_trees_species", "trees", ["species_name_sci"])
-    op.execute("CREATE INDEX idx_trees_location ON trees USING GIST(location)")
+    # GIST on `location` is auto-created by GeoAlchemy2 → idx_trees_location
+    # Partial index for marketplace queries — not auto-generated
     op.execute(
-        "CREATE INDEX idx_trees_available ON trees(is_available) "
+        "CREATE INDEX IF NOT EXISTS idx_trees_available ON trees(is_available) "
         "WHERE is_available = TRUE",
     )
 
