@@ -10,8 +10,10 @@
  * For browser/Client Components, use `./supabase.ts` instead.
  */
 
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+
+type CookieSetItem = { name: string; value: string; options: CookieOptions };
 
 /**
  * Server client that reads/writes auth cookies via Next.js cookies() API.
@@ -28,9 +30,9 @@ export function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieSetItem[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
+            cookiesToSet.forEach(({ name, value, options }: CookieSetItem) =>
               cookieStore.set(name, value, options),
             );
           } catch {

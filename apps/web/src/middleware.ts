@@ -6,8 +6,10 @@
  * https://supabase.com/docs/guides/auth/server-side/nextjs
  */
 
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+
+type CookieSetItem = { name: string; value: string; options: CookieOptions };
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -22,12 +24,14 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        setAll(cookiesToSet: CookieSetItem[]) {
+          cookiesToSet.forEach(({ name, value }: CookieSetItem) =>
+            request.cookies.set(name, value),
+          );
           response = NextResponse.next({
             request,
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }: CookieSetItem) =>
             response.cookies.set(name, value, options),
           );
         },
