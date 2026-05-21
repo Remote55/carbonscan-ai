@@ -60,7 +60,7 @@ class _LoggingInterceptor extends Interceptor {
   }
 
   @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
     // ignore: avoid_print
     print('← ${response.statusCode} ${response.requestOptions.uri}');
     handler.next(response);

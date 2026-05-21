@@ -4,6 +4,7 @@
 ///   flutter run                            (dev)
 ///   flutter build apk --release            (Android release)
 ///   flutter build ios --release            (iOS, needs Mac)
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

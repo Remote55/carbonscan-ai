@@ -2,6 +2,7 @@
 ///
 /// Currently uses const defaults. Phase 1: switch to flutter_dotenv or
 /// `--dart-define` flags for proper environment management.
+library;
 
 class AppConfig {
   AppConfig._();

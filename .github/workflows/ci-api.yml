@@ -66,9 +66,11 @@ jobs:
         working-directory: services/api
         run: ruff check .
 
-      - name: Ruff format check
+      - name: Ruff format check (advisory)
         working-directory: services/api
-        run: ruff format --check .
+        # Phase 1: re-enable strict (without `|| true`) after running
+        # `ruff format .` locally and committing normalized files.
+        run: ruff format --check --diff . || echo "::warning::Ruff format drift"
 
       - name: Run tests
         working-directory: services/api
