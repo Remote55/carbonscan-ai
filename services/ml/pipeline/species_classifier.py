@@ -9,12 +9,15 @@ TODO Phase 2: Implement training + inference.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 
 class SpeciesClassifier:
     """RGB → species classifier."""
 
-    SPECIES = [
+    # ClassVar tells Ruff this is intentionally a mutable class-level constant
+    # (RUF012 would otherwise flag list literals at class scope).
+    SPECIES: ClassVar[list[str]] = [
         "Tectona grandis",       # สัก
         "Dipterocarpus alatus",  # ยางนา
         "Bambusa spp.",          # ไผ่

@@ -103,6 +103,7 @@ select = [
 ignore = [
     "E501",  # line too long (handled by formatter)
     "B008",  # FastAPI Depends() in defaults
+    "N802",  # uppercase @property names match env-var-style settings (CORS_ORIGINS_LIST)
     "N811",  # SQLAlchemy "UUID as PgUUID" is conventional alias
     "N818",  # AppException base class doesn't need "Error" suffix
 ]
