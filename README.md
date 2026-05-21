@@ -143,12 +143,15 @@ carbonscan-ai/
 | Document | For Whom | Purpose |
 |---|---|---|
 | [README.md](README.md) | ทุกคน | Entry point (ไฟล์นี้) |
+| **[docs/HANDOFF.md](docs/HANDOFF.md)** | **ทุกคน** | **⭐ Master reference for everything** |
 | [docs/ONBOARDING.md](docs/ONBOARDING.md) | คนใหม่ | จุดเริ่มต้น 30 นาที |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Developer | System design |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | ทุกคน | แผนงาน phases |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Developer | Workflow, Git, PR |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | DevOps | Deployment guide |
-| [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) | Backend setup | Supabase project + migrations + seed |
+| [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) | Backend setup | Supabase project + migrations + seed + RLS |
+| [docs/AUTH_TESTING.md](docs/AUTH_TESTING.md) | Developer | Test signup/login flow live |
+| [proposal/advisor_email.md](proposal/advisor_email.md) | User | Email templates สำหรับส่งที่ปรึกษา |
 | [docs/API.md](docs/API.md) | Backend/Frontend | API reference |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Backend | DB schema |
 | [docs/ml/PIPELINE.md](docs/ml/PIPELINE.md) | ML Engineer | ML pipeline |

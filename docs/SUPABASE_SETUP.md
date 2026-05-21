@@ -205,6 +205,51 @@ SUPABASE_SERVICE_KEY=eyJhbGciOi...
 
 ---
 
+## Step 7b: Apply RLS Policies (after migrations succeed)
+
+After `alembic upgrade head` and `seed_species_db.sql` succeed, apply
+Row-Level Security policies + auth sync trigger:
+
+### Via SQL Editor
+
+1. Open Supabase SQL Editor → New Query
+2. Paste content of `services/api/scripts/rls_policies.sql`
+3. Run
+
+### Via asyncpg (Python)
+
+```bash
+cd services/api
+.venv/Scripts/python.exe -c "
+import asyncio, asyncpg
+from pathlib import Path
+
+async def main():
+    sql = Path('scripts/rls_policies.sql').read_text(encoding='utf-8')
+    setup_sql = sql.split('-- 10. Verification')[0]
+
+    conn = await asyncpg.connect(
+        host='aws-1-ap-southeast-1.pooler.supabase.com', port=5432,
+        user='postgres.umuszxwwwxyvqxwhlpxf', password='YOUR-PASSWORD',
+        database='postgres', statement_cache_size=0)
+    await conn.execute(setup_sql)
+    print('RLS applied')
+    await conn.close()
+asyncio.run(main())
+"
+```
+
+What this does:
+- Creates trigger `on_auth_user_created` (auto-syncs new auth users → public.users)
+- Creates helper functions `is_admin()`, `is_auditor_or_admin()`
+- Enables RLS on 5 tables (users, plots, trees, jobs, transactions)
+- Adds 15 policies covering owner-only access + marketplace public read + auditor verify
+- Adds storage bucket policies (point-clouds + photos private; reports + brand-assets writable by owners)
+
+species_db stays open (reference data — no RLS).
+
+---
+
 ## Step 8: Test Connection
 
 ### From Backend (`services/api/`)
