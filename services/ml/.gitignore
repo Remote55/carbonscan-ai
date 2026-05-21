@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+*.egg-info/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data (large files)
+data/raw/
+data/processed/
+data/samples/*.las
+data/samples/*.laz
+data/samples/*.ply
+*.las
+*.laz
+*.ply
+!data/species_db.csv
+
+# Models (large files)
+models/*.pth
+models/*.onnx
+models/*.tflite
+models/*.h5
+models/*.ckpt
+
+# Experiment tracking
+wandb/
+mlruns/
+runs/
+
+# Outputs
+output/
+results/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

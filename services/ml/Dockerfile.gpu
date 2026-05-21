@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1.7
+# GPU image — NVIDIA CUDA 11.8 + Python 3.11
+# For RunPod Serverless deployment
+
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libgeos-dev \
+    libproj-dev \
+    git \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set python3.11 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+
+WORKDIR /workspace
+
+# Install Python deps
+COPY pyproject.toml ./
+RUN pip install --upgrade pip && \
+    pip install -e ".[gpu,runpod]"
+
+# Copy code
+COPY pipeline/ ./pipeline/
+COPY photogrammetry/ ./photogrammetry/
+COPY runpod_handler.py ./
+COPY data/species_db.csv ./data/
+
+# Pre-download models if available
+# (Set MODEL_URL build arg in CI)
+# RUN python -c "import torchvision.models; torchvision.models.resnet50(weights='DEFAULT')"
+
+# RunPod expects the handler at the root
+CMD ["python", "-u", "runpod_handler.py"]
