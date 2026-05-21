@@ -26,7 +26,7 @@ class TreeScanScreen extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'เตรียมตัวก่อนสแกนเพื่อความแม่นยำ',
                 style: TextStyle(color: AppColors.stone),
               ),
