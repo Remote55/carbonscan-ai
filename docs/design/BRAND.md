@@ -15,29 +15,30 @@
 
 ---
 
-## Logo Concept
+## Logo (Official — v1.0)
 
-### Mark
-แนะนำ 3 ทิศทาง (Person B ลองทำ 3 แบบนี้แล้วเลือก):
+✅ **Decided** — ดูไฟล์ master ที่ [`assets/brand/logo.png`](../../assets/brand/logo.png)
 
-**Option A: Geometric Tree + Data Points**
-- ต้นไม้สามเหลี่ยมเรียบ ๆ
-- มี dots (point cloud) ล้อมรอบ
-- แสดงความเป็น Tech + Nature
+### Concept
+โลโก้รวมเรื่องราวของแพลตฟอร์มไว้ในรูปเดียว — **"Community trees + AI measurement = Verified carbon credit"**:
 
-**Option B: Leaf-Hex**
-- ใบไม้ผสมรูป Hexagon (สื่อ Data)
-- Minimal, scalable
-- ใช้กับ favicon ดี
-
-**Option C: Stylized "CS" + Tree branch**
-- ตัวอักษร C+S เป็นกิ่งไม้
-- เด่นชัด, จดจำง่าย
+| Element | Meaning |
+|---|---|
+| 🌳 ต้นไม้ (กลาง) | ไม้เศรษฐกิจไทยที่เราวัด |
+| 🤲 มือประคอง | ชุมชน/เกษตรกรปลูกและดูแล |
+| 🌍 โลก (background) | ผลกระทบระดับโลก, sustainability |
+| 💨 ฟอง CO₂ + ลูกศร | การกักเก็บคาร์บอน |
+| 📈 กราฟ + แว่นขยาย | AI Analytics + การวัดผลด้วยข้อมูล |
+| 🟢 Gradient เขียว→ฟ้า (วงนอก) | Nature → Technology |
 
 ### Wordmark
-- ใช้ **Space Grotesk Bold**
-- "CarbonScan" ติดกัน, "AI" ตัวเล็กลง
-- หรือ "carbonscan.ai" lowercase (modern startup style)
+- Font: **Space Grotesk Bold** สำหรับ "CarbonScan"
+- "AI" ใช้สีเขียว forest-500 เพื่อสะดุดตา
+- ใช้คู่กับ mark เมื่อพื้นที่กว้าง
+
+### Variants (ที่จะทำใน Phase 1)
+รายละเอียดเต็มใน [`assets/brand/README.md`](../../assets/brand/README.md) — ตอนนี้มีเฉพาะ master PNG (v1.0).
+Phase 1 Person B จะเพิ่ม: SVG, monochrome, reversed, wordmark, mark-only, ICO, app-icon PNG variants
 
 ---
 

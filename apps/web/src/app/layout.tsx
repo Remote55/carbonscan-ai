@@ -56,6 +56,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://carbonscan-ai.vercel.app',
   ),
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     title: 'CarbonScan AI — Tree Biomass Carbon Assessment',
     description: 'แปลงต้นไม้เป็น Carbon Credits ด้วย AI ที่โปร่งใส',
@@ -63,11 +68,20 @@ export const metadata: Metadata = {
     siteName: 'CarbonScan AI',
     locale: 'th_TH',
     type: 'website',
+    images: [
+      {
+        url: '/logo.png',
+        width: 1024,
+        height: 1024,
+        alt: 'CarbonScan AI — แปลงต้นไม้เป็น Carbon Credits',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'CarbonScan AI',
     description: 'แปลงต้นไม้เป็น Carbon Credits ด้วย AI ที่โปร่งใส',
+    images: ['/logo.png'],
   },
   robots: {
     index: true,
