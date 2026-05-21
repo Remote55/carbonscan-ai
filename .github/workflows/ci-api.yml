@@ -77,7 +77,9 @@ jobs:
           JWT_SECRET: test-secret-key-for-ci-only-do-not-use-in-prod
           APP_ENV: test
           APP_DEBUG: "false"
-        run: pytest -v --cov=app --cov-report=xml --cov-report=term-missing
+        # pyproject.toml's pytest config already includes --cov=app, --cov-report=term-missing
+        # We add xml report on top for coverage upload.
+        run: pytest --cov-report=xml
 
       - name: Upload coverage to artifact
         if: always()

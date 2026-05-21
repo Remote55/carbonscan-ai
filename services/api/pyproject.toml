@@ -103,6 +103,8 @@ select = [
 ignore = [
     "E501",  # line too long (handled by formatter)
     "B008",  # FastAPI Depends() in defaults
+    "N811",  # SQLAlchemy "UUID as PgUUID" is conventional alias
+    "N818",  # AppException base class doesn't need "Error" suffix
 ]
 
 [tool.ruff.lint.isort]

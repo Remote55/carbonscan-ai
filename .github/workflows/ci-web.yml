@@ -100,5 +100,7 @@ jobs:
 
       - name: Run tests
         working-directory: apps/web
-        run: pnpm test --run
-        # `--run` makes Vitest exit instead of watching
+        # Call vitest directly (avoid pnpm CLI eating `--run` flag).
+        # `--passWithNoTests` so empty test suites don't fail before we
+        # have actual tests written.
+        run: pnpm exec vitest run --passWithNoTests
