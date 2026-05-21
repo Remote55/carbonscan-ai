@@ -4,9 +4,24 @@
 >
 > แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้อัจฉริยะ ด้วย LiDAR Point Cloud + AI Wood-Leaf Segmentation + B2B Carbon Offset Matchmaking
 
-[![Status](https://img.shields.io/badge/status-development-orange)]()
-[![NSC 2026](https://img.shields.io/badge/NSC-2026-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
+<!-- Status -->
+[![Status](https://img.shields.io/badge/status-development-orange)](https://github.com/Remote55/carbonscan-ai)
+[![NSC 2026](https://img.shields.io/badge/NSC-2026-blue)](https://www.nstda.or.th/sims)
+[![หมวด 14](https://img.shields.io/badge/หมวด-14_อุดมศึกษา-blueviolet)]()
+[![License](https://img.shields.io/github/license/Remote55/carbonscan-ai?color=green)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/Remote55/carbonscan-ai)](https://github.com/Remote55/carbonscan-ai/commits/main)
+
+<!-- Tech Stack -->
+[![Next.js](https://img.shields.io/badge/Next.js-14-000?logo=next.js)](https://nextjs.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.3-EE4C2C?logo=pytorch)](https://pytorch.org)
+[![PostGIS](https://img.shields.io/badge/PostGIS-3.4-336791?logo=postgresql)](https://postgis.net)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?logo=typescript)](https://www.typescriptlang.org)
+
+<!-- Repo Stats -->
+[![Stars](https://img.shields.io/github/stars/Remote55/carbonscan-ai?style=social)](https://github.com/Remote55/carbonscan-ai/stargazers)
+[![Code Size](https://img.shields.io/github/languages/code-size/Remote55/carbonscan-ai)](https://github.com/Remote55/carbonscan-ai)
 
 ---
 
