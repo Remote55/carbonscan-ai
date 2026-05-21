@@ -12,9 +12,13 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
+# Load .env from services/api/ root (one level up from this file)
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 # Make `app.*` importable from this file
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
