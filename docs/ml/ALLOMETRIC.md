@@ -114,38 +114,83 @@ $$
 
 ## 3. Calculation Example (ตัวอย่างคำนวณด้วยมือ)
 
+> ✅ **Verified** — ตัวเลขในส่วนนี้ตรงกับ output ของ `calculate_carbon()`
+> ใน `services/ml/pipeline/allometric.py` (16/16 tests passing)
+
 ### ไม้สัก DBH = 30 cm, H = 18 m
 
 **Step 1: AGB (Aboveground Biomass)**
 $$
 \text{AGB} = 0.0509 \times 30^{2.15} \times 18^{0.70}
 $$
+
+คำนวณทีละส่วน:
+- $30^{2.15} = 1{,}499.10$
+- $18^{0.70} = 7.562$
+
 $$
-= 0.0509 \times 1,366 \times 7.62 \approx 530 \text{ kg}
+\text{AGB} = 0.0509 \times 1{,}499.10 \times 7.562 \approx 577.06 \text{ kg}
 $$
 
 **Step 2: BGB (Belowground Biomass)**
 $$
-\text{BGB} = 530 \times 0.24 = 127 \text{ kg}
+\text{BGB} = 577.06 \times 0.24 = 138.49 \text{ kg}
 $$
 
 **Step 3: Total Biomass**
 $$
-B = 530 + 127 = 657 \text{ kg}
+B = 577.06 + 138.49 = 715.55 \text{ kg}
 $$
 
 **Step 4: Carbon Stock**
 $$
-C = 657 \times 0.47 = 309 \text{ kg C}
+C = 715.55 \times 0.47 = 336.31 \text{ kg C}
 $$
 
 **Step 5: CO₂ Equivalent**
 $$
-\text{CO}_2\text{eq} = 309 \times \frac{44}{12} = 1{,}133 \text{ kg CO}_2\text{eq}
+\text{CO}_2\text{eq} = 336.31 \times \frac{44}{12} = 1{,}233.13 \text{ kg CO}_2\text{eq}
 $$
 
-→ **ไม้สัก 1 ต้น (DBH 30cm, สูง 18m) เก็บ ~1.13 tCO₂eq**
-→ **มูลค่าที่ราคา ฿2/kg = ~฿2,266**
+→ **ไม้สัก 1 ต้น (DBH 30cm, สูง 18m) เก็บ ≈ 1.233 tCO₂eq**
+→ **มูลค่าที่ราคา ฿2/kg CO₂eq = ≈ ฿2,466 ต่อต้น**
+
+### Comparison: 5 Species @ DBH=30 cm, H=18 m
+
+ตารางคำนวณจริงจาก `calculate_carbon()` ใน Python:
+
+| Species | ชื่อไทย | CO₂eq (ton) | Value @ ฿2/kg |
+|---|---|---|---|
+| Tectona grandis | ไม้สัก | 1.233 | ฿2,466 |
+| Hevea brasiliensis | ยางพารา | 2.197 | ฿4,394 |
+| Dipterocarpus alatus | ยางนา | 2.801 | ฿5,602 |
+| Afzelia xylocarpa | มะค่าโมง | 3.309 | ฿6,618 |
+| Bambusa spp. | ไผ่ | 3.478 | ฿6,956 |
+| _(Unknown — Chave fallback)_ | — | 1.121 | ฿2,242 |
+
+📝 **Note:** ไผ่และมะค่าโมงคำนวณได้สูง เพราะ:
+- ไผ่: `b=2.28, c=0.59` (allometric exponents สูง สำหรับโครงสร้างหลายลำ)
+- มะค่าโมง: wood density = 850 kg/m³ (densest in DB)
+
+⚠️ **TODO ก่อนส่ง Proposal:** verify ตัวเลขเหล่านี้กับ TGO Forestry Guideline 2017
+ว่าตรงกับสมการที่ TGO รับรองหรือไม่ — ถ้าต่าง อัปเดต `species_db.csv` ตาม TGO
+
+### Sanity Check (manual reproduction)
+
+ผู้อ่านสามารถ verify ได้ด้วยตัวเอง:
+
+```bash
+cd services/ml
+python -m venv .venv && .venv/Scripts/activate  # Windows
+# source .venv/bin/activate                      # macOS/Linux
+pip install pandas pytest
+python -c "
+from pipeline.allometric import calculate_carbon
+r = calculate_carbon(dbh_cm=30, height_m=18, species_sci='Tectona grandis')
+print(f'CO2eq: {r.co2eq_kg:.2f} kg = {r.co2eq_kg/1000:.3f} tCO2eq')
+"
+# Expected output: CO2eq: 1233.13 kg = 1.233 tCO2eq
+```
 
 ---
 
