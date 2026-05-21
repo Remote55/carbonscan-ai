@@ -1,0 +1,112 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+.yarn/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Build outputs
+build/
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Flutter
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.pub/
+**/build/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/android/.gradle
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+*.iml
+
+# Environment variables (NEVER commit)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+htmlcov/
+.pytest_cache/
+
+# ML / Data (large files)
+data/samples/*.las
+data/samples/*.laz
+data/samples/*.ply
+data/ground-truth/
+services/ml/models/*.pth
+services/ml/models/*.onnx
+services/ml/models/*.tflite
+*.h5
+*.ckpt
+wandb/
+mlruns/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+.DS_Store
+Desktop.ini
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Auto-generated
+.turbo/
+.cache/
+
+# Sensitive (never commit)
+*.pem
+*.key
+*.crt
+secrets/
+
+# Personal scratch
+scratch/
+notes/personal/

@@ -1,0 +1,30 @@
+# Default owners (User as fallback)
+* @user
+
+# Web
+/apps/web/ @person-a
+/packages/ui/ @person-a
+/packages/types/ @person-a
+
+# Mobile
+/apps/mobile/ @user
+
+# Backend / ML
+/services/api/ @user
+/services/ml/ @user
+/docs/ml/ @user
+
+# Design
+/packages/design-tokens/ @person-b
+/assets/brand/ @person-b
+/docs/design/ @person-b
+
+# Docs (all can edit, User reviews)
+/docs/ @user
+/proposal/ @user
+
+# Infrastructure
+/.github/ @user
+/scripts/ @user
+*.dockerfile @user
+docker-compose*.yml @user
