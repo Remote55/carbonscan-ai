@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme (default) */
+    --background: 60 33% 98%;        /* Sand #FAFAF8 */
+    --foreground: 60 14% 7%;          /* Charcoal #14140F */
+
+    --card: 0 0% 100%;
+    --card-foreground: 60 14% 7%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 60 14% 7%;
+
+    /* Primary = Forest Green #2D6A4F */
+    --primary: 152 41% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary = Mint #95D5B2 */
+    --secondary: 145 47% 71%;
+    --secondary-foreground: 152 41% 15%;
+
+    --muted: 60 20% 95%;
+    --muted-foreground: 60 8% 35%;
+
+    --accent: 202 96% 72%;            /* Sky Blue #74C0FC */
+    --accent-foreground: 202 80% 20%;
+
+    --destructive: 0 78% 56%;         /* Error #E63946 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 60 10% 88%;
+    --input: 60 10% 88%;
+    --ring: 152 41% 30%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Dark theme */
+    --background: 152 25% 6%;
+    --foreground: 60 33% 98%;
+
+    --card: 152 25% 9%;
+    --card-foreground: 60 33% 98%;
+
+    --popover: 152 25% 9%;
+    --popover-foreground: 60 33% 98%;
+
+    --primary: 145 47% 71%;           /* Mint becomes primary in dark */
+    --primary-foreground: 152 41% 15%;
+
+    --secondary: 152 30% 18%;
+    --secondary-foreground: 60 33% 98%;
+
+    --muted: 152 20% 15%;
+    --muted-foreground: 60 8% 65%;
+
+    --accent: 202 80% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 78% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 152 20% 18%;
+    --input: 152 20% 18%;
+    --ring: 145 47% 71%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  /* Glass morphism */
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-lg;
+  }
+  .glass-dark {
+    @apply bg-black/30 backdrop-blur-md border border-white/10 shadow-lg;
+  }
+
+  /* Forest gradient */
+  .bg-forest-gradient {
+    background: linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%);
+  }
+  .bg-sustainable-gradient {
+    background: linear-gradient(135deg, #2D6A4F 0%, #74C0FC 100%);
+  }
+
+  /* Text balance for headings (Chrome 114+) */
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
