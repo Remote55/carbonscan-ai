@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Sarabun, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
+import { GeistSans } from 'geist/font/sans';
 import './globals.css';
+import { cn } from '@/lib/utils';
 
 // Fonts
 const inter = Inter({
@@ -90,7 +92,14 @@ export default function RootLayout({
   return (
     <html
       lang="th"
-      className={`${inter.variable} ${sarabun.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+      className={cn(
+        inter.variable,
+        sarabun.variable,
+        spaceGrotesk.variable,
+        jetbrainsMono.variable,
+        GeistSans.variable,
+        'font-sans',
+      )}
       suppressHydrationWarning
     >
       <body className="min-h-screen font-sans antialiased">{children}</body>
