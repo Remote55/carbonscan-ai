@@ -32,7 +32,8 @@
 | Look up API endpoints | [`docs/API.md`](API.md) |
 | Check DB schema | [`docs/DATA_MODEL.md`](DATA_MODEL.md) |
 | Setup Supabase from scratch | [`docs/SUPABASE_SETUP.md`](SUPABASE_SETUP.md) |
-| Test Auth flow live | [`docs/AUTH_TESTING.md`](AUTH_TESTING.md) |
+| **Test project by hand (Web + API + Mobile)** | **[`docs/MANUAL_TESTING.md`](MANUAL_TESTING.md)** ⭐ |
+| Test Auth flow live (deep dive) | [`docs/AUTH_TESTING.md`](AUTH_TESTING.md) |
 | Understand ML pipeline | [`docs/ml/PIPELINE.md`](ml/PIPELINE.md) |
 | TGO equations | [`docs/ml/ALLOMETRIC.md`](ml/ALLOMETRIC.md) |
 | Why "X" was chosen | [`docs/decisions/`](decisions/) (6 ADRs) |

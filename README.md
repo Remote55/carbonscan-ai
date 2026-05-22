@@ -150,7 +150,8 @@ carbonscan-ai/
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Developer | Workflow, Git, PR |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | DevOps | Deployment guide |
 | [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) | Backend setup | Supabase project + migrations + seed + RLS |
-| [docs/AUTH_TESTING.md](docs/AUTH_TESTING.md) | Developer | Test signup/login flow live |
+| **[docs/MANUAL_TESTING.md](docs/MANUAL_TESTING.md)** | **ทุกคน** | **⭐ Manual testing playbook (Web + API + DB + Mobile)** |
+| [docs/AUTH_TESTING.md](docs/AUTH_TESTING.md) | Developer | Test Auth flow deep dive |
 | [proposal/advisor_email.md](proposal/advisor_email.md) | User | Email templates สำหรับส่งที่ปรึกษา |
 | [docs/API.md](docs/API.md) | Backend/Frontend | API reference |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Backend | DB schema |
