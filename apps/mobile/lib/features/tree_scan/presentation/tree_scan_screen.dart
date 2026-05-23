@@ -85,7 +85,7 @@ class _ChecklistItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.forest500.withOpacity(0.1),
+              color: AppColors.forest500.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: AppColors.forest500, size: 22),

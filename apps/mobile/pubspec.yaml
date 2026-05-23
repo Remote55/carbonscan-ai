@@ -31,7 +31,15 @@ dependencies:
   path_provider: ^2.1.3
 
   # --- ML / AI (on-device species classifier) ---
-  tflite_flutter: ^0.10.4
+  # NOTE: tflite_flutter 0.10.x bundles TF Lite 2.12 whose AAR declares the
+  # same `org.tensorflow.lite` namespace in tensorflow-lite, -lite-api and
+  # -lite-gpu. AGP 9.x (Flutter 3.44+) rejects this with a hard error:
+  #   "Namespace 'org.tensorflow.lite' is used in multiple modules"
+  # We don't need the on-device classifier until Phase 2 (after the NSC
+  # Proposal deadline), so we keep this disabled until we migrate to the
+  # successor `litert` / `tflite_flutter_plus` packages that split namespaces.
+  # See docs/decisions/0007-defer-ondevice-ml.md for the full rationale.
+  # tflite_flutter: ^0.10.4
 
   # --- Storage ---
   shared_preferences: ^2.2.3

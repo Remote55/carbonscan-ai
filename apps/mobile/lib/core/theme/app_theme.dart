@@ -67,7 +67,10 @@ abstract final class AppTheme {
         ),
       ),
 
-      cardTheme: CardTheme(
+      // Flutter 3.27+ renamed CardTheme → CardThemeData when used inside
+      // ThemeData. The old CardTheme(...) constructor still exists but
+      // is no longer accepted by ThemeData.cardTheme. Use CardThemeData.
+      cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
