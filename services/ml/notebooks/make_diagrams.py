@@ -112,159 +112,165 @@ def _arrow(ax, x1, y1, x2, y2, *, color=STONE, label: str | None = None, mutatio
 
 
 def make_architecture():
-    """v2 — LiDAR-primary architecture diagram.
+    """v3 — LiDAR-primary architecture, layout cleaned up.
 
-    Layout intentionally emphasizes LiDAR as the main input path and
-    Mobile photogrammetry as an optional 'smallholder' fallback, then
-    funnels both through the same software platform to a tri-output of
-    Certificate + Marketplace + Audit log.
+    Each of the 4 layers gets a dedicated y-band with explicit padding so
+    nothing overlaps. Banner labels live in a gutter row above each layer
+    instead of inside the layer rectangle.
     """
-    fig, ax = plt.subplots(figsize=(14, 10.5))
-    ax.set_xlim(0, 14)
-    ax.set_ylim(0, 11.5)
+    fig, ax = plt.subplots(figsize=(15, 13))
+    ax.set_xlim(0, 15)
+    ax.set_ylim(0, 14)
     ax.axis("off")
     fig.patch.set_facecolor("white")
-    ax.set_facecolor("#FAFAF8")
+    ax.set_facecolor("white")
 
-    # === Layer banners ===
-    def banner(y_top, y_bot, label, color):
-        ax.add_patch(
-            mpatches.Rectangle((0, y_bot), 14, y_top - y_bot, facecolor=color, edgecolor="none", zorder=0)
-        )
-        ax.text(0.2, y_top - 0.18, label, fontsize=9, color=STONE, fontweight="bold")
+    # ----- Layer Y bands -----
+    #   gutter_top : label above each layer
+    #   bg_top/bot : the tinted background rectangle
+    #   inside_top/bot: where boxes live
+    layers = [
+        # name           bg_color   bg_bot bg_top   label_y    boxes_bot boxes_top
+        ("[1]  INPUT LAYER",                                "#F0F9F4", 10.8, 13.0, 13.1,  11.0, 12.5),
+        ("[2]  WEB  /  API GATEWAY",                        "#E9F5EE",  8.8, 10.4, 10.5,   9.0, 10.0),
+        ("[3]  PROCESSING  —  ML PIPELINE + DATABASE",      "#FAFAF8",  3.6,  8.4,  8.5,   3.9,  8.0),
+        ("[4]  OUTPUT  —  3 deliverables to the user",      "#FFF8E7",  0.3,  3.2,  3.3,   0.6,  2.6),
+    ]
+    for label, color, bg_bot, bg_top, label_y, *_ in layers:
+        ax.add_patch(mpatches.Rectangle(
+            (0, bg_bot), 15, bg_top - bg_bot,
+            facecolor=color, edgecolor="none", zorder=0))
+        ax.text(0.2, label_y, label, fontsize=10, color=STONE, fontweight="bold")
 
-    banner(10.9, 8.6, "[1]  INPUT LAYER", "#F0F9F4")
-    banner(8.5, 6.9, "[2]  WEB / API GATEWAY", "#E9F5EE")
-    banner(6.8, 4.1, "[3]  PROCESSING — ML PIPELINE + DATABASE", "#FAFAF8")
-    banner(4.0, 1.4, "[4]  OUTPUT — 3 deliverables to the user", "#FFF8E7")
-
-    # === INPUT LAYER ===
-    # LiDAR — BIG, PRIMARY
+    # ===========================  INPUT LAYER  ===========================
+    # LiDAR — BIG, PRIMARY  (left 8 of 15)
     _box(
-        ax, 0.4, 9.0, 7.5, 1.6,
-        "LiDAR Upload  (PRIMARY)\nTLS · Drone · ALS\n.las / .laz / .ply  (up to 500 MB)",
+        ax, 0.5, 11.0, 8.0, 1.5,
+        "LiDAR Upload   (PRIMARY)\nTLS · Drone · ALS\n.las / .laz / .ply   (up to 500 MB)",
         color=FOREST_500, fontsize=12,
     )
-    ax.text(4.1, 8.75, "Auditor / Carbon Survey Contractor — เหมาะกับแปลงใหญ่",
-            ha="center", fontsize=9, color=STONE, style="italic")
 
-    # Mobile — SMALLER, SECONDARY
+    # Mobile — SMALLER, SECONDARY  (right 5.5)
     _box(
-        ax, 8.3, 9.0, 5.3, 1.6,
-        "Mobile Photogrammetry\n(optional, smallholder)\n30 JPG → COLMAP → .ply",
+        ax, 9.0, 11.0, 5.5, 1.5,
+        "Mobile Photogrammetry\n(optional, smallholder)\n30 JPG  →  COLMAP  →  .ply",
         color=FOREST_300, text_color=CHARCOAL, fontsize=10,
     )
-    ax.text(10.95, 8.75, "ชุมชน / เกษตรกรรายย่อย <1 ไร่",
+
+    # Sub-captions sit in the small gap between INPUT background and GATEWAY background
+    ax.text(4.5, 10.62, "Auditor / Carbon Survey — for plots ≥ 1 rai",
+            ha="center", fontsize=9, color=STONE, style="italic")
+    ax.text(11.75, 10.62, "Community / smallholder farmer (<1 ไร่)",
             ha="center", fontsize=9, color=STONE, style="italic")
 
-    # === WEB / API GATEWAY ===
+    # ===========================  GATEWAY  ===========================
     _box(
-        ax, 0.5, 7.3, 6.5, 1.0,
+        ax, 0.5, 9.0, 7.0, 1.0,
         "Web Dashboard (Next.js 14)\nUpload UI · 3D Viewer · GIS Map · Marketplace",
-        color=SKY_500, text_color=CHARCOAL, fontsize=10.5,
+        color=SKY_500, text_color=CHARCOAL, fontsize=11,
     )
     _box(
-        ax, 7.3, 7.3, 6.3, 1.0,
+        ax, 7.9, 9.0, 6.6, 1.0,
         "FastAPI Service (Railway)\n/upload · /jobs · /trees · /marketplace · WebSocket",
-        color=SKY_500, text_color=CHARCOAL, fontsize=10.5,
-    )
-
-    # === PROCESSING LAYER ===
-    # Database (left)
-    _box(
-        ax, 0.4, 4.4, 4.0, 2.2,
-        "Supabase\nPostgreSQL 16 + PostGIS\nStorage + Auth + RLS",
-        color=FOREST_700, fontsize=11,
-    )
-    ax.text(2.4, 4.65, "trees · plots · jobs · transactions · audit_log",
-            ha="center", fontsize=8.5, color="white", style="italic")
-
-    # Queue (center)
-    _box(
-        ax, 4.7, 5.4, 2.4, 1.2,
-        "Job Queue\n(Supabase PGMQ)",
-        color=STONE, fontsize=10,
-    )
-    # Photogrammetry worker (smaller, below queue)
-    _box(
-        ax, 4.7, 4.4, 2.4, 0.8,
-        "COLMAP + OpenMVS\n(photo path only)",
-        color=FOREST_300, text_color=CHARCOAL, fontsize=9,
-    )
-
-    # GPU Worker (right)
-    _box(
-        ax, 7.4, 5.4, 6.2, 1.2,
-        "RunPod Serverless GPU\nML Pipeline · PyTorch · Open3D",
-        color=ERROR, fontsize=11,
-    )
-    # ML pipeline details
-    pipeline_text = (
-        "1. Ground  2. Normalize  3. CHM  4. Tree Seg.\n"
-        "5. Wood-Leaf  6. QSM (DBH/H/V)  7. Species  8. Allometric"
-    )
-    ax.add_patch(
-        FancyBboxPatch(
-            (7.4, 4.3), 6.2, 1.0,
-            boxstyle="round,pad=0.05,rounding_size=0.08",
-            facecolor="white", edgecolor=ERROR, linewidth=1.5, linestyle="--",
-        )
-    )
-    ax.text(10.5, 4.8, pipeline_text, ha="center", va="center", fontsize=9, color=CHARCOAL, family="monospace")
-
-    # === OUTPUT LAYER ===
-    _box(
-        ax, 0.5, 2.0, 4.0, 1.6,
-        "Verified Carbon\nCertificate (PDF)\nTGO 2017 aligned",
-        color=FOREST_700, fontsize=11,
-    )
-    _box(
-        ax, 5.0, 2.0, 4.0, 1.6,
-        "B2B Marketplace\nชุมชน ↔ โรงงาน\nCBAM / ESG offset",
-        color=FOREST_500, fontsize=11,
-    )
-    _box(
-        ax, 9.5, 2.0, 4.1, 1.6,
-        "GIS Map + Audit Log\nGPS dedup · multi-temporal\n(Additionality tracking)",
         color=SKY_500, text_color=CHARCOAL, fontsize=11,
     )
 
-    # === Arrows: top-down flow ===
-    # Inputs → Web/API gateway
-    _arrow(ax, 4.0, 9.0, 3.5, 8.3, label="upload")
-    _arrow(ax, 10.95, 9.0, 10.5, 8.3, label="upload")
+    # ===========================  PROCESSING  ===========================
+    # Database — leftmost full-height column
+    _box(
+        ax, 0.5, 3.9, 4.0, 4.1,
+        "Supabase\n\nPostgreSQL 16 + PostGIS\nStorage  +  Auth  +  RLS",
+        color=FOREST_700, fontsize=12,
+    )
+    ax.text(2.5, 4.3,
+            "trees · plots · jobs\ntransactions · audit_log",
+            ha="center", fontsize=9, color="white", style="italic")
 
-    # Web ↔ API
-    _arrow(ax, 7.0, 7.8, 7.3, 7.8, mutation=12)
-    _arrow(ax, 7.3, 7.6, 7.0, 7.6, mutation=12)
+    # Center column: Queue (top) + COLMAP (below)
+    _box(
+        ax, 4.8, 6.5, 3.4, 1.5,
+        "Job Queue\n(Supabase PGMQ)",
+        color=STONE, fontsize=11,
+    )
+    _box(
+        ax, 4.8, 3.9, 3.4, 2.0,
+        "COLMAP  +  OpenMVS\n\nPhotogrammetry Worker\n(photo path only)\n30 JPG  →  .ply",
+        color=FOREST_300, text_color=CHARCOAL, fontsize=10,
+    )
 
-    # API → Queue
-    _arrow(ax, 10.5, 7.3, 6.0, 6.6, label="dispatch")
+    # Right column: GPU Worker (top) + ML pipeline detail (below)
+    _box(
+        ax, 8.5, 6.5, 6.0, 1.5,
+        "RunPod Serverless GPU\nPyTorch · Open3D · PDAL",
+        color=ERROR, fontsize=12,
+    )
+    ax.add_patch(FancyBboxPatch(
+        (8.5, 3.9), 6.0, 2.2,
+        boxstyle="round,pad=0.05,rounding_size=0.1",
+        facecolor="white", edgecolor=ERROR, linewidth=1.6, linestyle="--",
+    ))
+    ax.text(11.5, 5.7, "ML Pipeline  (8 stages)",
+            ha="center", va="center", fontsize=11, color=ERROR, fontweight="bold")
+    pipeline_text = (
+        "1.  Ground classification\n"
+        "2.  Height normalization\n"
+        "3.  Canopy Height Model\n"
+        "4.  Individual Tree Detection\n"
+        "5.  Wood / Leaf segmentation\n"
+        "6.  QSM  (DBH · Height · Volume)\n"
+        "7.  Species classification\n"
+        "8.  TGO Allometric  →  Carbon"
+    )
+    ax.text(11.5, 4.65, pipeline_text,
+            ha="center", va="center", fontsize=8.5, color=CHARCOAL, family="monospace")
 
-    # API ↔ DB
-    _arrow(ax, 7.3, 7.5, 2.4, 6.6)
+    # ===========================  OUTPUT  ===========================
+    _box(
+        ax, 0.5, 0.7, 4.3, 1.8,
+        "Verified Carbon\nCertificate (PDF)\n\nTGO 2017 aligned",
+        color=FOREST_700, fontsize=12,
+    )
+    _box(
+        ax, 5.2, 0.7, 4.6, 1.8,
+        "B2B Marketplace\nชุมชน  <->  โรงงาน\n\nCBAM / ESG offset",
+        color=FOREST_500, fontsize=12,
+    )
+    _box(
+        ax, 10.2, 0.7, 4.3, 1.8,
+        "GIS Map  +  Audit Log\nGPS dedup · multi-temporal\n\n(Additionality tracking)",
+        color=SKY_500, text_color=CHARCOAL, fontsize=12,
+    )
 
-    # Queue → Worker (GPU)
-    _arrow(ax, 7.1, 6.0, 7.4, 6.0, mutation=12)
+    # ===========================  Arrows  ===========================
+    # INPUT  →  GATEWAY  (single converging arrow each)
+    _arrow(ax, 4.5, 11.0, 4.0, 10.0, mutation=14)
+    _arrow(ax, 11.75, 11.0, 11.2, 10.0, mutation=14)
 
-    # Queue → Photogrammetry
-    _arrow(ax, 5.9, 5.4, 5.9, 5.2, mutation=12)
+    # Web  <->  API gateway (horizontal twin)
+    _arrow(ax, 7.5, 9.6, 7.9, 9.6, mutation=12)
+    _arrow(ax, 7.9, 9.4, 7.5, 9.4, mutation=12)
 
-    # Photogrammetry → Worker
-    _arrow(ax, 7.1, 4.8, 7.4, 5.4, mutation=12)
+    # API  →  Queue  +  API  ↔  DB
+    _arrow(ax, 11.2, 9.0, 6.5, 8.0, mutation=14)   # API → Queue
+    _arrow(ax, 7.9,  9.0, 4.5, 8.0, mutation=14)   # API → DB
 
-    # Worker → Pipeline detail
-    _arrow(ax, 10.5, 5.4, 10.5, 5.3, mutation=10)
+    # Queue  →  GPU  &  Queue  →  COLMAP
+    _arrow(ax, 8.2, 7.2, 8.5, 7.2, mutation=12)
+    _arrow(ax, 6.5, 6.5, 6.5, 5.9, mutation=12)
 
-    # Processing → Outputs
-    _arrow(ax, 2.4, 4.4, 2.4, 3.7, label="results")
-    _arrow(ax, 7.0, 4.3, 7.0, 3.7)
-    _arrow(ax, 11.5, 4.3, 11.5, 3.7)
+    # COLMAP  →  GPU  (photo path → ML pipeline)
+    _arrow(ax, 8.2, 4.9, 8.5, 6.5, mutation=12)
 
-    # === Title ===
-    ax.text(7.0, 11.15, "Figure 9 — CarbonScan AI System Architecture (v2)",
+    # PROCESSING  →  OUTPUT  (3 fan-out arrows)
+    _arrow(ax, 2.5, 3.9, 2.5, 2.6, mutation=14)
+    _arrow(ax, 7.5, 3.9, 7.5, 2.6, mutation=14)
+    _arrow(ax, 12.0, 3.9, 12.0, 2.6, mutation=14)
+
+    # ===========================  Title  ===========================
+    ax.text(7.5, 13.6, "Figure 9 — CarbonScan AI System Architecture (v2)",
             ha="center", fontsize=16, fontweight="bold", color=CHARCOAL)
-    ax.text(7.0, 10.78, "LiDAR-primary input · End-to-end pipeline · Tri-output (Certificate / Marketplace / Audit)",
+    ax.text(7.5, 13.27,
+            "LiDAR-primary input  ·  End-to-end pipeline  ·  Tri-output (Certificate / Marketplace / Audit)",
             ha="center", fontsize=10, color=STONE, style="italic")
 
     plt.savefig(FIG_DIR / "fig09_architecture.png", dpi=300, bbox_inches="tight", facecolor="white")
