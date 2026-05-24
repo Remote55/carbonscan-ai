@@ -72,6 +72,8 @@ data/samples/*.las
 data/samples/*.laz
 data/samples/*.ply
 data/ground-truth/
+services/ml/data/raw/
+services/ml/data/processed/
 services/ml/models/*.pth
 services/ml/models/*.onnx
 services/ml/models/*.tflite
