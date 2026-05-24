@@ -58,7 +58,7 @@ def test_step1_ground_classification_recovers_ground(synth_plot):
 
 
 def test_step2_height_normalization_grounds_zero(synth_plot):
-    points, gt_labels, _ = synth_plot
+    points, _, _ = synth_plot
     mask = ground_classification.classify_ground_array(points)
     norm = height_normalization.normalize_height_array(points, mask)
     # Ground points after normalization should be close to Z = 0
@@ -80,7 +80,7 @@ def test_step4_watershed_detects_trees(synth_plot):
     points, _, trees = synth_plot
     mask = ground_classification.classify_ground_array(points)
     norm = height_normalization.normalize_height_array(points, mask)
-    chm, transform = canopy_height_model.compute_chm_array(norm, resolution=0.5, min_height=0.5)
+    chm, _ = canopy_height_model.compute_chm_array(norm, resolution=0.5, min_height=0.5)
     labels_2d = tree_segmentation.watershed_segmentation(chm, min_height=3.0, min_distance=5)
     n_detected = int(labels_2d.max())
     # Heuristic watershed sometimes over-segments wide canopies; we just want

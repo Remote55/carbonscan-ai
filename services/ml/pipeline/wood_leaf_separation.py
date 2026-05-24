@@ -18,7 +18,6 @@ from typing import Literal
 import numpy as np
 from scipy.spatial import cKDTree
 
-
 # Output class codes
 WOOD = 0
 LEAF = 1

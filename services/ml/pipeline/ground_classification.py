@@ -92,7 +92,7 @@ def classify_ground(
     *,
     resolution: float = 0.5,
     threshold: float = 0.5,
-    rigidness: int = 3,  # noqa: ARG001 — kept for PDAL parity
+    rigidness: int = 3,
 ) -> None:
     """File-based wrapper around classify_ground_array (LAS I/O).
 
