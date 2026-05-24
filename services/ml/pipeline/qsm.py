@@ -20,7 +20,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-
 # Default form factor for tropical hardwood stems (FAO 2003 Forest Inventory)
 # V_actual / V_cylinder ≈ 0.45-0.55 — we use the midpoint
 DEFAULT_FORM_FACTOR = 0.50

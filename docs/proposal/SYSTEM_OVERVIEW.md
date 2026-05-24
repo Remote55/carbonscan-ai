@@ -1,18 +1,62 @@
 # CarbonScan AI — ภาพรวมระบบสำหรับ Proposal NSC 2026
 
 > **สำหรับ:** Thanapa (เรียบเรียง Proposal)
-> **วันที่:** 2026-05-24
+> **อัปเดต:** 2026-05-24 (v2 — repositioned ตาม feedback อาจารย์ Wannipa)
 > **เป้าหมาย:** เอกสาร reference ที่ copy-paste เข้า Proposal Word ได้ทันที — ไม่ต้องเดา ไม่ต้องถามต่อ
+
+> 📌 **v2 changes from v1:** Mobile photogrammetry ลดความสำคัญ → LiDAR upload เป็น primary input. ค่า proposition เปลี่ยนจาก "scanner app" → "verification + marketplace platform". ใช้ Belgium real dataset แทน synthetic-only validation.
+
+---
+
+## 🔄 0. Repositioned Value Proposition (v2)
+
+### One-liner ใหม่
+> **"LiDAR services ให้ไฟล์ .las — เราให้ carbon credit ที่ verify แล้วพร้อมขาย"**
+
+CarbonScan AI ไม่ใช่ตัวสแกน — เป็น **software platform ที่อยู่ระหว่าง LiDAR data → carbon credit transaction** ในตลาดคาร์บอนไทย ซึ่งทุกวันนี้ขาด integrated platform ที่ทำ end-to-end
+
+### Input → Output Flow ใหม่
+
+```
+INPUT (เลือกตามเคส)              PROCESSING                          OUTPUT
+═══════════════════════         ════════════════                    ═══════════════════
+📡 LiDAR .las/.laz   ─┐                                            ✓ Verified Carbon
+   (TLS / Drone)      │                                              Certificate (PDF)
+                      ├──→  ML Pipeline 8 ขั้น   ──→                  
+📱 Mobile photos     ─┤    + Wood-Leaf Segmentation                ✓ B2B Marketplace
+   (smallholder only) │    + RANSAC DBH + Taper Volume               (ชุมชน ↔ โรงงาน)
+                      │    + TGO Allometric                          
+📊 CSV inventory     ─┘                                            ✓ GIS Map + Audit Log
+   (Phase 2 bonus)                                                   (transparent)
+```
+
+### 5 Differentiators ที่ LiDAR-only services **ทำไม่ได้**
+
+| # | จุดเด่น | ทำไมสำคัญ |
+|---|---|---|
+| 1️⃣ | **Thai-localized** — TGO 2017 species DB + ภาษาไทย + ระเบียบไทย | LiDAR services จากต่างประเทศใช้สมการ Chave (pantropical) ที่ overestimate ในไม้ไทยเฉพาะ |
+| 2️⃣ | **End-to-end pipeline** — .las → Wood-Leaf → QSM → Allometric → Certificate | LiDAR services หยุดที่ "ให้ไฟล์ .las" — ลูกค้าต้องหา auditor + lawyer + market เอง |
+| 3️⃣ | **B2B Marketplace** — ตัวกลาง ชุมชนผู้ปลูก ↔ โรงงานที่ต้องการ CBAM/ESG offset | LiDAR services ไม่มี marketplace — เป็นแค่ data provider |
+| 4️⃣ | **Multi-temporal tracking** — เปรียบเทียบปีต่อปี → **Carbon Delta = Additionality** | "Additionality" เป็น requirement ของ ESG reporting; LiDAR snapshot อย่างเดียวยืนยันไม่ได้ |
+| 5️⃣ | **Anti-fraud verification** — GPS dedup + EXIF + audit trail + manual review | LiDAR data เป็น raw — ไม่มีกลไกป้องกันการนับซ้ำหรือ greenwashing |
+
+### Target Users (ชัดขึ้น)
+
+| ระดับ | กลุ่ม | ใช้อะไร |
+|---|---|---|
+| 🥇 **หลัก** | Auditor + ผู้รับเหมา carbon survey (มี LiDAR แล้ว) | Upload .las → ผ่าน pipeline → ได้ certificate |
+| 🥈 **รอง** | ชุมชน/เกษตรกรรายย่อย (<1 ไร่, drone ไม่คุ้ม) | Mobile photogrammetry path (optional) |
+| 💰 **ขาย** | โรงงานอุตสาหกรรมที่ต้องการ CBAM/ESG offset | Browse marketplace + checkout |
 
 ---
 
 ## 1. สรุประบบใน 3 บรรทัด
 
-**CarbonScan AI** = แพลตฟอร์มประเมินคาร์บอนต้นไม้ + จับคู่ B2B carbon offset ที่ใช้ **3D Point Cloud + AI Wood-Leaf Segmentation + สมการแอลโลเมตริก TGO** เพื่อแทน "การวัดต้นไม้ด้วยตลับเมตร" ที่ใช้เวลาและต้นทุนสูง
+**CarbonScan AI** = **แพลตฟอร์ม software-as-a-service ระหว่าง LiDAR scanning ↔ Carbon Credit Marketplace** สำหรับตลาดคาร์บอนไทย — ใช้ **AI Wood-Leaf Segmentation + สมการแอลโลเมตริก TGO** เปลี่ยน LiDAR point cloud เป็น verified carbon credit ที่พร้อม trade
 
-- ✋ **ปัญหา:** ตรวจคาร์บอนป่าไม้แบบเดิม → 1 แปลง ใช้คน + เวลา + เงินมาก → เกษตรกรเข้าไม่ถึงตลาดคาร์บอน
-- 💡 **ทางแก้:** Mobile app + Web dashboard ที่ใช้ AI ประมวลผล point cloud → คำนวณคาร์บอนต่อต้น โปร่งใส ตรวจสอบได้
-- 🎯 **กลุ่มเป้าหมาย:** ชุมชน/เกษตรกรผู้ปลูก + โรงงานอุตสาหกรรมที่ต้องชดเชย CO₂
+- ✋ **ปัญหา:** ตลาดคาร์บอนเครดิตป่าไม้ไทยขาด **software infrastructure** — มี LiDAR services แต่ไม่มีระบบ verify + market ที่ trustworthy → ทั้งผู้ปลูกและโรงงานไม่มั่นใจ
+- 💡 **ทางแก้:** Web platform ที่รับ LiDAR data → ผ่าน AI pipeline (verified) → ออก certificate + connect ผู้ปลูกกับผู้ซื้อ (Mobile photogrammetry เป็น option democratization สำหรับ smallholder)
+- 🎯 **กลุ่มเป้าหมาย:** Auditor + ผู้รับเหมา carbon survey (primary), ชุมชนรายย่อย (secondary), โรงงาน (buyers)
 
 ---
 
@@ -210,9 +254,30 @@ WS     /api/v1/ws/jobs/{id}             → progress streaming real-time
 
 ---
 
-## 6. ตัวเลข Validation จาก Synthetic Plot Test (24 พ.ค. 2569)
+## 6. ตัวเลข Validation (24 พ.ค. 2569)
 
-> 🟢 **ทดสอบจริงแล้ว!** ใน `services/ml/notebooks/e2e_validation.ipynb` — ดู [e2e_results.csv](figures/e2e_results.csv)
+### 6.1 🌟 Validation บน Public Dataset จริง — Demol et al. 2021 (Belgium)
+
+> **dataset:** [Zenodo 4557401](https://doi.org/10.5281/zenodo.4557401) — Demol et al. *Trees* 2021, peer-reviewed
+> **content:** 65 ต้น × 4 species (Fagus sylvatica, Pinus sylvestris, Fraxinus excelsior, Larix decidua) — **TLS point clouds + destructive sampling (โค่นจริง+ชั่งจริง)**
+> **script:** `services/ml/notebooks/validate_belgium.py` — reproducible, รันใน 13 วินาที
+> **results:** [belgium_validation.csv](figures/belgium_validation.csv)
+
+| Metric | Mean | Median | MAE | RMSE | จุดสำคัญ |
+|---|---|---|---|---|---|
+| **DBH** | 3.8% | 2.9% | **1.17 cm** | 2.07 cm | ⭐ ภายใน TLS literature range (1-3 cm) |
+| **Tree Height** | 2.6% | 2.1% | **0.54 m** | 0.76 m | ⭐ ดีกว่า literature (0.5-1.5 m) |
+| **Stem Volume (taper)** | 18.8% | 19.6% | 0.20 m³ | 0.28 m³ | 🟡 จะลดเหลือ 5-10% ใน Phase 2 (TreeQSM) |
+
+**Claims ที่ใส่ใน Proposal ได้ทันที (มี citation รองรับ):**
+- ✅ "ระบบผ่านการทดสอบบน dataset จริง — TLS point clouds 65 ต้น × 4 species จาก Demol et al. (2021, Trees journal)"
+- ✅ "DBH MAE = 1.17 cm เทียบกับการวัดหลังโค่นจริง (destructive sampling reference)"
+- ✅ "Tree height MAE = 0.54 m — อยู่ในมาตรฐานวิจัย TLS forestry"
+- ✅ "Phase 1 ใช้ rule-based heuristic; Phase 2 จะเพิ่ม PointNet++ + TreeQSM เพื่อลด volume error"
+
+### 6.2 ตัวเลข Validation บน Synthetic Plot (sanity check)
+
+> สำหรับ end-to-end pipeline ตั้งแต่ raw plot → ground class → segmentation → carbon
 
 | Metric | Result |
 |---|---|
@@ -220,15 +285,10 @@ WS     /api/v1/ws/jobs/{id}             → progress streaming real-time
 | **Trees detected** | 5/5 ground-truth ✅ |
 | **Mean DBH error** | 5.9% (range -11.3% to -3.3%) |
 | **Mean Height error** | 6.0% (range +4.7% to +7.5%) |
-| **Total carbon estimated** | 2,180 kg C |
-| **Total CO₂eq** | 7,990 kg CO₂eq |
 | **Pipeline runtime** | ~30 s on laptop CPU |
-| **Tests passing** | 25/25 (16 allometric + 9 pipeline) |
+| **Tests passing** | 25/25 (16 allometric + 9 pipeline smoke) |
 
-**Claim ที่ใส่ใน Proposal ได้:**
-- ✅ "ความแม่นยำ DBH ภายใน ±10% เทียบ ground truth"
-- ✅ "ความแม่นยำ Height ภายใน ±10%"
-- ✅ "End-to-end pipeline ทดสอบบน synthetic data ผ่านทุกขั้น"
+> 💡 **Synthetic vs Real:** Synthetic test ครอบ full pipeline (steps 1-8); Belgium test focus steps 5-6 (single trees). Combine ก็ได้ comprehensive validation
 
 ---
 
@@ -245,10 +305,14 @@ WS     /api/v1/ws/jobs/{id}             → progress streaming real-time
 | `fig05_tree_segmentation.png` | "Watershed segmentation แยกต้นไม้แต่ละต้น (เครื่องหมาย × แดง = ตำแหน่งจริง)" |
 | `fig06_wood_leaf.png` | "Wood-Leaf Segmentation: ลำต้น/กิ่ง (น้ำตาล) vs ใบไม้ (เขียว) ของต้นที่ 1" |
 | `fig07_carbon_bars.png` | "ปริมาณคาร์บอนสะสมรายต้น (kg C) + CO₂ equivalent (kg)" |
-| `fig08_accuracy.png` | "Parity plot: DBH/Height ที่ระบบทำนาย vs ground truth — ทั้งหมดอยู่ใน ±10%" |
-| `fig09_architecture.png` | "ภาพรวมสถาปัตยกรรมระบบ" *(จะถูก generate ในขั้นต่อไป)* |
-| `fig10_user_flow.png` | "User Journey: ตั้งแต่ถ่ายภาพ → ผลคาร์บอน" *(จะถูก generate ในขั้นต่อไป)* |
-| `e2e_results.csv` | "ตารางผลการประเมิน 5 ต้นไม้ — ทดสอบบน 24 พ.ค. 2569" |
+| `fig08_accuracy.png` | "Parity plot: DBH/Height ที่ระบบทำนาย vs ground truth (synthetic) — ทั้งหมดอยู่ใน ±10%" |
+| `fig09_architecture.png` | "ภาพรวมสถาปัตยกรรมระบบ — LiDAR-primary + Mobile-optional + ML pipeline + Marketplace" |
+| `fig10_user_flow.png` | "User Journey: ตั้งแต่ LiDAR/photo input → ผลคาร์บอน → marketplace" |
+| **`fig11_belgium_dbh_parity.png`** ⭐ | "DBH parity — ระบบเรา vs destructive sampling (Demol et al. 2021, n=65). MAE 1.17 cm" |
+| **`fig12_belgium_height_parity.png`** ⭐ | "Tree height parity — ระบบเรา vs felled measurement (n=65). MAE 0.54 m" |
+| **`fig13_belgium_volume_parity.png`** | "Stem volume parity — taper-equation vs destructive (n=65). Mean err 18.8% (Phase 2 จะปรับปรุง)" |
+| `e2e_results.csv` | "ตารางผลการประเมิน 5 ต้นไม้ synthetic — sanity check" |
+| **`belgium_validation.csv`** ⭐ | "ผลรายต้น 65 ต้น × 4 species จาก Demol 2021 — DBH/Height/Volume predicted vs ground truth" |
 
 ---
 

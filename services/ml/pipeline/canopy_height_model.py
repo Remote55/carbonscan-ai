@@ -100,11 +100,11 @@ def compute_chm_array(
     return chm, transform
 
 
-def compute_chm(  # noqa: D401 — legacy file-based wrapper kept for orchestrator
+def compute_chm(
     points: np.ndarray,
     resolution: float = 0.5,
-    thresholds: tuple[float, ...] = (0, 10, 20, 30, 40, 50),  # noqa: ARG001 — phase-2 use
-    subcircle: float = 0.2,  # noqa: ARG001
+    thresholds: tuple[float, ...] = (0, 10, 20, 30, 40, 50),
+    subcircle: float = 0.2,
 ) -> np.ndarray:
     """Legacy entry point — returns CHM array only (no transform).
 
