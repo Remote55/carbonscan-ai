@@ -131,7 +131,7 @@ def process_one_tree(tree_name: str, fp: Path, gt: dict) -> dict:
     return {
         "tree": tree_name,
         "species": species_prefix(tree_name),
-        "n_points": int(len(raw_pts)),
+        "n_points": len(raw_pts),
         "wood_frac": round(wood_frac, 3),
         # Predictions
         "pred_DBH_cm": round(qsm_result.dbh_cm, 2),
@@ -177,7 +177,7 @@ def run_all() -> pd.DataFrame:
                 f"{row['runtime_s']:5.1f}s",
                 flush=True,
             )
-        except Exception as e:  # noqa: BLE001 — keep going even if one tree fails
+        except Exception as e:
             print(f"[{i:2d}/{len(matched)}] {name}: FAILED — {e}", flush=True)
 
     df = pd.DataFrame(results)
@@ -228,11 +228,13 @@ def parity_plot(
         color="#ccc", alpha=0.3, label="±10%", zorder=1,
     )
 
-    # Stats
+    # Stats — stats_box reports MAE/RMSE in original units and the mean
+    # error in percent (both signed and absolute). We deliberately don't show
+    # a separate "bias" line because err.mean() above already conveys signed
+    # mean error in percent (CodeQL flagged the previous local `bias` as unused).
     err = (df[pred_col] - df[gt_col]) / df[gt_col] * 100
     mae = (df[pred_col] - df[gt_col]).abs().mean()
     rmse = ((df[pred_col] - df[gt_col]) ** 2).mean() ** 0.5
-    bias = (df[pred_col] - df[gt_col]).mean()
 
     stats_box = (
         f"n = {len(df)}\n"
@@ -247,7 +249,7 @@ def parity_plot(
         transform=ax.transAxes,
         ha="left", va="top",
         fontsize=10,
-        bbox=dict(facecolor="white", edgecolor="#888", alpha=0.9, boxstyle="round,pad=0.5"),
+        bbox={"facecolor": "white", "edgecolor": "#888", "alpha": 0.9, "boxstyle": "round,pad=0.5"},
     )
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
