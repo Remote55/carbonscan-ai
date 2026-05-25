@@ -1,8 +1,8 @@
 # ข้อเสนอโครงการ — CarbonScan AI
 
-> **เป้าหมาย:** เอกสาร 8-10 หน้า (excluding cover + appendix) พร้อมส่ง NSC 2026
-> **Status:** 🟡 Draft v1 — รอ feedback จากที่ปรึกษา
-> **Format:** วาง content นี้ลง template Word ของสถาบัน → ส่งให้ Person B จัดหน้า
+> **เป้าหมาย:** เอกสาร 10-12 หน้า (ไม่นับ cover + appendix) พร้อมส่ง NSC 2026
+> **Status:** 🟢 Draft v2 — โครงสร้างตรง NSC 2026 Booklet (Section 7.1-7.5) + pivot LiDAR-primary
+> **Format:** วาง content นี้ลง template Word ของสถาบัน → Person B จัดหน้า
 
 ---
 
@@ -13,16 +13,15 @@
 │  [โลโก้ CarbonScan AI]   [โลโก้ NSC 2026]   │
 │                                              │
 │    คาร์บอนสแกน เอไอ:                          │
-│    แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้          │
-│    อัจฉริยะด้วยเทคโนโลยี 3D Vision           │
-│    และระบบจับคู่ชดเชยคาร์บอน                 │
-│    ภาคอุตสาหกรรม                              │
+│    แพลตฟอร์มยืนยันคาร์บอนเครดิตจาก            │
+│    LiDAR Point Cloud ด้วย AI                  │
+│    และระบบจับคู่ B2B ภาคอุตสาหกรรม           │
 │                                              │
-│    CarbonScan AI: 3D Vision Tree Biomass     │
-│    Assessment and B2B Carbon Offset          │
-│    Matchmaking Platform                      │
+│    CarbonScan AI: LiDAR-driven Carbon        │
+│    Credit Verification & B2B Marketplace     │
+│    Platform                                   │
 │                                              │
-│    [Hero Visual: tree + point cloud]         │
+│    [Hero Visual: 3D segmented point cloud]   │
 │                                              │
 │    เสนอเพื่อขอรับการสนับสนุนใน                │
 │    โครงการแข่งขันพัฒนาโปรแกรมคอมพิวเตอร์      │
@@ -46,8 +45,8 @@
 
 | รายการ | รายละเอียด |
 |---|---|
-| **ชื่อโครงการ (ไทย)** | คาร์บอนสแกน เอไอ: แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้อัจฉริยะด้วยเทคโนโลยี 3D Vision และระบบจับคู่ชดเชยคาร์บอนภาคอุตสาหกรรม |
-| **ชื่อโครงการ (อังกฤษ)** | CarbonScan AI: 3D Vision Tree Biomass Assessment and B2B Carbon Offset Matchmaking Platform |
+| **ชื่อโครงการ (ไทย)** | คาร์บอนสแกน เอไอ: แพลตฟอร์มยืนยันคาร์บอนเครดิตจาก LiDAR Point Cloud ด้วย AI และระบบจับคู่ B2B ภาคอุตสาหกรรม |
+| **ชื่อโครงการ (อังกฤษ)** | CarbonScan AI: LiDAR-driven Carbon Credit Verification & B2B Marketplace Platform |
 | **หมวด** | 14 — โปรแกรมเพื่องานการพัฒนาด้านวิทยาศาสตร์และเทคโนโลยี |
 | **ระดับ** | อุดมศึกษา (ปริญญาตรี) |
 | **คำสำคัญ** | LiDAR, Point Cloud, Wood-Leaf Segmentation, Deep Learning, Carbon Credit, Allometric Equation, Climate FinTech, ESG |
@@ -61,17 +60,22 @@
 
 ## ส่วนที่ 2: บทคัดย่อ (Abstract)
 
-ในยุคที่ภาคอุตสาหกรรมทั่วโลกต้องเผชิญมาตรการสิ่งแวดล้อมที่เข้มงวด เช่น นโยบายความเป็นกลางทางคาร์บอน (Carbon Neutrality) ภายในปี ค.ศ. 2050 และมาตรการการเก็บภาษีคาร์บอนข้ามแดนของสหภาพยุโรป (Carbon Border Adjustment Mechanism — CBAM) ที่จะเริ่มมีผลในปี 2026 ทำให้ "คาร์บอนเครดิตภาคป่าไม้" เป็นที่ต้องการอย่างมาก อย่างไรก็ตาม กระบวนการประเมินคาร์บอนเครดิตในประเทศไทยยังพึ่งพาผู้ตรวจสอบ (Auditor) ที่ต้องลงพื้นที่วัดขนาดต้นไม้ทีละต้นด้วยสายวัด ส่งผลให้มีต้นทุนสูงในระดับ 100,000 บาทต่อแปลง เกษตรกรรายย่อยจึงไม่สามารถเข้าถึงระบบ ขณะที่ภาคอุตสาหกรรมที่ลงทุนกับ CSR ก็ขาดเครื่องมือตรวจสอบผลลัพธ์ที่โปร่งใส มีความเสี่ยงต่อข้อครหา Greenwashing
+ในยุคที่ภาคอุตสาหกรรมทั่วโลกต้องเผชิญมาตรการสิ่งแวดล้อมที่เข้มงวด เช่น นโยบายความเป็นกลางทางคาร์บอน (Carbon Neutrality) ภายในปี ค.ศ. 2050 และมาตรการการเก็บภาษีคาร์บอนข้ามแดนของสหภาพยุโรป (Carbon Border Adjustment Mechanism — CBAM) ที่จะเริ่มมีผลในปี 2026 ทำให้ "คาร์บอนเครดิตภาคป่าไม้" เป็นที่ต้องการอย่างมาก ปัจจุบันบริการ LiDAR scanner (TLS และ Drone) ในประเทศไทยมีอยู่แล้ว แต่หลังจาก scan จบลูกค้าจะได้เพียงไฟล์ `.las/.laz` ที่ยังไม่ผ่านการประมวลผล — ต้องไปจ้าง consultant / auditor / lawyer / market broker ต่ออีกหลายขั้น ทำให้กระบวนการขายคาร์บอนเครดิตยังคงมีต้นทุนสูงและไม่โปร่งใส
 
-โครงการ "CarbonScan AI" นำเสนอแพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้ที่ผสานเทคโนโลยี **3D Point Cloud Processing** กับ **Deep Learning (PointNet++)** บนสถาปัตยกรรม Cloud-native โดยรองรับข้อมูล input สองช่องทาง: (1) ไฟล์ LiDAR Point Cloud `.las/.laz` จากผู้ตรวจสอบหรือฐานข้อมูลสาธารณะ และ (2) ภาพถ่ายจากกล้องสมาร์ทโฟนทั่วไป (Android/iOS) ที่ผ่านการ Reconstruction แบบ 3 มิติด้วยเทคนิค Structure-from-Motion (COLMAP/OpenMVS)
+โครงการ "CarbonScan AI" นำเสนอ **software platform ระหว่าง LiDAR scanning ↔ Carbon Credit Marketplace** ที่ทำหน้าที่:
+(1) รับ input LiDAR Point Cloud `.las/.laz` เป็น primary path (สำหรับผู้ตรวจสอบและผู้รับเหมา carbon survey ที่มีอุปกรณ์อยู่แล้ว) และรับภาพถ่ายมือถือเป็น secondary path สำหรับเกษตรกรรายย่อย (Photogrammetry < 1 ไร่)
+(2) ประมวลผลผ่าน ML Pipeline 8 ขั้น ใช้ Deep Learning (PointNet++) จำแนกใบ/ลำต้น + RANSAC วัด DBH + สมการแอลโลเมตริก TGO 2017 คำนวณคาร์บอน
+(3) ออก PDF certificate ที่อ้างอิงมาตรฐาน TGO + รองรับการ verify ของ third-party
+(4) เป็นตัวกลาง B2B marketplace ระหว่างชุมชนผู้ปลูกต้นไม้กับโรงงานอุตสาหกรรมที่ต้องการชดเชย CBAM/ESG
+(5) ป้องกันการนับซ้ำผ่าน GPS dedup, EXIF validation, multi-temporal tracking สำหรับ Additionality
 
-ระบบจะทำการแยกจุดข้อมูล (Semantic Segmentation) ใน Point Cloud ออกเป็น "ใบ" และ "ลำต้น/กิ่ง" ด้วย Deep Learning Model จากนั้นคำนวณปริมาตรไม้ผ่าน Quantitative Structure Model (QSM) และแปลงเป็นปริมาณคาร์บอนโดยใช้สมการแอลโลเมตริกตามมาตรฐานองค์การบริหารจัดการก๊าซเรือนกระจก (TGO) ผลลัพธ์จะแสดงผ่าน Web Dashboard 3D และระบบจับคู่ B2B ระหว่างชุมชนผู้ปลูกต้นไม้กับโรงงานอุตสาหกรรม พร้อมระบบป้องกันการนับซ้ำด้วย GPS Coordinates ระดับทศนิยม 6 ตำแหน่งและ EXIF metadata
+ระบบในเวอร์ชันต้นแบบรองรับไม้เศรษฐกิจของไทย 5 ชนิด (สัก ยางนา ไผ่ ยางพารา มะค่าโมง) และผ่านการทดสอบเบื้องต้นบน **Demol et al. 2021 Belgium Destructive Biomass dataset (Zenodo 4557401)** ขนาด 65 ต้น × 4 species พบความแม่นยำ **DBH MAE = 1.17 cm (3.8% mean error)** และ **Tree Height MAE = 0.54 m (2.6%)** ซึ่งอยู่ในช่วงมาตรฐานวิจัย TLS Forestry (1-3 cm DBH, 0.5-1.5 m Height)
 
-เวอร์ชันต้นแบบรองรับการจำแนกและคำนวณคาร์บอนของไม้เศรษฐกิจ 5 ชนิด ได้แก่ ไม้สัก ไม้ยางนา ไม้ไผ่ ไม้ยางพารา และไม้มะค่าโมง โดยมีเป้าหมายความแม่นยำ DBH RMSE ≤ 5 cm และ Wood-Leaf Segmentation IoU ≥ 0.70 ระบบนี้คาดว่าจะช่วยลดต้นทุนการประเมินคาร์บอนเครดิตภาคป่าไม้ในไทยได้กว่า 100 เท่า เปิดทางให้เกษตรกรรายย่อยและชุมชนเข้าถึงระบบเศรษฐกิจสีเขียวที่เคยเป็นเอกสิทธิ์ของบริษัทขนาดใหญ่
+ระบบนี้คาดว่าจะลดต้นทุนการประเมินคาร์บอนเครดิตภาคป่าไม้ในไทยได้กว่า 100 เท่า เปิดทางให้เกษตรกรรายย่อยและชุมชนเข้าถึงระบบเศรษฐกิจสีเขียวที่เคยเป็นเอกสิทธิ์ของบริษัทขนาดใหญ่ และช่วยให้ผู้ส่งออกไทยเตรียมพร้อมรับมาตรการ CBAM ของ EU
 
 **Keywords:** LiDAR, Point Cloud Processing, Wood-Leaf Semantic Segmentation, PointNet++, Carbon Credit, Allometric Equation, Photogrammetry, Climate FinTech, ESG, Sustainable Innovation
 
-*(ความยาวประมาณ 280 คำ)*
+*(ความยาวประมาณ 320 คำ)*
 
 ---
 
@@ -81,23 +85,30 @@
 
 การเปลี่ยนแปลงสภาพภูมิอากาศ (Climate Change) เป็นวิกฤตระดับโลกที่ทุกภาคส่วนต้องร่วมรับผิดชอบ ในปี ค.ศ. 2015 ภายใต้ Paris Agreement ประเทศต่าง ๆ ทั่วโลกได้ตกลงร่วมกันในการจำกัดอุณหภูมิเฉลี่ยของโลกไม่ให้สูงขึ้นเกิน 1.5°C จากระดับก่อนการปฏิวัติอุตสาหกรรม [1] ส่งผลให้ภาคอุตสาหกรรมต้องเร่งปรับตัวสู่การลดการปล่อยก๊าซเรือนกระจก โดยใช้กลไก "Carbon Credit" เพื่อชดเชยการปล่อยคาร์บอนที่ไม่สามารถลดได้
 
-มาตรการสำคัญที่จะกระทบประเทศไทยโดยตรงคือ **Carbon Border Adjustment Mechanism (CBAM)** ของสหภาพยุโรป ซึ่งจะเริ่มเก็บภาษีคาร์บอนกับสินค้านำเข้าตั้งแต่ปี 2026 [2] ทำให้ภาคอุตสาหกรรมส่งออกของไทยต้องเร่งหาแนวทางลดและชดเชยคาร์บอน
+มาตรการสำคัญที่จะกระทบประเทศไทยโดยตรงคือ **Carbon Border Adjustment Mechanism (CBAM)** ของสหภาพยุโรป ซึ่งจะเริ่มเก็บภาษีคาร์บอนกับสินค้านำเข้าตั้งแต่ปี 2026 [2] ทำให้ภาคอุตสาหกรรมส่งออกของไทย (เหล็ก, ปูนซีเมนต์, อะลูมิเนียม, ไฟฟ้า, ไฮโดรเจน, ปุ๋ย) ต้องเร่งหาแนวทางลดและชดเชยคาร์บอน
 
 ### 3.2 บริบทประเทศไทย
 
 ประเทศไทยได้ประกาศเป้าหมาย **Carbon Neutrality ภายในปี 2050** และ **Net Zero ภายในปี 2065** [3] ในการประชุม COP26 ส่งผลให้องค์การบริหารจัดการก๊าซเรือนกระจก (Thailand Greenhouse Gas Management Organization — TGO) เร่งพัฒนากลไกตลาดคาร์บอนภายในประเทศ (Thailand Voluntary Emission Reduction Program — T-VER)
 
-ในกลุ่ม Nature-based Solutions "คาร์บอนเครดิตภาคป่าไม้" (Forest Carbon) เป็นหมวดที่มีศักยภาพสูงที่สุด เนื่องจากประเทศไทยมีพื้นที่ป่าไม้กว่า 102 ล้านไร่ และมีแผนเพิ่มพื้นที่ป่าให้ถึง 40% ของพื้นที่ประเทศ [4] อย่างไรก็ตาม การประเมินคาร์บอนเครดิตภาคป่าไม้ยังมีข้อจำกัดสำคัญ
+ในกลุ่ม Nature-based Solutions "คาร์บอนเครดิตภาคป่าไม้" (Forest Carbon) เป็นหมวดที่มีศักยภาพสูงที่สุด เนื่องจากประเทศไทยมีพื้นที่ป่าไม้กว่า 102 ล้านไร่ และมีแผนเพิ่มพื้นที่ป่าให้ถึง 40% ของพื้นที่ประเทศ [4]
 
 ### 3.3 ปัญหาคอขวด (Pain Points)
 
 **1. ต้นทุนการประเมินสูง**
 
-กระบวนการประเมินคาร์บอนเครดิตป่าไม้ตามมาตรฐาน T-VER ในปัจจุบันต้องใช้ผู้ตรวจสอบลงพื้นที่จริง โดยใช้สายวัดโอบรอบลำต้นเพื่อหาเส้นผ่านศูนย์กลางระดับอก (Diameter at Breast Height — DBH) และใช้กล้องเล็งวัดความสูง ทีละต้น ทำให้มีต้นทุนการสำรวจในระดับ 100,000-500,000 บาทต่อแปลง 50 ไร่ [5] เกษตรกรรายย่อยและชุมชนซึ่งมีพื้นที่ป่าหรือไม้ยืนต้นจำนวนมากจึงไม่สามารถเข้าสู่ระบบได้
+กระบวนการประเมินคาร์บอนเครดิตป่าไม้ตามมาตรฐาน T-VER ในปัจจุบันต้องใช้ผู้ตรวจสอบลงพื้นที่จริง โดยใช้สายวัดโอบรอบลำต้นเพื่อหาเส้นผ่านศูนย์กลางระดับอก (Diameter at Breast Height — DBH) และใช้กล้องเล็งวัดความสูง ทีละต้น ทำให้มีต้นทุนการสำรวจในระดับ 100,000-500,000 บาทต่อแปลง 50 ไร่ [5]
 
-**2. ความล่าช้าและความคลาดเคลื่อน**
+**2. ขาด software layer ที่เชื่อม LiDAR → Carbon Credit**
 
-การวัดทีละต้นด้วยมือมีโอกาสเกิด Human Error เช่น การคำนวณความสูงด้วยตา (visual estimation) อาจมีความคลาดเคลื่อนถึง ±15-20% [6] นอกจากนี้ การประเมินป่า 1 แปลงอาจใช้เวลาหลายสัปดาห์
+ปัจจุบันบริการ LiDAR scanner (TLS เครื่องละ 500,000-2,000,000 บาท; Drone LiDAR แบบ DJI Matrice + Zenmuse L1/L2 อีก ~1,000,000 บาท) มีในตลาดไทยอย่างน้อย 10 บริษัท แต่หลัง scan เสร็จลูกค้าจะได้แค่ไฟล์ `.las/.laz` ดิบ — ยังไม่ผ่านการ:
+- AI segmentation แยก wood/leaf
+- คำนวณ biomass + carbon ตามสมการ TGO
+- ออกเป็น certificate ที่มีคุณภาพ
+- จับคู่ผู้ซื้อในตลาด B2B
+- ตรวจสอบ Additionality (multi-temporal tracking)
+
+ลูกค้าต้องไปจ้าง consultant + auditor + lawyer ต่ออีกหลายขั้น
 
 **3. ขาดความโปร่งใสในการตรวจสอบย้อนหลัง**
 
@@ -105,17 +116,19 @@
 
 ### 3.4 โอกาสในการแก้ปัญหาด้วยเทคโนโลยี
 
-ในช่วง 5 ปีที่ผ่านมา เทคโนโลยี 3D Vision ได้พัฒนาก้าวหน้าอย่างมาก ทั้งในด้านการสแกน Point Cloud (LiDAR sensor ที่ราคาถูกลง, photogrammetry ที่แม่นยำขึ้น) และ Deep Learning สำหรับการประมวลผล 3 มิติ (เช่น PointNet++ [8], KPConv [9]) ทำให้สามารถสร้างระบบประเมินคาร์บอนต้นไม้แบบอัตโนมัติได้ในต้นทุนที่ต่ำลงอย่างมหาศาล
+ในช่วง 5 ปีที่ผ่านมา เทคโนโลยี Computer Vision สำหรับ 3 มิติได้พัฒนาก้าวหน้าอย่างมาก ทั้ง Deep Learning สำหรับการประมวลผล Point Cloud (PointNet++ [8], KPConv [9]) และ algorithm สำหรับวัดต้นไม้ (Watershed segmentation, TreeQSM [11], CSF [12], Pit-free CHM [13]) — ทำให้สามารถสร้างระบบประเมินคาร์บอนต้นไม้แบบอัตโนมัติได้ในต้นทุนต่ำ
 
-ในขณะเดียวกัน Cloud Computing แบบ Serverless GPU (เช่น RunPod, Modal.com) ได้ทำให้นักวิจัยและสตาร์ทอัพระดับนักศึกษาสามารถเข้าถึงทรัพยากร GPU ที่จำเป็นได้ในราคาเพียงไม่กี่บาทต่อชั่วโมง ลดอุปสรรคในการพัฒนา Deep Tech อย่างมีนัยสำคัญ
+ขณะเดียวกัน Cloud Computing แบบ Serverless GPU (RunPod, Modal.com) ได้ทำให้นักวิจัยและสตาร์ทอัพระดับนักศึกษาสามารถเข้าถึงทรัพยากร GPU ที่จำเป็นได้ในราคาเพียงไม่กี่บาทต่อชั่วโมง ลดอุปสรรคในการพัฒนา Deep Tech อย่างมีนัยสำคัญ
 
-### 3.5 ช่องว่างทางการตลาดและทางวิชาการ (Research Gap)
+### 3.5 ช่องว่าง (Research Gap)
 
-แม้ในต่างประเทศจะมีงานวิจัยและเครื่องมือเช่น `lidR` [10], TreeQSM [11] สำหรับการประมวลผล LiDAR ของต้นไม้ แต่ในประเทศไทยยัง:
+แม้ในต่างประเทศจะมีงานวิจัยและเครื่องมือเช่น `lidR` [10], TreeQSM [11] สำหรับการประมวลผล LiDAR ของต้นไม้ แต่ในประเทศไทยยัง **ขาด integrated software platform** ที่:
 
-- **ขาดแพลตฟอร์มสำเร็จรูป** ที่เชื่อมต่อตั้งแต่การ scan → ประมวลผล → ออกใบรับรอง → ตลาด B2B
-- **ขาดสมการแอลโลเมตริก digital** ที่นำมาใช้กับซอฟต์แวร์ได้โดยตรง (ข้อมูล TGO ส่วนใหญ่อยู่ใน PDF ที่ต้องคำนวณด้วยมือ)
-- **ขาดเครื่องมือสำหรับชุมชน** ที่ไม่ต้องการ Hardware แพง (LiDAR Scanner เครื่องละหลายแสน-ล้านบาท)
+- **เชื่อมต่อตั้งแต่ LiDAR file → AI processing → Certificate → B2B Marketplace ในระบบเดียว**
+- ใช้ **สมการแอลโลเมตริกของไทย** (TGO 2017 + Tsutsumi 1983 + Ogawa 1965 + Yiping 2010 + Chiarucci 2014) ไม่ใช่ Chave pantropical ที่ overestimate
+- **รองรับ Multi-temporal tracking** สำหรับ Additionality ที่ ESG reporting บังคับ
+- มี **กลไก Anti-fraud** ระดับ trust infrastructure (GPS dedup + EXIF + audit log)
+- เปิดทาง **smallholder via mobile photogrammetry** เป็น democratization layer สำหรับเกษตรกร < 1 ไร่ที่ drone ไม่คุ้ม
 
 CarbonScan AI จึงถูกออกแบบมาเพื่อปิดช่องว่างเหล่านี้
 
@@ -125,167 +138,545 @@ CarbonScan AI จึงถูกออกแบบมาเพื่อปิด
 
 โครงการนี้มีวัตถุประสงค์เฉพาะ (Measurable Objectives) ดังนี้:
 
-1. **พัฒนาระบบประมวลผล LiDAR Point Cloud อัตโนมัติ** ที่สามารถ:
+1. **พัฒนา Web Platform ที่รับ LiDAR Upload (.las/.laz) เป็น primary input** และ photogrammetry จาก mobile photos เป็น secondary input โดย integrate ทั้ง 2 ผ่าน ML Pipeline เดียวกัน
+
+2. **พัฒนาระบบประมวลผล LiDAR Point Cloud อัตโนมัติ** ที่สามารถ:
    - แยกจุดข้อมูลเป็นพื้นดิน/ไม่ใช่พื้นดิน (Ground Classification ด้วย CSF algorithm)
    - แยกต้นไม้ทีละต้น (Individual Tree Detection ด้วย Watershed segmentation)
-   - แยกใบและลำต้น/กิ่ง (Wood-Leaf Semantic Segmentation) ด้วย Deep Learning โดยมี IoU ≥ 0.70
+   - แยกใบและลำต้น/กิ่ง (Wood-Leaf Semantic Segmentation) ด้วย Deep Learning โดยมี IoU ≥ 0.70 (Phase 2) — Phase 1 ใช้ rule-based PCA eigenvalue fallback
 
-2. **พัฒนาระบบคำนวณปริมาตรไม้** (Quantitative Structure Model — QSM) และแปลงเป็นปริมาณคาร์บอนผ่านสมการแอลโลเมตริกตามมาตรฐาน TGO โดยรองรับไม้เศรษฐกิจ 5 ชนิด ได้แก่ ไม้สัก ไม้ยางนา ไม้ไผ่ ไม้ยางพารา และไม้มะค่าโมง
+3. **พัฒนาระบบคำนวณปริมาตรไม้** (Quantitative Structure Model — QSM) และแปลงเป็นปริมาณคาร์บอนผ่านสมการแอลโลเมตริกตามมาตรฐาน TGO 2017 [14] โดยรองรับไม้เศรษฐกิจ 5 ชนิด: สัก ยางนา ไผ่ ยางพารา มะค่าโมง
 
-3. **พัฒนา Web Dashboard** ที่แสดงผล:
-   - 3D Point Cloud Viewer ที่ไฮไลต์การแบ่งใบ/ลำต้นด้วยสี
-   - GIS Map พร้อม GPS pins ของต้นไม้แต่ละต้น
-   - Marketplace สำหรับการจับคู่ B2B ระหว่างชุมชนกับโรงงานอุตสาหกรรม
+4. **พัฒนา B2B Marketplace** เป็นตัวกลางระหว่าง:
+   - **ผู้ขาย:** ชุมชน / เกษตรกร / ผู้รับเหมา carbon survey ที่ลงทะเบียนแปลงและ verify carbon credit ผ่านระบบ
+   - **ผู้ซื้อ:** โรงงานอุตสาหกรรมที่ต้องการชดเชย CBAM / ESG offset
 
-4. **พัฒนา Mobile Application** (Android และ iOS) ที่ใช้กล้องธรรมดาถ่ายภาพต้นไม้ พร้อม Photogrammetry บน Cloud Backend เพื่อสร้าง Point Cloud สำหรับชุมชนที่ไม่มี LiDAR scanner
+5. **พัฒนา 3D Point Cloud Viewer + GIS Map** บน Web Dashboard ที่ทำให้:
+   - ผู้ขายเห็นข้อมูลต้นไม้แต่ละต้นที่ตัวเองมี
+   - ผู้ซื้อตรวจสอบ provenance ก่อนซื้อ (3D model + GPS pins)
+   - Auditor ตรวจสอบย้อนหลังได้ (audit trail + immutable log)
 
-5. **ทดสอบความแม่นยำของระบบ** เทียบกับการวัดด้วยสายวัดจริง (Ground Truth) ในต้นไม้ตัวอย่าง 20 ต้น โดยมีเป้าหมาย DBH RMSE ≤ 5 cm และ Height RMSE ≤ 1 m
+6. **ทดสอบความแม่นยำของระบบ** เทียบกับ peer-reviewed dataset (Demol et al. 2021 — Belgium TLS + destructive sampling, 65 ต้น × 4 species) โดยตั้งเป้า DBH MAE ≤ 2 cm และ Height MAE ≤ 1 m **(บรรลุแล้วใน Phase 1)**
 
 ---
 
-## ส่วนที่ 5: ขอบเขตของโครงการ (Scope)
+## ส่วนที่ 5: ภาพรวมโครงการ (Project Overview)
 
-### 5.1 In-Scope (เวอร์ชัน Prototype สำหรับ NSC)
+> รายละเอียดของขอบเขต ดู Section 7.5 — บทนี้คือสรุประดับสูง
+
+โครงการประกอบด้วย **4 องค์ประกอบหลัก** ทำงานร่วมกัน:
+
+| องค์ประกอบ | หน้าที่ | ผู้ใช้หลัก |
+|---|---|---|
+| **Web Platform** (Next.js) | Upload LiDAR, 3D Viewer, GIS Map, Marketplace, Certificate viewer | Auditor / Industrial buyer |
+| **Mobile App** (Flutter) | Photogrammetry capture, ผลการ scan ส่วนตัว | Smallholder farmer |
+| **Backend API** (FastAPI) | Auth, Job orchestration, Spatial queries, WebSocket progress | (ระบบภายใน) |
+| **ML Pipeline** (Python, RunPod GPU) | 8 ขั้นตอน (Ground → Normalize → CHM → Tree Seg → Wood-Leaf → QSM → Species → Allometric) | (ระบบภายใน) |
+
+ข้อมูล input ที่ระบบรองรับ 3 ประเภท: LiDAR file (`.las/.laz/.ply`), Mobile photos (JPG ≥ 30 ภาพ + GPS), Existing CSV inventory จาก TGO/กรมป่าไม้
+
+ผลลัพธ์ (output) ที่ระบบสร้าง 3 อย่าง: **(1) Verified Carbon Certificate (PDF) ที่อ้างอิงมาตรฐาน TGO 2017**, **(2) B2B Marketplace listing** สำหรับขายให้โรงงาน, **(3) GIS Map + Audit Log** สำหรับ Multi-temporal Additionality tracking
+
+---
+
+## ส่วนที่ 6: ระเบียบวิธีวิจัย / Methodology (สรุป)
+
+> รายละเอียดเทคนิคทุกขั้น ดู Section 7.2 — บทนี้คือสรุประดับสูง
+
+ระบบใช้ **Dual-Input Architecture**: ทั้ง LiDAR Upload (Path A — primary) และ Mobile Photogrammetry (Path B — secondary) จะถูกแปลงเป็น Point Cloud `.ply` ก่อนเข้า ML Pipeline เดียวกัน 8 ขั้นตอน
+
+```
+Path A — LiDAR Upload (PRIMARY)
+  Auditor → .las/.laz upload → Storage → Queue → GPU Worker
+                                                       ↓
+                                              ML Pipeline (8 ขั้น)
+                                                       ↓
+Path B — Mobile Photogrammetry (SECONDARY)            ↓
+  Smallholder → 30 JPG + GPS → COLMAP+OpenMVS → .ply ─┘
+                                                       ↓
+                                              Output (Certificate + Marketplace + GIS+Audit)
+```
+
+ระบบรัน ML pipeline บน Cloud GPU (RunPod Serverless A10G/RTX 4090, ~$0.39/ชั่วโมง pay-per-second) ใช้เวลาประมาณ 5-15 นาทีต่อ scan โดยใช้ WebSocket ส่ง progress กลับมา client แบบ real-time
+
+ระเบียบวิธีในการประเมินความแม่นยำใช้ **Public Dataset ที่ peer-reviewed คือ Demol et al. 2021 (Zenodo 4557401)** — TLS scan ของ 65 ต้น × 4 species ใน Belgium พร้อม destructive sampling reference
+
+ผลทดสอบเบื้องต้น **(Preliminary Validation — รันเสร็จเมื่อ 24 พ.ค. 2569):**
+
+| Metric | Mean Error | MAE | RMSE | Literature Range | Status |
+|---|---|---|---|---|---|
+| **DBH** | 3.8% | **1.17 cm** | 2.07 cm | 1-3 cm | ✅ ผ่าน |
+| **Tree Height** | 2.6% | **0.54 m** | 0.76 m | 0.5-1.5 m | ✅ ผ่าน |
+| **Stem Volume (taper)** | 18.8% | 0.20 m³ | 0.28 m³ | (Phase 2 จะใช้ TreeQSM ลดเหลือ 5-10%) | 🟡 |
+
+ระบบ Phase 1 ผ่าน 25/25 unit tests + smoke tests (16 allometric + 9 pipeline) บนทั้ง synthetic data และ real Belgium dataset
+
+---
+
+## ส่วนที่ 7: รายละเอียดของการพัฒนา (Development Details)
+
+> หัวข้อใน Section 7 ตรงตาม template ของ NSC 2026 Booklet (หน้า 25-26)
+
+### 7.1 เนื้อเรื่องย่อ (Story Board)
+
+#### 7.1.1 เรื่องราวจากมุมมองของ "เกษตรกร / ชุมชนผู้ปลูก"
+
+นายสมพร เกษตรกรรายย่อยในจังหวัดเชียงใหม่ ปลูกต้นสักและต้นยางนาในที่ดิน 5 ไร่มาตลอด 8 ปี เขาเคยอยากขายคาร์บอนเครดิตจากต้นไม้แต่ต้นทุนการตรวจสอบ ~150,000 บาท สูงเกินกว่าจะคุ้ม ในระบบ CarbonScan AI นายสมพรสามารถ:
+1. ดาวน์โหลด Mobile App ฟรี
+2. เดินถ่ายภาพรอบต้นไม้สำคัญในสวน (ต้นใหญ่ 10-20 ต้น)
+3. ระบบ Cloud ใช้ Photogrammetry แปลงเป็น 3D Point Cloud
+4. AI ประมวลผลคำนวณคาร์บอนตามสมการ TGO
+5. List ขายในระบบ marketplace
+6. โรงงานในกรุงเทพ จ่ายเงินซื้อโดยตรง ไม่มี broker
+
+#### 7.1.2 เรื่องราวจากมุมมองของ "โรงงานอุตสาหกรรม"
+
+บริษัท ABC ผลิตปูนซีเมนต์ส่งออกไป EU ตั้งแต่ปี 2026 ต้องชดเชยคาร์บอน 5,000 ตัน/ปี ตาม CBAM ปัจจุบันซื้อเครดิตจาก broker ต่างประเทศในราคาสูงและไม่สามารถ verify ได้ว่าต้นไม้ที่ "สนับสนุน" อยู่ที่ไหน ในระบบ CarbonScan AI:
+1. เปิด /marketplace บนเว็บ → กรองตามภูมิภาค (เชียงใหม่) + species (สัก)
+2. เห็น 3D Point Cloud + GIS Map ของแปลงที่ตัวเองจะซื้อ
+3. ดู Multi-temporal tracking ปีต่อปีเพื่อ verify Additionality
+4. กดซื้อ → ระบบสร้าง PDF Certificate ที่อ้างอิงมาตรฐาน TGO 2017
+5. นำ certificate ไป report ใน ESG / CBAM submission ของบริษัท
+6. **ทุกข้อมูลตรวจสอบย้อนหลังได้** ผ่าน audit log
+
+#### 7.1.3 ภาพประกอบหลัก (Figures)
+
+ใน Proposal version full จะมีภาพทั้งหมด 13 ภาพอ้างอิงเรื่องราว:
+
+| Figure | คำอธิบาย | ที่ใช้ใน Storyboard |
+|---|---|---|
+| `fig09_architecture.png` | สถาปัตยกรรมระบบ 4 layers | ภาพรวมที่ผู้ใช้/กรรมการต้องเห็นก่อน |
+| `fig10_user_flow.png` | User Journey ตั้งแต่ scan ถึงผลลัพธ์ | แสดงเรื่องราว 8 ขั้นตอน |
+| `fig01-08` | Synthetic pipeline output | แสดงตัวอย่างผลที่ระบบทำได้ |
+| `fig11-13` | Belgium parity plots | **proof of work** ที่กรรมการต้องเห็น |
+
+#### 7.1.4 ทฤษฎีที่เกี่ยวข้อง
+
+- **Photogrammetry (Structure-from-Motion):** Schönberger & Frahm 2016 [16] — แปลงภาพหลายมุมเป็น 3D
+- **Cloth Simulation Filter (CSF):** Zhang et al. 2016 [12] — แยกพื้นดินจาก point cloud
+- **Pit-free Canopy Height Model:** Khosravipour et al. 2014 [13] — สร้าง CHM raster
+- **Watershed Segmentation:** Roussel et al. 2020 [10] — แยกต้นไม้ทีละต้น
+- **PointNet++ Deep Learning:** Qi et al. 2017 [8] — Wood/Leaf semantic segmentation
+- **Quantitative Structure Model (QSM):** Raumonen et al. 2013 [11] — วัดปริมาตรไม้
+- **Chave Pantropical Allometric:** Chave et al. 2014 — สมการ biomass ป่าเขตร้อน (fallback)
+- **TGO Forestry Sector Guideline:** TGO 2017 [14] — สมการของไทยเฉพาะ
+- **IPCC AFOLU Guidelines:** IPCC 2006 [15] — ค่ามาตรฐาน Carbon fraction = 0.47, Root:Shoot = 0.24
+
+#### 7.1.5 ตัวอย่างผลงานที่ทำได้แล้ว (Proof of Work)
+
+ทีมได้พัฒนาและทดสอบ Phase 1 ของระบบเสร็จแล้ว:
+- ✅ ML Pipeline 8 ขั้นตอน (heuristic implementation) รัน end-to-end ได้
+- ✅ Synthetic data generator สำหรับ test (ไม่ต้องโหลด 5 GB NEON)
+- ✅ Allometric calculator ที่อ้างอิง TGO 2017 + Chave 2014 + IPCC 2006
+- ✅ Validation บน Demol 2021 Belgium dataset: 65 trees × 4 species
+- ✅ 25/25 unit + smoke tests pass
+- ✅ Architecture + UI mockups + documentation 30+ ไฟล์
+
+---
+
+### 7.2 เทคนิคหรือเทคโนโลยีที่ใช้ (Techniques / Technologies)
+
+#### 7.2.1 ML Pipeline ภาพรวม
+
+ระบบประกอบด้วย 8 ขั้นตอนเรียงตามลำดับ:
+
+```
+INPUT (.las / .laz / .ply)
+   ↓
+[1] Ground Classification          → แยกพื้นดิน
+   ↓
+[2] Height Normalization           → ปรับ Z = 0 บนพื้น
+   ↓
+[3] Canopy Height Model (CHM)      → 2D raster ของความสูง
+   ↓
+[4] Individual Tree Detection      → แยกต้นไม้ทีละต้น
+   ↓ (per tree)
+[5] Wood-Leaf Separation           → แยกลำต้น/กิ่ง vs ใบ
+   ↓
+[6] Quantitative Structure Model    → วัด DBH, Height, Volume
+   ↓
+[7] Species Classification          → จำแนกชนิดต้นไม้จาก RGB
+   ↓
+[8] Allometric Carbon Calculation   → คำนวณ Biomass + Carbon + CO₂eq
+   ↓
+OUTPUT (JSON per tree + PDF Certificate)
+```
+
+#### 7.2.2 รายละเอียดอัลกอริทึมแต่ละขั้น
+
+**ขั้นตอนที่ 1: Ground Classification**
+- **Algorithm:** Cloth Simulation Filter (CSF) [12] — Phase 2; **Grid percentile heuristic** — Phase 1
+- **Data structure:** 2D grid (XY cells 1 m × 1 m)
+- **Parameters:** percentile=5, z_threshold=0.3 m
+- **Library:** PDAL (Phase 2), NumPy (Phase 1)
+- **Output:** boolean mask — True = ground, False = non-ground
+
+**ขั้นตอนที่ 2: Height Normalization**
+- **Algorithm:** K-Nearest-Neighbor + Inverse Distance Weighting (IDW) interpolation
+- **Data structure:** KD-tree (scipy.spatial.cKDTree) สำหรับ ground points
+- **Parameters:** k_neighbors=8, distance_weight_power=2
+- **Formula:** $z_{\text{norm}}(x, y) = z - \sum_{i=1}^{K} \frac{z_i/d_i^p}{\sum_j 1/d_j^p}$
+- **Output:** point cloud ที่ Z normalized to 0 = ground
+
+**ขั้นตอนที่ 3: Canopy Height Model (CHM)**
+- **Algorithm:** Max-Z rasterization + morphological closing (Phase 1); Pit-free multi-threshold [13] (Phase 2)
+- **Data structure:** 2D float32 array (raster grid) + ChmTransform (geo-reference)
+- **Parameters:** resolution=0.5 m, closing_size=2 pixels, min_height=0.5 m
+- **Library:** NumPy + scipy.ndimage.grey_closing
+- **Output:** 2D raster ที่แต่ละ cell = max height ของต้นไม้ที่จุดนั้น
+
+**ขั้นตอนที่ 4: Individual Tree Detection (ITD)**
+- **Algorithm:** Watershed segmentation seeded by local maxima
+- **Data structure:** 2D label array (int32, tree IDs)
+- **Parameters:** min_height=4 m, min_distance=5 pixels (= 2.5 m)
+- **Library:** scikit-image (`peak_local_max` + `watershed`)
+- **Output:** ทุก point ใน cloud ได้ tree_id (0 = no tree, 1..N = tree number)
+
+**ขั้นตอนที่ 5: Wood-Leaf Semantic Segmentation** ⭐
+- **Algorithm Phase 1:** Local PCA eigenvalue analysis — คำนวณ linearity, planarity, verticality
+- **Algorithm Phase 2:** PointNet++ deep learning [8] — fine-tune on annotated data
+- **Data structure:** (N, 3) point array + (N, 3, 3) covariance matrices (batched einsum)
+- **Formulas:**
+  - linearity = (λ₀ − λ₁) / λ₀
+  - planarity = (λ₁ − λ₂) / λ₀
+  - is_wood = (linearity ≥ 0.45 AND planarity ≤ 0.50) OR (verticality ≥ 0.55)
+- **Parameters:** k_neighbors=15
+- **Library:** NumPy + scipy.spatial.cKDTree (Phase 1); PyTorch + open3d-ml (Phase 2)
+- **Output:** (N,) int8 array (0=wood, 1=leaf)
+
+**ขั้นตอนที่ 6: Quantitative Structure Model (QSM)**
+- **Algorithm:** RANSAC circle fit at z=1.3 m slice + Max-Z height + Taper equation volume
+- **Data structures:** 2D point slice (xy) + RANSAC iterations
+- **Parameters:** n_iterations=200, inlier_tolerance=0.02 m, max_radius_m=0.6 (DBH ≤ 120 cm)
+- **Formulas:**
+  - DBH = 2 × r_ransac (m → cm)
+  - Height = max(z) ของ wood points
+  - Volume = (π/4) × DBH² × H × form_factor (form_factor = 0.5)
+- **Library:** NumPy (custom RANSAC)
+- **Output:** QsmResult{dbh_cm, height_m, volume_m3, fit_quality}
+
+**ขั้นตอนที่ 7: Species Classification** (Phase 2 — Mobile)
+- **Algorithm:** ResNet-50 Transfer Learning + TFLite int8 quantization
+- **Parameters:** Input 224×224 RGB, 5 classes + Unknown
+- **Library:** PyTorch + torchvision; TensorFlow Lite สำหรับ mobile deployment
+- **Output:** dict {species_sci: probability} — top-1 prediction + confidence
+
+**ขั้นตอนที่ 8: Allometric Carbon Calculation** ⭐ บทสำคัญที่สุด
+- **Algorithm:** Species-specific Tier-2 + Chave 2014 fallback (Tier-3)
+- **Data structure:** Species DB CSV (5 species × 10 columns)
+- **สูตรเต็ม:**
+
+  $$\text{AGB (species-specific)} = a \times \text{DBH}^b \times H^c \quad (\text{kg})$$
+
+  $$\text{AGB (Chave 2014)} = 0.0673 \times (\rho \times \text{DBH}^2 \times H)^{0.976}$$
+
+  $$\text{BGB} = \text{AGB} \times 0.24$$
+
+  $$B_{\text{total}} = \text{AGB} + \text{BGB}$$
+
+  $$C = B_{\text{total}} \times 0.47$$
+
+  $$\text{CO}_2\text{eq} = C \times \frac{44}{12}$$
+
+- **Species coefficients (จาก peer-reviewed papers):**
+
+  | Species | a | b | c | Wood density (kg/m³) | Source |
+  |---|---|---|---|---|---|
+  | Tectona grandis (สัก) | 0.0509 | 2.150 | 0.700 | 660 | Tsutsumi et al. 1983 [21] |
+  | Dipterocarpus alatus (ยางนา) | 0.0396 | 2.380 | 0.800 | 720 | Ogawa et al. 1965 [22] |
+  | Bambusa spp. (ไผ่) | 0.131 | 2.280 | 0.590 | 650 | Yiping et al. 2010 [23] |
+  | Hevea brasiliensis (ยางพารา) | 0.0464 | 2.330 | 0.720 | 580 | Chiarucci et al. 2014 [24] |
+  | Afzelia xylocarpa (มะค่าโมง) | 0.0612 | 2.420 | 0.660 | 850 | Chave 2014 adjusted |
+
+- **Library:** Python (custom — 16/16 unit tests pass)
+- **Output:** CarbonResult{agb_kg, bgb_kg, biomass_kg, carbon_kg, co2eq_kg}
+
+#### 7.2.3 Dual-Input Architecture: Photogrammetry สำหรับ Mobile
+
+สำหรับ Path B (Mobile photogrammetry) ใช้:
+- **COLMAP** [16] — Structure from Motion (SfM): จาก 30 JPG → sparse 3D model + camera poses
+- **OpenMVS** [17] — Multi-View Stereo (MVS): จาก sparse → dense point cloud (.ply)
+
+ผลลัพธ์ .ply เข้าสู่ ML Pipeline ขั้น 1-8 เดียวกัน
+
+#### 7.2.4 Anti-Fraud Mechanism (4 ชั้น)
+
+1. **GPS Precision Lock** — บันทึก GPS ระดับทศนิยม 6 ตำแหน่ง (precision ~0.1 ม.)
+2. **EXIF Metadata Validation** — ตรวจสอบ timestamp ของรูปถ่าย + server time drift check
+3. **Camera-Only Capture** — Mobile App ไม่อนุญาต upload จาก gallery (ImageSource.camera only)
+4. **Server-side Deduplication** — PostGIS ST_DWithin query ก่อน insert ต้นใหม่ — ถ้ามีต้นในรัศมี 1-2 ม. → flag
+
+#### 7.2.5 ผลการทดสอบบน Public Dataset (Preliminary Validation)
+
+**Dataset:** Demol et al. 2021 [20] — TLS point clouds 65 ต้น × 4 species (Fagus sylvatica, Pinus sylvestris, Fraxinus excelsior, Larix decidua) ใน Belgium พร้อม destructive sampling reference
+
+**Reference:** Trees Journal, DOI [10.1007/s00468-020-02067-7](https://doi.org/10.1007/s00468-020-02067-7), Zenodo [10.5281/zenodo.4557401](https://doi.org/10.5281/zenodo.4557401)
+
+**ผลลัพธ์:**
+
+| Metric | Mean Error | Median | MAE | RMSE | n | Literature Range |
+|---|---|---|---|---|---|---|
+| **DBH** | 3.8% | 2.9% | **1.17 cm** | 2.07 cm | 65 | 1-3 cm ✅ |
+| **Tree Height** | 2.6% | 2.1% | **0.54 m** | 0.76 m | 65 | 0.5-1.5 m ✅ |
+| **Stem Volume** | 18.8% | 19.6% | 0.20 m³ | 0.28 m³ | 65 | (Phase 2 → 5-10%) |
+
+**ตีความ:** DBH และ Height MAE อยู่ในมาตรฐานวิจัย TLS Forestry — เป็นคุณภาพที่ TGO ยอมรับสำหรับ Voluntary Carbon Market
+
+**Reproducibility:** สคริปต์ `services/ml/notebooks/validate_belgium.py` รันใน 13 วินาทีบน laptop CPU ปกติ
+
+ดูภาพ Parity Plot ใน Appendix C:
+- `fig11_belgium_dbh_parity.png` — DBH parity (predicted vs felled measurement)
+- `fig12_belgium_height_parity.png` — Tree Height parity
+- `fig13_belgium_volume_parity.png` — Stem Volume parity (with Phase 2 caveat)
+
+---
+
+### 7.3 เครื่องมือที่ใช้ในการพัฒนา (Tools)
+
+#### 7.3.1 ภาษาโปรแกรมที่ใช้
+
+| ภาษา | เวอร์ชัน | ใช้ใน |
+|---|---|---|
+| **Python** | 3.11 | Backend API + ML Pipeline + scripts |
+| **TypeScript** | 5.x | Web Frontend (Next.js) |
+| **Dart** | 3.12 | Mobile App (Flutter) |
+| **SQL** | PostgreSQL 16 dialect | Database queries + migrations |
+
+#### 7.3.2 Frameworks + Libraries หลัก
+
+| Component | Library + Version | บทบาท |
+|---|---|---|
+| **Web Frontend** | Next.js 14 (App Router) | React framework + SSR |
+| | Tailwind CSS 3.4 + shadcn/ui | Utility-first styling + components |
+| | Three.js + @react-three/fiber | 3D Point Cloud Viewer (WebGL) |
+| | Leaflet + react-leaflet | GIS Map |
+| | TanStack Query | Server state management |
+| | tus-js-client | Resumable LiDAR upload |
+| | @react-pdf/renderer | PDF Certificate generation |
+| **Mobile** | Flutter 3.44 | Cross-platform Android + iOS |
+| | flutter_riverpod | State management |
+| | go_router | Navigation |
+| | camera + geolocator | Native camera + GPS |
+| | exif | EXIF metadata read/write |
+| | tflite_flutter (Phase 2) | On-device ML inference |
+| **Backend** | FastAPI 0.111 | Async REST API + WebSocket + auto-Swagger |
+| | SQLAlchemy 2.0 (async) | ORM with modern typing |
+| | asyncpg | Postgres async driver (fastest) |
+| | GeoAlchemy2 | PostGIS support |
+| | Alembic | DB migrations |
+| | supabase-py | Storage + Auth |
+| **AI / ML** | NumPy + SciPy | Array math + KD-tree + signal |
+| | scikit-image | Image processing (watershed, peak_local_max) |
+| | Open3D 0.19 | 3D point cloud operations |
+| | laspy 2.7 | LAS/LAZ file I/O |
+| | PyTorch 2.3 + torchvision (Phase 2) | Deep learning |
+| | matplotlib + plotly | Visualization for notebooks |
+| **Photogrammetry** | COLMAP | Structure from Motion |
+| | OpenMVS | Multi-View Stereo (dense) |
+| **Database** | PostgreSQL 16 + PostGIS 3.4 | Spatial database |
+
+#### 7.3.3 Development + DevOps Tools
+
+| Tool | Purpose |
+|---|---|
+| **Git + GitHub** | Source control + PR workflow + branch protection |
+| **VS Code** | Main code editor (Python, TypeScript, Dart extensions) |
+| **Android Studio** | Flutter Android emulator + APK build |
+| **DBeaver** | Database browsing |
+| **Docker Desktop** | Container build + local testing |
+| **pnpm** | Web monorepo package manager |
+| **Turborepo** | Monorepo build orchestration |
+| **Poetry** | Python dependency management |
+| **Jupyter Notebook** | ML experiments + visualization |
+| **CloudCompare** | View 3D point clouds (free, open-source) |
+| **GitHub Actions** | CI/CD (5 workflows: web, mobile, api, ml, codeql) |
+| **Vercel** | Web hosting (Hobby tier free) |
+| **Railway** | API hosting ($5/mo) |
+| **Supabase** | Database + Storage + Auth (Free tier) |
+| **RunPod Serverless** | GPU compute (~$0.39/hr A10G) |
+| **Sentry** | Error tracking (Web + Mobile + API) |
+| **Figma** | UI/UX design (Person B) |
+| **Discord / Line** | Daily team sync |
+
+---
+
+### 7.4 รายละเอียดโปรแกรมที่จะพัฒนา (Software Specification)
+
+#### 7.4.1 Input Specification
+
+| Input | Format | Source | Constraints | ใช้ใน Path |
+|---|---|---|---|---|
+| **LiDAR file** | `.las` (ASPRS) / `.laz` (compressed) | TLS scanner, Drone LiDAR, ALS | ≤ 500 MB; CRS = WGS84 หรือ Local UTM | Path A (primary) |
+| **3D point cloud** | `.ply` (Stanford) | ผ่าน COLMAP / 3rd-party tools | ≤ 100 MB | ทั้ง Path A และ B |
+| **Mobile photos** | JPG / JPEG ≥ 30 ภาพ + GPS EXIF | smartphone camera (Android/iOS) | 1920×1080 ขั้นต่ำ; ทั้งกอง ≤ 50 MB; GPS accuracy ≤ 20 m | Path B |
+| **Plot polygon** | GeoJSON / WKT | user-drawn บน web map หรือ import | WGS84 (SRID 4326) | optional metadata |
+| **CSV inventory** | CSV (UTF-8) | TGO / กรมป่าไม้ / projects เก่า | ต้องมี tree_id, species, location columns | optional bonus |
+
+#### 7.4.2 Output Specification
+
+**Per-tree JSON record:**
+
+```json
+{
+  "tree_id": 1,
+  "species_sci": "Tectona grandis",
+  "species_th": "สัก",
+  "species_confidence": 0.92,
+  "location": {"lat": 18.7883, "lon": 98.9853, "alt": 320.4},
+  "dbh_cm": 25.3,
+  "height_m": 15.8,
+  "crown_radius_m": 3.2,
+  "volume_m3": 0.45,
+  "biomass_kg": 292.5,
+  "carbon_kg": 137.5,
+  "co2eq_kg": 504.2,
+  "point_count": 8472,
+  "wood_leaf_iou": 0.78,
+  "scanned_at": "2026-05-25T08:30:00Z"
+}
+```
+
+**PDF Carbon Certificate:**
+- A4, Thai + English bilingual
+- ส่วนประกอบ: Plot info, owner info, scan date, per-tree breakdown table, total CO₂eq, TGO reference number, QR code → verify on platform
+- Generated client-side ผ่าน `@react-pdf/renderer` (Phase 2)
+
+**3D Segmented PLY:**
+- Stanford PLY format
+- มี XYZ + class (wood/leaf/ground) + RGB ตามคลาส
+- Downloadable จาก dashboard
+
+**Per-plot CSV summary:**
+- Columns: tree_id, species, dbh_cm, height_m, volume_m3, carbon_kg, co2eq_kg, location_lat, location_lon
+- เปิดได้ใน Excel / Google Sheets
+
+#### 7.4.3 Functional Specification (10 ฟังก์ชันหลัก)
+
+1. **Authentication** — Sign up / Sign in ผ่าน Supabase Auth (email + password; OAuth ใน Phase 2)
+2. **LiDAR file upload** — Drag-and-drop หรือ click-to-upload .las/.laz; chunked + resumable ผ่าน tus protocol
+3. **Mobile photo capture** — Camera-only (ห้าม gallery upload); auto-burst 30+ ภาพ; GPS-embedded EXIF
+4. **Pipeline job dispatch** — POST /jobs → queue → GPU worker → progress via WebSocket
+5. **3D Point Cloud Viewer** — Three.js + R3F แสดง wood/leaf/ground colors; orbit, zoom, pan controls; เลือกต้นไม้ดู metadata
+6. **GIS Map view** — Leaflet แสดงทุกต้นไม้บน OpenStreetMap; filter ตาม species, date, region; marker cluster
+7. **Per-tree results dashboard** — DBH, Height, Volume, Biomass, Carbon, CO₂eq + mini 3D viewer + bar chart
+8. **Marketplace browsing** — กรอง plots ตาม location, species, ราคา/tCO₂eq; preview 3D + GIS
+9. **Mock checkout** — Buyer คลิก "Buy X tCO₂eq" → mock payment → insert transaction → generate certificate
+10. **PDF certificate generation + download** — Bilingual A4; ลายเซ็น digital; QR verify code
+
+#### 7.4.4 Software Design / โครงสร้างซอฟต์แวร์
+
+**System Architecture (4 layers):**
+
+```
+┌─ Layer 1: INPUT ─────────────────────────────────────┐
+│  LiDAR Upload (primary) | Mobile Photogrammetry      │
+└──────────────────┬───────────────────────────────────┘
+                   ↓
+┌─ Layer 2: WEB / API GATEWAY ─────────────────────────┐
+│  Web Dashboard (Next.js 14) ↔ FastAPI Service        │
+└──────────────────┬───────────────────────────────────┘
+                   ↓
+┌─ Layer 3: PROCESSING ────────────────────────────────┐
+│  Supabase (DB + Storage)                              │
+│  Job Queue (Supabase PGMQ)                            │
+│  RunPod Serverless GPU (ML Pipeline)                  │
+│  COLMAP + OpenMVS (Photogrammetry)                    │
+└──────────────────┬───────────────────────────────────┘
+                   ↓
+┌─ Layer 4: OUTPUT ────────────────────────────────────┐
+│  Carbon Certificate (PDF)                             │
+│  B2B Marketplace listing                              │
+│  GIS Map + Audit Log                                  │
+└──────────────────────────────────────────────────────┘
+```
+
+ดู `fig09_architecture.png` ใน Appendix C สำหรับภาพ resolution สูง
+
+**Monorepo Structure:**
+
+```
+Project_Carbon/
+├── apps/
+│   ├── web/           — Next.js 14 (Web Dashboard)
+│   └── mobile/        — Flutter (Mobile App)
+├── services/
+│   ├── api/           — FastAPI (Backend API)
+│   └── ml/            — Python ML Pipeline (8 stages + photogrammetry)
+├── packages/
+│   ├── ui/            — Shared React components
+│   ├── types/         — TypeScript types
+│   └── design-tokens/ — Colors + fonts (Tailwind + Flutter)
+├── docs/              — All documentation (architecture, ml, decisions, proposal)
+└── .github/workflows/ — 5 CI workflows
+```
+
+**Database Schema (PostgreSQL + PostGIS):**
+
+| Table | Purpose |
+|---|---|
+| `users` | Account + role (community / industrial / auditor) |
+| `plots` | แปลงป่า + geometry (POLYGON, SRID 4326) |
+| `trees` | ต้นไม้รายต้น + location (POINT) + measurements (DBH, H, V, Carbon) |
+| `jobs` | ML pipeline jobs + status + progress + input_url + output_url |
+| `transactions` | Carbon credit sales (buyer, plot, amount, price, timestamp) |
+| `species_db` | Allometric coefficients per species (5 rows) |
+| `audit_log` | Immutable log ทุก mutation (RLS protected) |
+
+ทุก table มี **Row-Level Security (RLS)** policies — community user เห็นเฉพาะของตัวเอง, auditor เห็นทุกอย่าง, industrial buyer เห็น marketplace + own transactions
+
+---
+
+### 7.5 ขอบเขตและข้อจำกัดของโปรแกรมที่พัฒนา
+
+#### 7.5.1 In-Scope (เวอร์ชัน Prototype สำหรับ NSC 2026)
 
 | Component | รายละเอียด |
 |---|---|
-| **ML Pipeline** | 8 ขั้นตอน (Ground Classification → Tree Segmentation → Wood-Leaf Segmentation → QSM → Allometric Carbon) |
+| **ML Pipeline** | 8 ขั้นตอนครบ (Phase 1 heuristic + Phase 2 deep learning targets) |
 | **Species Coverage** | 5 ชนิด: สัก, ยางนา, ไผ่, ยางพารา, มะค่าโมง |
-| **Input Format** | `.las`, `.laz`, `.ply` (Path A) + JPEG photos 30-50 ภาพ (Path B) |
-| **Output** | JSON {DBH, Height, Volume, Biomass, Carbon, CO2eq} + 3D visualization |
+| **Input Formats** | `.las`, `.laz`, `.ply` (Path A) + JPG 30-50 ภาพ (Path B) + CSV import (bonus) |
+| **Output** | JSON per tree + 3D PLY + PDF Certificate + Marketplace listing + GIS Map |
 | **Web Dashboard** | Responsive (mobile + desktop), 4 personas (Community, Industrial, Auditor, Admin) |
 | **Mobile App** | Android (primary), iOS (secondary if Mac available) |
-| **Marketplace** | Mock payment flow with Stripe Test Mode |
-| **Anti-Fraud** | GPS hash + EXIF validation + server-side dedup (radius 1-2 ม.) |
+| **Marketplace** | Mock payment flow (real payment ใน Phase post-NSC) |
+| **Anti-Fraud** | GPS dedup + EXIF + audit log + camera-only |
+| **Validation** | บน Demol 2021 (Belgium 65 trees) — **เสร็จแล้ว**; NEON US (Phase 2 plan) |
 
-### 5.2 Out-of-Scope (ไม่อยู่ในขอบเขต เฟสนี้)
+#### 7.5.2 Out-of-Scope (ไม่อยู่ในขอบเขตเฟสนี้)
 
-- รองรับต้นไม้ทุกชนิดบนโลก (ขยาย Phase 4+)
-- Drone-based scanning integration
-- Blockchain-based ledger
-- Real-time scanning (ใช้ async pipeline แทน)
-- การชำระเงินจริง (ใช้ Test Mode)
+- รองรับต้นไม้ทุกชนิดบนโลก (ขยายใน Phase 2+)
+- Drone LiDAR direct integration (อนุญาตให้ user upload ไฟล์ .las ได้)
+- Blockchain-based ledger (Phase 3+)
+- Real-time scanning (ใช้ async pipeline แทน — 5-15 นาที latency)
+- การชำระเงินจริง (ใช้ mock checkout สำหรับ NSC)
 - การส่งออกใบรับรองที่รับรองโดย TGO อย่างเป็นทางการ (เป็น Pilot — ไม่ใช่ Certified)
+- รองรับ multi-language UI > 2 ภาษา (เริ่มต้นแค่ไทย + อังกฤษ)
 
-### 5.3 Constraints and Assumptions
+#### 7.5.3 Constraints (ข้อจำกัด)
 
-**Constraints:**
-- ทีมงาน 3 คน, ระยะเวลาพัฒนา ~12 สัปดาห์
-- งบประมาณ Cloud GPU ≤ $30/เดือน
-- ไม่มี iPhone Pro ที่มี LiDAR Sensor ในทีม
+- **ทีมงาน:** 3 คน (User + Person A + Person B)
+- **ระยะเวลา:** 12 สัปดาห์ (30 พ.ค. – 21 ส.ค. 2569)
+- **งบประมาณ Cloud GPU:** ≤ $30/เดือน (RunPod Hobby + Colab Pro+)
+- **Hardware:** ทีมไม่มี iPhone Pro ที่มี LiDAR Sensor — ไม่ทำ iPhone LiDAR app (ADR-0002)
+- **ทีมไม่มี Mac** สำหรับ build iOS — ใช้ Codemagic / Bitrise cloud macOS แทน (optional)
 
-**Assumptions:**
-- ความเร็วอินเทอร์เน็ตของ user ≥ 5 Mbps สำหรับ upload
-- Android ที่ใช้ทดสอบ ≥ API 26 (Android 8.0)
-- เข้าถึง Public LiDAR Dataset (NEON) ได้
+#### 7.5.4 Assumptions (สมมติฐาน)
 
----
-
-## ส่วนที่ 6: วิธีดำเนินการ (Methodology)
-
-### 6.1 สถาปัตยกรรมระบบ (System Architecture)
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                       CLIENT LAYER                             │
-│  ┌──────────────────┐    ┌──────────────────────────────┐     │
-│  │  Mobile (Flutter)│    │   Web (Next.js 14)            │    │
-│  │  - Camera + GPS  │    │   - 3D Viewer (R3F)           │    │
-│  │  - TFLite ID     │    │   - GIS Map (Leaflet)         │    │
-│  └────────┬─────────┘    │   - Marketplace               │    │
-└───────────┼──────────────┴──────────────┬───────────────────┘
-            │                              │
-            ▼ HTTPS                        ▼ HTTPS
-┌────────────────────────────────────────────────────────────────┐
-│                       API GATEWAY                              │
-│  FastAPI Service (Railway) — Auth, Job Orchestration           │
-└────────────┬──────────────────────────────┬───────────────────┘
-             ▼                              ▼
-┌────────────────────────────┐    ┌──────────────────────────┐
-│ Supabase                   │    │ Job Queue                 │
-│ - PostgreSQL + PostGIS     │    │           │                │
-│ - Storage (LAS/PLY/JPG)    │    │           ▼                │
-│ - Auth                     │    │ RunPod Serverless GPU     │
-└────────────────────────────┘    │ ML Pipeline (PyTorch)     │
-                                  │ Photogrammetry (COLMAP)   │
-                                  └──────────────────────────┘
-```
-
-### 6.2 ML Pipeline (8 ขั้นตอน)
-
-**ขั้นตอนที่ 1: Ground Classification** ใช้ Cloth Simulation Filter (CSF) algorithm [12] ผ่านไลบรารี PDAL เพื่อแยกจุดพื้นดินออกจากจุดอื่น ๆ
-
-**ขั้นตอนที่ 2: Height Normalization** สร้าง Digital Terrain Model (DTM) จากจุดพื้นดิน แล้วลบความสูง absolute Z ออก เพื่อให้ระบบรองรับต้นไม้ที่อยู่บนภูมิประเทศต่างกัน
-
-**ขั้นตอนที่ 3: Canopy Height Model (CHM)** สร้างด้วย Pit-free Algorithm [13] เพื่อหลีกเลี่ยง "หลุม" จากการที่ LiDAR ทะลุผ่านใบ
-
-**ขั้นตอนที่ 4: Individual Tree Detection (ITD)** ใช้ Watershed Segmentation บน CHM เพื่อแยกต้นไม้แต่ละต้น (ตามแนวทางของ `lidR` package [10])
-
-**ขั้นตอนที่ 5: Wood-Leaf Semantic Segmentation** ⭐ Core Deep Tech — ใช้ PointNet++ [8] ที่ผ่านการ Fine-tune บน NEON Forest LiDAR Dataset เพื่อจำแนกแต่ละจุดในต้นไม้ว่าเป็น "ลำต้น/กิ่ง" (Wood) หรือ "ใบ" (Leaf) เป้าหมายความแม่นยำ IoU ≥ 0.70
-
-**ขั้นตอนที่ 6: Quantitative Structure Model (QSM)** ทำ Cylinder Fitting [11] กับจุด Wood ที่ผ่านการแยกในขั้นตอนที่ 5 เพื่อคำนวณปริมาตรไม้ (m³)
-
-**ขั้นตอนที่ 7: Species Classification** ใช้ ResNet-50 ที่ผ่านการ Transfer Learning จาก ImageNet เพื่อจำแนกชนิดต้นไม้จากภาพ RGB ของเปลือก/ใบ (ทำงานบน Mobile แบบ on-device ด้วย TFLite)
-
-**ขั้นตอนที่ 8: Allometric Carbon Calculation** แปลงปริมาตร + ชนิด เป็น Biomass และ Carbon โดยใช้สมการ AGB = a × DBH^b × H^c ตามมาตรฐาน TGO Forestry Sector Guideline 2017 [14] พร้อมเพิ่มสัดส่วน Belowground Biomass (BGB = AGB × 0.25) และ Carbon Fraction = 0.47 ตามมาตรฐาน IPCC [15]
-
-### 6.3 Dual-Input Architecture
-
-ระบบรองรับ Input 2 ทาง โดยทั้งคู่ถูกแปลงเป็น Point Cloud (`.ply`) ก่อนเข้า ML Pipeline เดียวกัน:
-
-**Path A: LAS Upload (สำหรับ Auditor/Researcher)**
-- ผู้ใช้ upload ไฟล์ `.las/.laz` ที่ได้จาก TLS, Drone LiDAR, หรือ Public Dataset
-- Backend ส่งไป Job Queue → GPU Worker ประมวลผลโดยตรง
-
-**Path B: Photogrammetry (สำหรับ Community/เกษตรกร)**
-- ผู้ใช้ถ่ายภาพรอบต้นไม้ 30-50 รูป ด้วยกล้องสมาร์ทโฟนทั่วไป + GPS
-- Backend ส่งภาพไป Photogrammetry Worker ที่รัน COLMAP (Structure from Motion) [16] + OpenMVS (Multi-View Stereo) [17] เพื่อสร้าง `.ply`
-- จากนั้น Job ถูก chain ต่อไปยัง ML Pipeline เดียวกัน
-
-แนวทาง Photogrammetry นี้ผ่านการพิสูจน์ในงานวิจัยว่ามีความแม่นยำ DBH ในระดับ ±5-10% ซึ่งเพียงพอสำหรับ Carbon Inventory ในระดับ Voluntary Market [18]
-
-### 6.4 เทคโนโลยีที่ใช้ (Technology Stack)
-
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Web Frontend** | Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Three.js (React Three Fiber), Leaflet | Modern stack, SEO-ready, accessible components |
-| **Mobile** | Flutter 3.x, Riverpod, TFLite | Cross-platform Android+iOS, superior camera performance |
-| **Backend API** | FastAPI (Python 3.11), Pydantic v2, SQLAlchemy async, GeoAlchemy2 | Native async, auto-Swagger docs, Python ecosystem |
-| **Database** | PostgreSQL 16 + PostGIS 3.4 (Supabase) | Spatial queries critical for GIS features |
-| **AI/ML** | PyTorch 2.3, PointNet++, Open3D 0.18, laspy, PDAL, COLMAP, OpenMVS | Industry-standard libraries |
-| **Job Queue** | Supabase Queues / Redis | Simple, integrated |
-| **Cloud GPU** | RunPod Serverless (A10G/RTX 4090) | Pay-per-second, scale-to-zero, ~$0.39/hr |
-| **Deployment** | Vercel (Web), Railway (API), Supabase (DB) | Free/cheap tiers, easy deploy |
-| **DevOps** | pnpm + Turborepo (monorepo), Docker, GitHub Actions | Fast, modern |
-
-### 6.5 Anti-Fraud Mechanism
-
-เพื่อให้ระบบมีความน่าเชื่อถือเทียบเท่ามาตรฐาน T-VER ระบบจึงมีกลไกป้องกันการนับซ้ำ/โกง 4 ชั้น:
-
-1. **GPS Precision Lock** — บันทึก GPS ระดับทศนิยม 6 ตำแหน่ง (ความแม่นยำ ~0.1 ม.)
-2. **EXIF Metadata Validation** — ตรวจสอบ timestamp ของรูปถ่ายว่าอยู่ในช่วงเวลาที่ user ส่ง (ไม่เกิน 24 ชม.)
-3. **Camera-Only Capture** — Mobile App ไม่อนุญาตให้ upload จาก gallery (เฉพาะกล้อง real-time)
-4. **Server-side Deduplication** — ถ้าพบ scan ในรัศมี 1-2 ม. จากจุดเดิม → ปฏิเสธหรือ flag for review
-
-### 6.6 Evaluation Plan
-
-| Metric | Target | Method |
-|---|---|---|
-| Wood-Leaf IoU (validation set) | ≥ 0.70 | เทียบกับ labeled NEON data |
-| DBH RMSE (ground truth) | ≤ 5 cm | เทียบกับสายวัดจริง 20 ต้น |
-| Height RMSE | ≤ 1 m | เทียบกับ clinometer 20 ต้น |
-| Species classification Top-1 accuracy | ≥ 85% | เทียบกับ labeled validation set |
-| End-to-end pipeline time | ≤ 10 นาที/แปลง | Benchmark บน RunPod A10G |
+- ผู้ใช้ Web ใช้ Browser modern (Chrome 90+, Safari 14+, Edge 90+, Firefox 88+)
+- ความเร็วอินเทอร์เน็ตของ user ≥ 5 Mbps สำหรับ upload .las file
+- Android ที่ใช้ทดสอบ ≥ API 26 (Android 8.0 Oreo)
+- เข้าถึง Public LiDAR Dataset ได้ (Demol 2021 ✅; NEON ใน Phase 2)
+- Auditor / Carbon survey contractor ที่จะใช้ระบบมี LiDAR scanner อยู่แล้ว (TLS หรือ Drone LiDAR)
 
 ---
 
-## ส่วนที่ 7: แผนการดำเนินงาน (Timeline & Milestones)
+## ส่วนที่ 8: แผนการดำเนินงาน (Timeline & Milestones)
 
 | Phase | ระยะเวลา | Output หลัก | Deliverables |
 |---|---|---|---|
 | **0: Proposal** | 20-29 พ.ค. 2569 | ข้อเสนอโครงการ | เอกสาร Proposal + ลายเซ็นที่ปรึกษา + อัปโหลด SIMs |
-| **1: Foundation** | 30 พ.ค. – 30 มิ.ย. 2569 | Infrastructure + ML pipeline (non-AI) | Repo setup, Auth, ML pipeline ขั้น 1-4 |
-| **2: Core AI** | 1-14 ก.ค. 2569 | PointNet++ trained + Full pipeline | Wood-Leaf model + Web Dashboard +3D Viewer |
+| **1: Foundation** | 30 พ.ค. – 30 มิ.ย. 2569 | Infrastructure + ML pipeline (non-AI) | Repo setup, Auth, ML pipeline ขั้น 1-4, Belgium validation refined |
+| **2: Core AI** | 1-14 ก.ค. 2569 | PointNet++ trained + Full pipeline | Wood-Leaf model + Web Dashboard + 3D Viewer |
 | **3: Mobile + Submission** | 15-17 ก.ค. 2569 | Mobile App + Final Report | APK + Marketplace + ส่งรายงานสมบูรณ์ |
 | **4: Pitching Prep** | 7-20 ส.ค. 2569 | Demo video + Pitch deck | Video 3-5 นาที + Slides + Rehearsal |
 | **5: Competition** | 21-24 ส.ค. 2569 | Final Pitching | นำเสนอรอบชิงชนะเลิศ |
@@ -306,25 +697,26 @@ Pitching                                      ████████
 
 ---
 
-## ส่วนที่ 8: ผลที่คาดว่าจะได้รับ (Expected Outcomes)
+## ส่วนที่ 9: ผลที่คาดว่าจะได้รับ (Expected Outcomes)
 
-### 8.1 ผลผลิตเชิงเทคนิค (Technical Deliverables)
+### 9.1 ผลผลิตเชิงเทคนิค (Technical Deliverables)
 
-1. **ระบบประเมินคาร์บอนต้นไม้แบบอัตโนมัติ** ที่บรรลุเป้าหมายความแม่นยำ DBH RMSE ≤ 5 cm และ Wood-Leaf IoU ≥ 0.70
+1. **ระบบประเมินคาร์บอนต้นไม้แบบอัตโนมัติ** ที่บรรลุเป้าหมายความแม่นยำ:
+   - DBH MAE ≤ 2 cm **(บรรลุแล้ว: 1.17 cm บน Demol 2021)**
+   - Tree Height MAE ≤ 1 m **(บรรลุแล้ว: 0.54 m)**
+   - Wood-Leaf IoU ≥ 0.70 (Phase 2 target)
 2. **เวลาประมวลผล** < 10 นาที/แปลง (ไม่รวม upload time)
 3. **Web Dashboard** ใช้งานได้จริงผ่าน https://carbonscan-ai.vercel.app
 4. **Mobile App** (Android APK) ดาวน์โหลดได้จาก GitHub Releases
-5. **Trained Models** เผยแพร่บน Hugging Face Hub แบบ Open Source
+5. **Trained Models** เผยแพร่บน Hugging Face Hub แบบ Open Source (Phase 2)
 6. **Source Code** เปิดเผยบน GitHub แบบ MIT License (หลังการแข่งขัน)
+7. **Validation dataset + results** เปิดเผยทำให้ replicable
 
-### 8.2 ผลกระทบเชิงสังคม (Social Impact)
-
-ใช้กรอบ Triple Helix Model + Academic:
+### 9.2 ผลกระทบเชิงสังคม (Social Impact)
 
 **1. เกษตรกร / ชุมชนผู้ปลูกต้นไม้:**
 - เปลี่ยนต้นไม้ที่ปลูกเป็นรายได้ผ่านการขาย Carbon Credit
 - ลดต้นทุนเข้าระบบจาก ~100,000 บาท → 0 บาท (ลด 100 เท่า)
-- เข้าถึงระบบเศรษฐกิจสีเขียวที่เคยเป็นเอกสิทธิ์ของบริษัทใหญ่
 
 **2. โรงงานอุตสาหกรรม / SMEs:**
 - มีตัวกลาง B2B ที่โปร่งใส (เห็น GPS หมุดของต้นไม้ทุกต้นที่สนับสนุน)
@@ -332,7 +724,7 @@ Pitching                                      ████████
 - พร้อมรับมือมาตรการ CBAM ของ EU
 - สร้าง ESG Report ที่ Verifiable ระดับ 3D
 
-**3. TGO / Carbon Auditors (หน่วยงานรับรอง):**
+**3. TGO / Carbon Auditors:**
 - ลดเวลาลงพื้นที่จริงจากหลายสัปดาห์ → ชั่วโมง
 - เพิ่ม capacity ในการ verify โครงการคาร์บอนเครดิต
 - ตรวจสอบความถูกต้องของข้อมูลย้อนหลังได้จากไฟล์ 3D Point Cloud
@@ -340,21 +732,21 @@ Pitching                                      ████████
 **4. ภาคการศึกษา / วิจัย:**
 - Open Source Dataset และ Trained Model สำหรับ research community
 - ลด barrier ในการทำงานวิจัย Forest Inventory ในไทย
-- โอกาสตีพิมพ์ paper ระดับนานาชาติ (ICCV/CVPR Workshop, Remote Sensing)
+- โอกาสตีพิมพ์ paper ระดับนานาชาติ (ICCV/CVPR Workshop, Remote Sensing journal)
 
 **5. ประเทศไทย (National-level):**
 - สนับสนุนเป้าหมาย Carbon Neutrality 2050 ของรัฐบาล
 - เพิ่มขีดความสามารถส่งออกสินค้าเข้าตลาด EU (CBAM compliance)
 - พัฒนา Climate FinTech ecosystem ของไทย
 
-### 8.3 ผลกระทบเชิงวิชาการ (Academic Impact)
+### 9.3 ผลกระทบเชิงวิชาการ (Academic Impact)
 
 โครงการนี้เป็นการประยุกต์ใช้ Computer Science กับ Forestry Science แบบ Multi-disciplinary อย่างชัดเจน:
 - การ Port อัลกอริทึมจาก R (lidR) เป็น Python — เป็นประโยชน์ต่อ Python community
 - การปรับ PointNet++ ให้ทำงานกับข้อมูลป่าไม้ของไทย — เป็น novel contribution
-- การสร้าง Calibration Dataset Photogrammetry-vs-Ground Truth สำหรับไม้เศรษฐกิจไทย — เป็น open dataset แรกของประเภทนี้ในไทย
+- การสร้าง Calibration Dataset Photogrammetry-vs-Ground Truth สำหรับไม้เศรษฐกิจไทย — เป็น open dataset แรกของประเภทนี้
 
-### 8.4 ผลสำเร็จที่ใช้วัด (Success Metrics)
+### 9.4 ผลสำเร็จที่ใช้วัด (Success Metrics)
 
 | Metric | Baseline (วิธีดั้งเดิม) | Target (CarbonScan AI) | Improvement |
 |---|---|---|---|
@@ -365,19 +757,20 @@ Pitching                                      ████████
 
 ---
 
-## ส่วนที่ 9: ข้อจำกัดและแนวทางแก้ไข (Risks & Mitigations)
+## ส่วนที่ 10: ข้อจำกัดและแนวทางแก้ไข (Risks & Mitigations)
 
-### 9.1 Technical Risks
+### 10.1 Technical Risks
 
 | ความเสี่ยง | ความน่าจะเป็น | ผลกระทบ | แนวทางแก้ |
 |---|---|---|---|
-| Photogrammetry แม่นยำต่ำกว่า LiDAR | กลาง | สูง | ทำ Calibration Experiment กับ Ground Truth 20 ต้น + รายงาน Error margin ใน UI |
-| PointNet++ Train ไม่ทันก่อน 17 ก.ค. | กลาง | สูง | Fallback ใช้ TLSeparation (rule-based) [19] เป็น baseline + ระบุ DL เป็น "future enhancement" |
+| Photogrammetry แม่นยำต่ำกว่า LiDAR | กลาง | สูง | Mobile = secondary path ที่ optional, primary คือ LiDAR upload; รายงาน Error margin ใน UI |
+| PointNet++ Train ไม่ทันก่อน 17 ก.ค. | กลาง | กลาง | Phase 1 ใช้ rule-based PCA fallback ที่ functional แล้ว — DL เป็น enhancement |
 | Cloud GPU ค่าใช้จ่ายเกินงบ | ต่ำ | กลาง | ตั้ง budget cap $30/เดือน + ใช้ Colab/Kaggle ฟรีใน dev phase |
-| Dataset LiDAR ไทยไม่มี | สูง | กลาง | ใช้ NEON (USA) เทรนก่อน + Transfer learning หรือ Synthetic data |
+| Dataset LiDAR ไทยไม่มี | สูง | กลาง | ใช้ NEON (USA) + Belgium Demol 2021 ✅; field collection ใน Phase 3 |
 | iOS build ไม่ได้ (ไม่มี Mac) | สูง | ต่ำ | ใช้ Codemagic / Bitrise cloud macOS build + Focus Android เป็นหลัก |
+| Watershed over-segmentation | กลาง | ต่ำ | ระบบมี filter DBH < 2 cm กรอง fragments; Phase 2 ใช้ marker-controlled watershed |
 
-### 9.2 Operational Risks
+### 10.2 Operational Risks
 
 | ความเสี่ยง | ความน่าจะเป็น | ผลกระทบ | แนวทางแก้ |
 |---|---|---|---|
@@ -385,45 +778,48 @@ Pitching                                      ████████
 | ทีมงานคนใดคนหนึ่งติดสอบ/ป่วย | สูง | กลาง | งาน Critical Path ให้ทุกคนช่วยร่าง, มี backup ทุก Role |
 | Internet วันแข่งไม่เสถียร | ต่ำ | สูง | เตรียม Offline Demo (pre-computed dataset + downloaded videos) |
 
-### 9.3 Q&A Defense (เผื่อกรรมการถาม)
+### 10.3 Q&A Defense (เผื่อกรรมการถาม)
 
 **Q1: Photogrammetry แม่นยำเท่า LiDAR ไหม?**
-A: ไม่เท่า — แต่อยู่ในระดับ ±5-10 cm ซึ่งเพียงพอสำหรับ Voluntary Carbon Market (T-VER) ตามที่งานวิจัย Liang et al. 2019 [18] และ Mokros et al. 2021 [20] ยืนยันไว้ ทั้งนี้ระบบมี Calibration กับ Ground Truth + รายงาน Confidence Score ทุก measurement
+A: ไม่เท่า — แต่อยู่ในระดับ ±5-10 cm ซึ่งเพียงพอสำหรับ Voluntary Carbon Market (T-VER) [18, 20] ทั้งนี้ระบบมี Calibration กับ Ground Truth + รายงาน Confidence Score ทุก measurement และ Mobile เป็น secondary path สำหรับ smallholder เท่านั้น — primary input คือ LiDAR Upload จาก auditor มืออาชีพ
 
 **Q2: จะรู้ได้ไงว่าไม่นับซ้ำ?**
-A: ระบบมีกลไก Anti-Fraud 4 ชั้น (ดู section 6.5) — GPS ทศนิยม 6 ตำแหน่ง + EXIF validation + Camera-only + Server-side dedup
+A: ระบบมีกลไก Anti-Fraud 4 ชั้น (Section 7.2.4) — GPS ทศนิยม 6 ตำแหน่ง + EXIF validation + Camera-only + Server-side dedup ผ่าน PostGIS ST_DWithin
 
-**Q3: ใช้ GPU อะไรเทรน Model?**
-A: Training บน Google Colab Pro+ (NVIDIA A100 40GB), Production Inference บน RunPod Serverless (A10G 24GB) แบบ pay-per-second เพื่อ Scale-to-zero
+**Q3: ระบบเรา validate ยังไง?**
+A: ใช้ peer-reviewed dataset Demol et al. 2021 (Trees Journal, 65 ต้น 4 species จาก Belgium พร้อม destructive sampling) — ผลลัพธ์ DBH MAE 1.17 cm, Height MAE 0.54 m อยู่ใน TLS literature range
 
-**Q4: ค่าใช้จ่าย Run server เดือนละเท่าไหร่?**
-A: ใน Prototype scale (100 jobs/เดือน) ~$11.50/เดือน (~400 บาท) ใน production scale มี Business Model B2B Subscription cover ค่าใช้จ่าย
+**Q4: ทำไม Volume error 18.8% สูงกว่า DBH/Height?**
+A: เพราะ Phase 1 ใช้ taper equation (V = π/4 × DBH² × H × form_factor) ซึ่งเป็น approximation — Phase 2 จะใช้ full TreeQSM (Raumonen et al. 2013) ลด error เหลือ 5-10%
 
-**Q5: ทำไมไม่ใช้ R lidR ตรง ๆ?**
-A: เพราะ Production deployment ต้องการ Python ecosystem (FastAPI, PyTorch, Deployment via Docker) — เราจึง Port อัลกอริทึมจาก R เป็น Python ซึ่งเป็นประโยชน์ต่อชุมชน Python ทั่วโลกด้วย
+**Q5: ค่าใช้จ่าย Run server เดือนละเท่าไหร่?**
+A: ใน Prototype scale (100 jobs/เดือน) ~$45/เดือน (~1,600 บาท) ใน production scale มี Business Model B2B Subscription cover ค่าใช้จ่าย
+
+**Q6: ใช้ GPU อะไรเทรน Model?**
+A: Training บน Google Colab Pro+ (NVIDIA A100 40GB) / Local RTX 3060, Production Inference บน RunPod Serverless (A10G 24GB) แบบ pay-per-second เพื่อ Scale-to-zero
 
 ---
 
-## ส่วนที่ 10: งบประมาณ (Budget)
+## ส่วนที่ 11: งบประมาณ (Budget)
 
 > **TBD:** ตามมาตรฐาน NSC ~3,000-5,000 บาท/โครงการ
 
-### 10.1 รายการที่ขอสนับสนุนจาก NSC
+### 11.1 รายการที่ขอสนับสนุนจาก NSC
 
 | รายการ | จำนวน | ราคา/หน่วย | รวม (บาท) |
 |---|---|---|---|
-| Cloud GPU (RunPod) Phase 2-3 | 3 เดือน | 400 | 1,200 |
+| Cloud GPU (RunPod) Phase 2-3 | 3 เดือน | 1,400 | 4,200 |
 | Cloud GPU Training (Colab Pro+) | 2 เดือน | 1,700 | 3,400 |
 | Cloud Storage (Supabase Pro) | 3 เดือน | 850 | 2,550 |
 | Domain name (carbonscan-ai.com) | 1 ปี | 350 | 350 |
 | ค่าเดินทาง (ลงพื้นที่เก็บ Ground Truth) | — | — | 2,000 |
 | ค่าพิมพ์ Proposal + Final Report | 5 ชุด | 200 | 1,000 |
 | ค่าจัดทำ Poster A1 + นามบัตร (รอบชิง) | — | — | 1,500 |
-| **รวม** | | | **12,000** |
+| **รวม** | | | **15,000** |
 
 ⚠️ ปรับยอดตามที่ NSC อนุมัติได้จริง — รายการที่เกินงบ ทีมจะ self-fund
 
-### 10.2 รายการที่ทีมรับผิดชอบเอง
+### 11.2 รายการที่ทีมรับผิดชอบเอง
 
 - Hardware (Notebook ของทีม, Android phone)
 - Software License (ทั้งหมดเป็น Open Source / Free Tier)
@@ -432,34 +828,65 @@ A: เพราะ Production deployment ต้องการ Python ecosystem 
 
 ---
 
-## ส่วนที่ 11: เอกสารอ้างอิง (References)
+## ส่วนที่ 12: เอกสารอ้างอิง (References)
 
-ดูรายการเต็มใน [references.md](references.md) — ภาพรวม 30+ citations ครอบคลุม:
+[1] UNFCCC. (2015). *Paris Agreement*. United Nations Framework Convention on Climate Change. https://unfccc.int/process-and-meetings/the-paris-agreement
 
-1. UNFCCC Paris Agreement (2015)
-2. EU CBAM Regulation 2023/956
-3. Thailand NDC submission (COP26, 2021)
-4. กรมป่าไม้ — รายงานสถานการณ์ป่าไม้
-5. TGO — T-VER Methodology Documents
-6. Brown 1997 — Biomass measurement primer
-7. World Resources Institute (WRI) — Greenhouse Gas Protocol
-8. Qi et al. 2017 — PointNet++ (NeurIPS)
-9. Thomas et al. 2019 — KPConv (ICCV)
-10. Roussel et al. 2020 — lidR package (Remote Sensing of Environment)
-11. Raumonen et al. 2013 — TreeQSM (Remote Sensing)
-12. Zhang et al. 2016 — CSF Ground Filter (Remote Sensing)
-13. Khosravipour et al. 2014 — Pit-free CHM (PE&RS)
-14. TGO 2017 — Forestry Sector Greenhouse Gas Calculation Guideline
-15. IPCC 2006 — Guidelines for National GHG Inventories Vol. 4 (AFOLU)
-16. Schönberger & Frahm 2016 — COLMAP (CVPR)
-17. Cernea — OpenMVS library
-18. Liang et al. 2019 — Forest in situ observations via UAV (Forest Ecosystems)
-19. Vicari et al. 2019 — TLSeparation (Methods in Ecology and Evolution)
-20. Mokros et al. 2021 — Low-cost mobile mapping (Int. J. Applied Earth Obs.)
+[2] European Commission. (2023). *Regulation (EU) 2023/956 establishing a carbon border adjustment mechanism*. https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R0956
+
+[3] Thailand NDC submission to UNFCCC. (2021). *Thailand's Updated Nationally Determined Contribution under the Paris Agreement*. COP26 announcement.
+
+[4] กรมป่าไม้. (2566). *รายงานสถานการณ์ป่าไม้ของประเทศไทย พ.ศ. 2566*. https://www.forest.go.th
+
+[5] TGO. (2565). *T-VER Methodology Documents: Forestry Sector*. องค์การบริหารจัดการก๊าซเรือนกระจก (องค์การมหาชน). https://ghgreduction.tgo.or.th/en/tver-method
+
+[6] Brown, S. (1997). *Estimating biomass and biomass change of tropical forests: a primer*. FAO Forestry Paper 134. http://www.fao.org/3/w4095e/w4095e00.htm
+
+[7] World Resources Institute & WBCSD. (2004). *The Greenhouse Gas Protocol: A Corporate Accounting and Reporting Standard, Revised Edition*. https://ghgprotocol.org/corporate-standard
+
+[8] Qi, C. R., Yi, L., Su, H., & Guibas, L. J. (2017). PointNet++: Deep Hierarchical Feature Learning on Point Sets in a Metric Space. *Advances in Neural Information Processing Systems (NeurIPS 2017)*. arXiv:1706.02413
+
+[9] Thomas, H., Qi, C. R., Deschaud, J. E., Marcotegui, B., Goulette, F., & Guibas, L. J. (2019). KPConv: Flexible and Deformable Convolution for Point Clouds. *Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)*, 6411–6420.
+
+[10] Roussel, J.-R., Auty, D., Coops, N. C., Tompalski, P., Goodbody, T. R., Meador, A. S., et al. (2020). lidR: An R package for analysis of Airborne Laser Scanning (ALS) data. *Remote Sensing of Environment*, 251, 112061. DOI: [10.1016/j.rse.2020.112061](https://doi.org/10.1016/j.rse.2020.112061)
+
+[11] Raumonen, P., Kaasalainen, M., Åkerblom, M., Kaasalainen, S., Kaartinen, H., Vastaranta, M., et al. (2013). Fast Automatic Precision Tree Models from Terrestrial Laser Scanner Data. *Remote Sensing*, 5(2), 491–520. DOI: [10.3390/rs5020491](https://doi.org/10.3390/rs5020491)
+
+[12] Zhang, W., Qi, J., Wan, P., Wang, H., Xie, D., Wang, X., & Yan, G. (2016). An Easy-to-Use Airborne LiDAR Data Filtering Method Based on Cloth Simulation. *Remote Sensing*, 8(6), 501. DOI: [10.3390/rs8060501](https://doi.org/10.3390/rs8060501)
+
+[13] Khosravipour, A., Skidmore, A. K., Isenburg, M., Wang, T., & Hussin, Y. A. (2014). Generating Pit-free Canopy Height Models from Airborne Lidar. *Photogrammetric Engineering & Remote Sensing*, 80(9), 863–872. DOI: [10.14358/PERS.80.9.863](https://doi.org/10.14358/PERS.80.9.863)
+
+[14] TGO. (2017). *Forestry Sector Greenhouse Gas Calculation Guideline*. องค์การบริหารจัดการก๊าซเรือนกระจก (องค์การมหาชน), ประเทศไทย.
+
+[15] IPCC. (2006). *2006 IPCC Guidelines for National Greenhouse Gas Inventories, Vol. 4: Agriculture, Forestry and Other Land Use (AFOLU)*. https://www.ipcc-nggip.iges.or.jp/public/2006gl/vol4.html
+
+[16] Schönberger, J. L., & Frahm, J. M. (2016). Structure-from-Motion Revisited. *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 4104–4113. (COLMAP)
+
+[17] Cernea, D. (2020). *OpenMVS: Open Multi-View Stereo reconstruction library*. https://github.com/cdcseacave/openMVS
+
+[18] Liang, X., Wang, Y., Pyörälä, J., Lehtomäki, M., Yu, X., Kaartinen, H., et al. (2019). Forest in situ observations through Unmanned Aerial Vehicle-borne photogrammetry. *Forest Ecosystems*, 6(1), 1–16. DOI: [10.1186/s40663-019-0173-3](https://doi.org/10.1186/s40663-019-0173-3)
+
+[19] Vicari, M. B., Disney, M., Wilkes, P., Burt, A., Calders, K., & Woodgate, W. (2019). Leaf and wood classification framework for terrestrial LiDAR point clouds. *Methods in Ecology and Evolution*, 10(5), 680–694. (TLSeparation) DOI: [10.1111/2041-210X.13144](https://doi.org/10.1111/2041-210X.13144)
+
+[20] Mokros, M., Tabacchi, G., Surovy, P., Krásny, M., Slávik, M., Tomastik, J., & Plichta, R. (2021). Estimating individual tree height and diameter at breast height (DBH) from terrestrial laser scanning (TLS) data at plot level. *Forests*, 12(4), 444. DOI: [10.3390/f12040444](https://doi.org/10.3390/f12040444)
+
+[21] Tsutsumi, T., Yoda, K., Sahunalu, P., Dhanmanonda, P., & Prachaiyo, B. (1983). Forest: Felling, sampling and analysis methods. In *Forest ecological studies of the watershed in Northeast Thailand*. Kyoto University: Forest Ecology of the Monsoon Asia Series, 13–62.
+
+[22] Ogawa, H., Yoda, K., Kira, T., Ogino, K., Shidei, T., Ratanawongse, D., & Apasutaya, C. (1965). Comparative ecological study on three main types of forest vegetation in Thailand. *Nature & Life in Southeast Asia*, 4, 49–80.
+
+[23] Yiping, L., Yanxia, L., Buckingham, K., Henley, G., & Guomo, Z. (2010). *Bamboo and Climate Change Mitigation: A comparative analysis of carbon sequestration*. INBAR Technical Report 32, International Network for Bamboo and Rattan (INBAR), Beijing.
+
+[24] Chiarucci, A., D'Auria, F., De Dominicis, V., Lagana, A., Perini, C., & Salerni, E. (2014). Biomass estimation in rubber (Hevea brasiliensis Müll. Arg.) plantations using allometric models. *Forest Ecology and Management*, 318, 220–228.
+
+[25] **Demol, M., Verbeeck, H., Gielen, B., Armston, J., Burt, A., Disney, M., Duncanson, L., Hackenberg, J., Kükenbrink, D., Lau, A., Ploton, P., Sewdien, A., Stovall, A., Takoudjou, S. M., Volkova, L., Weston, C., Wortel, V., & Calders, K. (2021). Estimating forest above-ground biomass with terrestrial laser scanning: current status and future directions. *Trees*, 35, 671–685. DOI: [10.1007/s00468-020-02067-7](https://doi.org/10.1007/s00468-020-02067-7) — Dataset: [10.5281/zenodo.4557401](https://doi.org/10.5281/zenodo.4557401)**
+
+[26] Chave, J., Réjou-Méchain, M., Búrquez, A., Chidumayo, E., Colgan, M. S., Delitti, W. B., et al. (2014). Improved allometric models to estimate the aboveground biomass of tropical trees. *Global Change Biology*, 20(10), 3177–3190. DOI: [10.1111/gcb.12629](https://doi.org/10.1111/gcb.12629)
+
+[27] He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep Residual Learning for Image Recognition. *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 770–778. (ResNet) arXiv:1512.03385
 
 ---
 
-## ส่วนที่ 12: ภาคผนวก (Appendices)
+## ส่วนที่ 13: ภาคผนวก (Appendices)
 
 ### Appendix A: CV ทีมงาน
 - A.1 [User] — ปริญญาตรี ปี X, [คณะ มหาวิทยาลัย], ทักษะ: Python, PyTorch, Flutter, FastAPI
@@ -469,11 +896,17 @@ A: เพราะ Production deployment ต้องการ Python ecosystem 
 ### Appendix B: CV ที่ปรึกษาโครงการ
 - [ชื่อ-สกุล], [ตำแหน่งวิชาการ], [คณะ มหาวิทยาลัย], [ความเชี่ยวชาญ]
 
-### Appendix C: Architecture Diagram (Full Size)
-- [แทรกรูปคุณภาพสูง — Person B จัดทำ]
+### Appendix C: Architecture Diagrams + Figures (Full Size)
+- `fig09_architecture.png` — System Architecture (v2, 4 layers)
+- `fig10_user_flow.png` — User Journey
+- `fig01-08` — Synthetic Pipeline Outputs (Steps 1-8)
+- `fig11_belgium_dbh_parity.png` — DBH validation (Demol 2021)
+- `fig12_belgium_height_parity.png` — Tree Height validation
+- `fig13_belgium_volume_parity.png` — Volume validation
 
 ### Appendix D: UI/UX Mockups
-- [Screenshots สำคัญ 5-6 ภาพ — Person B จัดทำ]
+- Web Dashboard screenshots (Person B จัดทำ)
+- Mobile App screenshots (User capture)
 
 ### Appendix E: Letter of Recommendation (ถ้ามี)
 - [ใส่จดหมายรับรองจากที่ปรึกษา / นักวิจัยที่เกี่ยวข้อง]
@@ -483,14 +916,15 @@ A: เพราะ Production deployment ต้องการ Python ecosystem 
 ## 📋 Checklist ก่อนส่ง (29 พ.ค.)
 
 ### Content
-- [ ] บทคัดย่อ 200-300 คำ ครอบคลุม Problem + Solution + Impact
+- [ ] บทคัดย่อ 280-320 คำ ครอบคลุม Problem + Solution + Impact + Validation Results
 - [ ] หลักการและเหตุผลมี citations
 - [ ] วัตถุประสงค์ measurable
-- [ ] Scope ชัด — In-scope และ Out-of-scope
+- [ ] Section 7 ครบ 7.1-7.5 ตาม NSC template (สำคัญที่สุด)
 - [ ] Methodology ครบ 8 ขั้นตอน + Tech Stack ละเอียด
+- [ ] Belgium validation results อยู่ใน Section 7.2.5
 - [ ] Timeline + Gantt
-- [ ] Risk & Mitigation 10+ ข้อ
-- [ ] References ≥ 20 citations
+- [ ] Risk & Mitigation 9+ ข้อ
+- [ ] References 27+ citations ทุกตัวมี DOI
 
 ### Format
 - [ ] Cover page (Person B)
@@ -500,6 +934,7 @@ A: เพราะ Production deployment ต้องการ Python ecosystem 
 - [ ] Header + Footer
 - [ ] PDF format
 - [ ] ไม่มี typo
+- [ ] Figures มี caption ภาษาไทย
 
 ### Signatures
 - [ ] ที่ปรึกษาโครงการ
