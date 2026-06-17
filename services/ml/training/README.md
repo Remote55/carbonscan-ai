@@ -55,11 +55,21 @@ labels = seg.segment(points)        # (N,) 0=wood, 1=leaf
 # clouds with < 512 points auto-fall back to the rule-based segmenter
 ```
 
+## Compare against the PCA baseline (G2 acceptance figure)
+
+Once you have a checkpoint, score PointNet++ vs the Phase-1 PCA heuristic on the
+same held-out trees → table + `fig17_woodleaf_pca_vs_pointnet.png`:
+
+```bash
+python notebooks/compare_woodleaf.py --model woodleaf_pn2.pt
+# (omit --model to see just the PCA baseline)
+```
+
 ## Next steps for G2 (see docs/P1_SPRINT_PLAN.md)
 
 - [ ] Run full training on Colab → confirm val IoU ≥ 0.70
 - [ ] Add a small **manually-labelled real tree** test set (CloudCompare) for an honest IoU number
-- [ ] Produce a **PointNet++ vs PCA baseline** comparison figure for the Final Report
+- [x] Comparison harness ready — `notebooks/compare_woodleaf.py` (PointNet++ vs PCA)
 - [ ] (optional) export to TFLite for the mobile species/segmentation path
 
 > ⚠️ Checkpoints (`*.pt`) are large — do **not** commit them to git. Publish the
