@@ -82,7 +82,7 @@ dev = [
 carbonscan-pipeline = "pipeline.main:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["pipeline", "photogrammetry"]
+packages = ["pipeline", "photogrammetry", "training"]
 
 [tool.ruff]
 line-length = 100

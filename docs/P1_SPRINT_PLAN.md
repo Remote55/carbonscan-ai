@@ -92,11 +92,14 @@ Report                                 █████████████�
 4. Train **PointNet++** บน Colab/Kaggle **free tier** (T4/P100) → export `.pt`
 5. Integrate เป็น Phase 2 path ใน `wood_leaf_separation.py` (มี fallback PCA ถ้าโมเดลไม่โหลด)
 
+**สถานะ scaffold (พร้อมแล้ว — 17 มิ.ย.):** ✅ `services/ml/training/` setup ครบ — `woodleaf_dataset.py` (synthetic→labeled, torch-free), `metrics.py` (IoU), `pointnet2_seg.py` (PointNet++ SSG), `train_woodleaf.py` (Colab CLI), integrate hook ใน `wood_leaf_separation.py` (backend="pointnet" + fallback), 16 tests ผ่าน. **เหลือแค่รัน train จริงบน Colab** (ดู `training/README.md`)
+
 **Acceptance Criteria:**
-- [ ] PointNet++ train เสร็จ + export โมเดล
-- [ ] **IoU ≥ 0.70** บน held-out test set
+- [x] Scaffold + dataset + model + train CLI + integration + tests (TDD) ✅
+- [ ] รัน train จริงบน Colab → **IoU ≥ 0.70** บน held-out test set
+- [ ] เพิ่ม manual-labeled real tree เป็น test set (CloudCompare)
 - [ ] ตาราง/รูปเทียบ **PointNet++ vs PCA baseline** (โชว์ว่า DL ดีขึ้นจริง)
-- [ ] integrate เข้า pipeline + unit test ผ่าน (ห้าม break 25 tests เดิม)
+- [x] integrate เข้า pipeline + unit test ผ่าน (41/41, ไม่ break ของเดิม) ✅
 
 **ความเสี่ยง:** train ไม่ทัน/IoU ไม่ถึง → mitigation: PCA fallback ยัง functional (proposal เขียนไว้แล้วว่า DL เป็น enhancement); ตั้ง checkpoint กลาง S2 ถ้าไม่เวิร์คให้ลด scope เป็น "เทรนได้ + รายงานผลเบื้องต้น"
 

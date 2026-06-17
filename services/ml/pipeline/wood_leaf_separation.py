@@ -3,8 +3,9 @@
 Phase 1 (this file): TLSeparation-inspired rule-based segmentation using
 local PCA eigenvalue ratios. Robust, CPU-only, no training needed.
 
-Phase 2: PointNet++ deep learning model trained on annotated NEON data,
-with this rule-based version kept as fallback.
+Phase 2: PointNet++ deep learning model (see the `training/` package — trained
+on synthetic labelled trees, with real data to follow), with this rule-based
+version kept as fallback.
 
 References:
 - Vicari et al. 2019 — TLSeparation (separating wood from leaves in TLS)
@@ -21,6 +22,10 @@ from scipy.spatial import cKDTree
 # Output class codes
 WOOD = 0
 LEAF = 1
+
+# The PointNet++ model's first sampling layer needs at least this many points;
+# sparser clouds fall back to the rule-based segmenter.
+_POINTNET_MIN_POINTS = 512
 
 
 def segment_wood_leaf(
@@ -108,9 +113,26 @@ class WoodLeafSegmenter:
         self._model = None
 
     def load(self) -> None:
-        """Load model weights (no-op for rule-based)."""
-        if self.backend == "pointnet":
-            raise NotImplementedError("Phase 2 — load PointNet++ checkpoint")
+        """Load model weights (no-op for rule-based; checkpoint for pointnet)."""
+        if self.backend != "pointnet":
+            return
+        import torch  # local import — torch only required for the DL backend
+
+        from training.pointnet2_seg import PointNet2SegSSG
+
+        if self.model_path is None:
+            raise ValueError("backend='pointnet' requires model_path to a .pt checkpoint")
+        device = self.device
+        if device == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        ckpt = torch.load(self.model_path, map_location=device)
+        num_classes = ckpt.get("num_classes", 2)
+        model = PointNet2SegSSG(num_classes=num_classes)
+        model.load_state_dict(ckpt["state_dict"])
+        model.to(device).eval()
+        self._model = model
+        self._device = device
+        self._torch = torch
 
     def segment(self, points: np.ndarray) -> np.ndarray:
         """Classify each point as wood (0) or leaf (1)."""
@@ -124,4 +146,23 @@ class WoodLeafSegmenter:
         return segment_wood_leaf(points)
 
     def _segment_pointnet(self, points: np.ndarray) -> np.ndarray:
-        raise NotImplementedError("Phase 2 — PointNet++ inference")
+        """Classify each point as wood (0) / leaf (1) with the PointNet++ model.
+
+        Falls back to the rule-based segmenter when the cloud has too few points
+        for the model's sampling layers.
+        """
+        if self._model is None:
+            self.load()
+        if len(points) < _POINTNET_MIN_POINTS:
+            return self._segment_tlsep(points)
+        torch = self._torch
+        # Normalise to unit sphere (same as training; see training.woodleaf_dataset)
+        pts = np.asarray(points, dtype=np.float64)
+        centered = pts - pts.mean(axis=0)
+        scale = np.linalg.norm(centered, axis=1).max()
+        if scale > 0:
+            centered = centered / scale
+        x = torch.from_numpy(centered.astype(np.float32)).unsqueeze(0).to(self._device)
+        with torch.no_grad():
+            logits = self._model(x)  # (1, N, num_classes)
+        return logits.argmax(dim=-1).squeeze(0).cpu().numpy().astype(np.int8)
