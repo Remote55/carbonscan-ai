@@ -1,0 +1,3 @@
+tree_id,species_sci,circumference_cm,dbh_cm,height_m,point_cloud_file,notes
+T01,Tectona grandis,,28.5,15.2,T01.ply,วัด DBH ตรงด้วยคาลิปเปอร์ -> ใส่ dbh_cm; height จาก clinometer
+T02,Dipterocarpus alatus,94.2,,18.0,T02.ply,วัดเส้นรอบวงที่ 1.3 ม. -> ใส่ circumference_cm (ระบบหาร pi ให้เอง)

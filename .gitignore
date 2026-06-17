@@ -74,6 +74,10 @@ data/samples/*.ply
 data/ground-truth/
 services/ml/data/raw/
 services/ml/data/processed/
+# Thai field data: keep the template + README, ignore real measurements + clouds
+services/ml/data/field/*
+!services/ml/data/field/README.md
+!services/ml/data/field/thai_ground_truth_TEMPLATE.csv
 services/ml/models/*.pth
 services/ml/models/*.onnx
 services/ml/models/*.tflite
