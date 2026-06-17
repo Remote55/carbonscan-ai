@@ -64,7 +64,7 @@
 
 โครงการ "CarbonScan AI" นำเสนอ **software platform ระหว่าง LiDAR scanning ↔ Carbon Credit Marketplace** ที่ทำหน้าที่:
 (1) รับ input LiDAR Point Cloud `.las/.laz` เป็น primary path (สำหรับผู้ตรวจสอบและผู้รับเหมา carbon survey ที่มีอุปกรณ์อยู่แล้ว) และรับภาพถ่ายมือถือเป็น secondary path สำหรับเกษตรกรรายย่อย (Photogrammetry < 1 ไร่)
-(2) ประมวลผลผ่าน ML Pipeline 8 ขั้น ใช้ Deep Learning (PointNet++) จำแนกใบ/ลำต้น + RANSAC วัด DBH + สมการแอลโลเมตริก TGO 2017 คำนวณคาร์บอน
+(2) ประมวลผลผ่าน ML Pipeline 8 ขั้น — จำแนกใบ/ลำต้น (Phase 1: PCA eigenstructure heuristic ที่ใช้งานได้แล้ว; Phase 2: Deep Learning PointNet++) + RANSAC วัด DBH + สมการแอลโลเมตริก TGO 2017 คำนวณคาร์บอน
 (3) ออก PDF certificate ที่อ้างอิงมาตรฐาน TGO + รองรับการ verify ของ third-party
 (4) เป็นตัวกลาง B2B marketplace ระหว่างชุมชนผู้ปลูกต้นไม้กับโรงงานอุตสาหกรรมที่ต้องการชดเชย CBAM/ESG
 (5) ป้องกันการนับซ้ำผ่าน GPS dedup, EXIF validation, multi-temporal tracking สำหรับ Additionality
@@ -97,7 +97,7 @@
 
 **1. ต้นทุนการประเมินสูง**
 
-กระบวนการประเมินคาร์บอนเครดิตป่าไม้ตามมาตรฐาน T-VER ในปัจจุบันต้องใช้ผู้ตรวจสอบลงพื้นที่จริง โดยใช้สายวัดโอบรอบลำต้นเพื่อหาเส้นผ่านศูนย์กลางระดับอก (Diameter at Breast Height — DBH) และใช้กล้องเล็งวัดความสูง ทีละต้น ทำให้มีต้นทุนการสำรวจในระดับ 100,000-500,000 บาทต่อแปลง 50 ไร่ [5]
+กระบวนการประเมินคาร์บอนเครดิตป่าไม้ตามมาตรฐาน T-VER [5] ในปัจจุบันต้องใช้ผู้ตรวจสอบลงพื้นที่จริง โดยใช้สายวัดโอบรอบลำต้นเพื่อหาเส้นผ่านศูนย์กลางระดับอก (Diameter at Breast Height — DBH) และใช้กล้องเล็งวัดความสูงทีละต้น ทำให้มีต้นทุนการสำรวจและประเมินในระดับ 50,000–200,000 บาทต่อแปลง (ขึ้นกับขนาดพื้นที่และจำนวนต้น; ประมาณการจากการสอบถามผู้ประกอบการ carbon survey)
 
 **2. ขาด software layer ที่เชื่อม LiDAR → Carbon Credit**
 
@@ -156,7 +156,7 @@ CarbonScan AI จึงถูกออกแบบมาเพื่อปิด
    - ผู้ซื้อตรวจสอบ provenance ก่อนซื้อ (3D model + GPS pins)
    - Auditor ตรวจสอบย้อนหลังได้ (audit trail + immutable log)
 
-6. **ทดสอบความแม่นยำของระบบ** เทียบกับ peer-reviewed dataset (Demol et al. 2021 — Belgium TLS + destructive sampling, 65 ต้น × 4 species) โดยตั้งเป้า DBH MAE ≤ 2 cm และ Height MAE ≤ 1 m **(บรรลุแล้วใน Phase 1)**
+6. **ทดสอบความแม่นยำของระบบ** เทียบกับ peer-reviewed dataset (Demol et al. 2021 [25] — Belgium TLS + destructive sampling, 65 ต้น × 4 species) โดยตั้งเป้า DBH MAE ≤ 2 cm และ Height MAE ≤ 1 m **(บรรลุแล้วใน Phase 1)**
 
 ---
 
@@ -197,9 +197,9 @@ Path B — Mobile Photogrammetry (SECONDARY)            ↓
                                               Output (Certificate + Marketplace + GIS+Audit)
 ```
 
-ระบบรัน ML pipeline บน Cloud GPU (RunPod Serverless A10G/RTX 4090, ~$0.39/ชั่วโมง pay-per-second) ใช้เวลาประมาณ 5-15 นาทีต่อ scan โดยใช้ WebSocket ส่ง progress กลับมา client แบบ real-time
+ระบบรัน ML pipeline บน Cloud GPU (RunPod Serverless A10G, ~$0.39/ชั่วโมง pay-per-second) ใช้เวลาประมาณ 10–15 นาทีต่อ scan โดยใช้ WebSocket ส่ง progress กลับมา client แบบ real-time
 
-ระเบียบวิธีในการประเมินความแม่นยำใช้ **Public Dataset ที่ peer-reviewed คือ Demol et al. 2021 (Zenodo 4557401)** — TLS scan ของ 65 ต้น × 4 species ใน Belgium พร้อม destructive sampling reference
+ระเบียบวิธีในการประเมินความแม่นยำใช้ **Public Dataset ที่ peer-reviewed คือ Demol et al. 2021 [25] (Zenodo 4557401)** — TLS scan ของ 65 ต้น × 4 species ใน Belgium พร้อม destructive sampling reference
 
 ผลทดสอบเบื้องต้น **(Preliminary Validation — รันเสร็จเมื่อ 24 พ.ค. 2569):**
 
@@ -258,7 +258,7 @@ Path B — Mobile Photogrammetry (SECONDARY)            ↓
 - **Watershed Segmentation:** Roussel et al. 2020 [10] — แยกต้นไม้ทีละต้น
 - **PointNet++ Deep Learning:** Qi et al. 2017 [8] — Wood/Leaf semantic segmentation
 - **Quantitative Structure Model (QSM):** Raumonen et al. 2013 [11] — วัดปริมาตรไม้
-- **Chave Pantropical Allometric:** Chave et al. 2014 — สมการ biomass ป่าเขตร้อน (fallback)
+- **Chave Pantropical Allometric:** Chave et al. 2014 [26] — สมการ biomass ป่าเขตร้อน (fallback)
 - **TGO Forestry Sector Guideline:** TGO 2017 [14] — สมการของไทยเฉพาะ
 - **IPCC AFOLU Guidelines:** IPCC 2006 [15] — ค่ามาตรฐาน Carbon fraction = 0.47, Root:Shoot = 0.24
 
@@ -333,7 +333,7 @@ OUTPUT (JSON per tree + PDF Certificate)
 - **Output:** ทุก point ใน cloud ได้ tree_id (0 = no tree, 1..N = tree number)
 
 **ขั้นตอนที่ 5: Wood-Leaf Semantic Segmentation** ⭐
-- **Algorithm Phase 1:** Local PCA eigenvalue analysis — คำนวณ linearity, planarity, verticality
+- **Algorithm Phase 1:** Local PCA eigenvalue analysis [19] — คำนวณ linearity, planarity, verticality
 - **Algorithm Phase 2:** PointNet++ deep learning [8] — fine-tune on annotated data
 - **Data structure:** (N, 3) point array + (N, 3, 3) covariance matrices (batched einsum)
 - **Formulas:**
@@ -356,13 +356,13 @@ OUTPUT (JSON per tree + PDF Certificate)
 - **Output:** QsmResult{dbh_cm, height_m, volume_m3, fit_quality}
 
 **ขั้นตอนที่ 7: Species Classification** (Phase 2 — Mobile)
-- **Algorithm:** ResNet-50 Transfer Learning + TFLite int8 quantization
+- **Algorithm:** ResNet-50 [27] Transfer Learning + TFLite int8 quantization
 - **Parameters:** Input 224×224 RGB, 5 classes + Unknown
 - **Library:** PyTorch + torchvision; TensorFlow Lite สำหรับ mobile deployment
 - **Output:** dict {species_sci: probability} — top-1 prediction + confidence
 
 **ขั้นตอนที่ 8: Allometric Carbon Calculation** ⭐ บทสำคัญที่สุด
-- **Algorithm:** Species-specific Tier-2 + Chave 2014 fallback (Tier-3)
+- **Algorithm:** Species-specific Tier-2 + Chave 2014 [26] fallback (Tier-3); กรอบการประเมินชีวมวลอ้างอิง Brown 1997 [6] + IPCC 2006 [15]
 - **Data structure:** Species DB CSV (5 species × 10 columns)
 - **สูตรเต็ม:**
 
@@ -408,7 +408,7 @@ OUTPUT (JSON per tree + PDF Certificate)
 
 #### 7.2.5 ผลการทดสอบบน Public Dataset (Preliminary Validation)
 
-**Dataset:** Demol et al. 2021 [20] — TLS point clouds 65 ต้น × 4 species (Fagus sylvatica, Pinus sylvestris, Fraxinus excelsior, Larix decidua) ใน Belgium พร้อม destructive sampling reference
+**Dataset:** Demol et al. 2021 [25] — TLS point clouds 65 ต้น × 4 species (Fagus sylvatica, Pinus sylvestris, Fraxinus excelsior, Larix decidua) ใน Belgium พร้อม destructive sampling reference
 
 **Reference:** Trees Journal, DOI [10.1007/s00468-020-02067-7](https://doi.org/10.1007/s00468-020-02067-7), Zenodo [10.5281/zenodo.4557401](https://doi.org/10.5281/zenodo.4557401)
 
@@ -428,6 +428,20 @@ OUTPUT (JSON per tree + PDF Certificate)
 - `fig11_belgium_dbh_parity.png` — DBH parity (predicted vs felled measurement)
 - `fig12_belgium_height_parity.png` — Tree Height parity
 - `fig13_belgium_volume_parity.png` — Stem Volume parity (with Phase 2 caveat)
+
+#### 7.2.6 แหล่งข้อมูลที่ใช้ (Data Sources & Provenance)
+
+เนื่องจากข้อมูล LiDAR เป็นหัวใจของระบบ ตารางนี้ระบุ **ที่มาของข้อมูลทุกชุดที่ใช้** พร้อมแหล่งอ้างอิงและตำแหน่งจัดเก็บใน repository เพื่อให้ตรวจสอบย้อนกลับ (reproducible) ได้:
+
+| ประเภทข้อมูล | แหล่งที่มา | รายละเอียด / การเข้าถึง | อ้างอิง |
+|---|---|---|---|
+| **Validation dataset (หลัก)** | Demol et al. 2021 — TLS + destructive sampling (Belgium) | 65 ต้น × 4 species; DOI `10.1007/s00468-020-02067-7`; Zenodo `10.5281/zenodo.4557401`; จัดเก็บที่ `services/ml/data/raw/zenodo_belgium/` | [25] |
+| **Public LiDAR (Phase 2)** | NEON `DP1.30003.001` / OpenTopography | Airborne discrete-return LiDAR สาธารณะ ใช้ขยายผล validation และเตรียมข้อมูลฝึก PointNet++ | [28][29] |
+| **ค่าสัมประสิทธิ์ Allometric** | Tsutsumi 1983, Ogawa 1965, Yiping 2010, Chiarucci 2014, Chave 2014, TGO 2017, IPCC 2006 | สมการ AGB = a·DBH^b·H^c + carbon fraction (0.47) + root:shoot (0.24); จัดเก็บที่ `services/ml/data/species_db.csv` | [14][15][21]–[24][26] |
+| **ข้อมูลผู้ใช้จริง (runtime)** | ผู้ใช้อัปโหลดเอง: `.las/.laz` จาก TLS/Drone scanner หรือภาพถ่ายมือถือ ≥ 30 ภาพ | ระบบไม่ผูกกับชุดข้อมูลก้อนเดียว — ทำงานกับ point cloud มาตรฐาน ASPRS LAS / Stanford PLY ใดก็ได้ | — (ข้อมูลของผู้ใช้) |
+| **ข้อมูลภาคสนามไทย (Phase 3)** | เก็บเองภาคสนาม (สายวัดรอบลำต้น + Vertex/clinometer + TLS/photogrammetry) | ⚠️ **ข้อจำกัดที่ทราบ:** ต้นแบบยังไม่มี ground-truth ของไม้เศรษฐกิจไทย — วางแผนเก็บ 30–50 ต้น (สัก/ยางนา) เพื่อ calibrate สมการ allometric เฉพาะถิ่น | — (เก็บใหม่) |
+
+> **หมายเหตุด้านความโปร่งใส:** สคริปต์ validation (`validate_belgium.py`) และผลรายต้น (`belgium_validation.csv`) เปิดเผยใน repository — กรรมการและผู้ตรวจสอบสามารถ rerun เพื่อยืนยันตัวเลข DBH MAE 1.17 cm / Height MAE 0.54 m ได้ด้วยตนเอง
 
 ---
 
@@ -590,7 +604,7 @@ OUTPUT (JSON per tree + PDF Certificate)
 └──────────────────────────────────────────────────────┘
 ```
 
-ดู `fig09_architecture.png` ใน Appendix C สำหรับภาพ resolution สูง
+ดู `fig14_system_simplified.png` สำหรับภาพรวมระบบแบบเข้าใจง่ายใน 1 ภาพ (input → AI → output) และ `fig09_architecture.png` ใน Appendix C สำหรับภาพสถาปัตยกรรมแบบ 4 layers resolution สูง
 
 **Monorepo Structure:**
 
@@ -620,9 +634,30 @@ Project_Carbon/
 | `jobs` | ML pipeline jobs + status + progress + input_url + output_url |
 | `transactions` | Carbon credit sales (buyer, plot, amount, price, timestamp) |
 | `species_db` | Allometric coefficients per species (5 rows) |
-| `audit_log` | Immutable log ทุก mutation (RLS protected) |
+| `audit_log` *(Phase 2)* | Immutable log ทุก mutation (RLS protected) |
 
 ทุก table มี **Row-Level Security (RLS)** policies — community user เห็นเฉพาะของตัวเอง, auditor เห็นทุกอย่าง, industrial buyer เห็น marketplace + own transactions
+
+#### 7.4.5 การออกแบบ UX สำหรับงานประมวลผลที่ใช้เวลานาน (Async Processing UX)
+
+เนื่องจากการประมวลผล LiDAR point cloud ใช้เวลาประมาณ **10–15 นาที/แปลง** (ขึ้นกับขนาดไฟล์และจำนวนต้น) การออกแบบให้ผู้ใช้ "นั่งรอหน้าค้าง" จึงไม่เหมาะสม ระบบจึงใช้สถาปัตยกรรมแบบ **asynchronous job + real-time progress** เพื่อให้ประสบการณ์ใช้งานลื่นไหลแม้งานจะใช้เวลานาน ตามหลักการต่อไปนี้:
+
+| ปัญหา UX ของงานที่ใช้เวลานาน | วิธีแก้ของ CarbonScan AI |
+|---|---|
+| อัปโหลดไฟล์ใหญ่ (≤ 500 MB) แล้วเน็ตหลุด ต้องเริ่มใหม่ | **Resumable upload (tus protocol)** — อัปโหลดต่อจากจุดเดิมได้ + แสดง % อัปโหลดแยกจาก % ประมวลผล |
+| กดแล้วหน้าค้าง ไม่รู้ว่าระบบทำงานอยู่ไหม | ได้ **Job ID ทันที** + แสดง progress ของ **8 ขั้นตอน (ระบุชื่อ)** พร้อม % รวม ผ่าน **WebSocket** แบบ real-time |
+| ไม่รู้ว่าต้องรออีกนานเท่าไร | แสดง **เวลาที่เหลือโดยประมาณ (ETA)** คำนวณจาก stage ปัจจุบัน + ขนาดไฟล์ |
+| ต้องเฝ้าหน้าจอจนเสร็จ | **ปิดหน้า/ออกไปทำงานอื่นได้** — แจ้งเตือนเมื่อเสร็จผ่าน **อีเมล + push notification (มือถือ)** และดูผลย้อนหลังได้จากหน้า "งานของฉัน" |
+| ถ้า pipeline ล้มเหลว ผู้ใช้เห็นแค่ spinner ค้าง | **แสดง error ราย stage** + ปุ่ม retry เฉพาะ stage ที่ fail (ไม่ต้องเริ่มใหม่ทั้งหมด) |
+| งานยาวแต่ผู้ใช้อยากเห็นผลก่อน | แสดง **ผลลัพธ์บางส่วน (partial preview)** ทันทีที่แต่ละ stage เสร็จ — เห็น point cloud + ต้นไม้ที่ segment แล้ว ก่อนคำนวณคาร์บอนเสร็จ |
+
+**กลไกทางเทคนิคที่รองรับ:**
+- **Job Queue (Supabase PGMQ)** — รับงานเข้าคิวแล้วคืน Job ID ทันที ไม่ block request
+- **WebSocket `/api/v1/ws/jobs/{id}`** — ส่ง event `{stage, progress, eta}` กลับ client ทุกครั้งที่ stage เปลี่ยน
+- **Skeleton / optimistic UI** — แสดงโครงหน้าผลลัพธ์ก่อนข้อมูลจริงมาถึง
+- **Mobile background upload** — อัปโหลดต่อใน background + แจ้งเตือนผ่าน push เมื่อเสร็จ
+
+> ภาพ wireframe ของหน้าจอนี้ดู `fig15_processing_ux.png` (Appendix C) — แสดง progress 8 ขั้น, % รวม, ETA และข้อความ "ปิดหน้านี้ได้ ระบบจะแจ้งเตือนเมื่อเสร็จ"
 
 ---
 
@@ -639,7 +674,7 @@ Project_Carbon/
 | **Web Dashboard** | Responsive (mobile + desktop), 4 personas (Community, Industrial, Auditor, Admin) |
 | **Mobile App** | Android (primary), iOS (secondary if Mac available) |
 | **Marketplace** | Mock payment flow (real payment ใน Phase post-NSC) |
-| **Anti-Fraud** | GPS dedup + EXIF + audit log + camera-only |
+| **Anti-Fraud** | GPS dedup + EXIF + camera-only (audit log: Phase 2) |
 | **Validation** | บน Demol 2021 (Belgium 65 trees) — **เสร็จแล้ว**; NEON US (Phase 2 plan) |
 
 #### 7.5.2 Out-of-Scope (ไม่อยู่ในขอบเขตเฟสนี้)
@@ -647,7 +682,7 @@ Project_Carbon/
 - รองรับต้นไม้ทุกชนิดบนโลก (ขยายใน Phase 2+)
 - Drone LiDAR direct integration (อนุญาตให้ user upload ไฟล์ .las ได้)
 - Blockchain-based ledger (Phase 3+)
-- Real-time scanning (ใช้ async pipeline แทน — 5-15 นาที latency)
+- Real-time scanning (ใช้ async pipeline แทน — 10–15 นาที latency)
 - การชำระเงินจริง (ใช้ mock checkout สำหรับ NSC)
 - การส่งออกใบรับรองที่รับรองโดย TGO อย่างเป็นทางการ (เป็น Pilot — ไม่ใช่ Certified)
 - รองรับ multi-language UI > 2 ภาษา (เริ่มต้นแค่ไทย + อังกฤษ)
@@ -656,7 +691,7 @@ Project_Carbon/
 
 - **ทีมงาน:** 3 คน (User + Person A + Person B)
 - **ระยะเวลา:** 12 สัปดาห์ (30 พ.ค. – 21 ส.ค. 2569)
-- **งบประมาณ Cloud GPU:** ≤ $30/เดือน (RunPod Hobby + Colab Pro+)
+- **งบประมาณ Cloud:** ≤ $30/เดือน (RunPod serverless inference เท่านั้น; training ใช้ Colab/Kaggle free tier)
 - **Hardware:** ทีมไม่มี iPhone Pro ที่มี LiDAR Sensor — ไม่ทำ iPhone LiDAR app (ADR-0002)
 - **ทีมไม่มี Mac** สำหรับ build iOS — ใช้ Codemagic / Bitrise cloud macOS แทน (optional)
 
@@ -705,7 +740,7 @@ Pitching                                      ████████
    - DBH MAE ≤ 2 cm **(บรรลุแล้ว: 1.17 cm บน Demol 2021)**
    - Tree Height MAE ≤ 1 m **(บรรลุแล้ว: 0.54 m)**
    - Wood-Leaf IoU ≥ 0.70 (Phase 2 target)
-2. **เวลาประมวลผล** < 10 นาที/แปลง (ไม่รวม upload time)
+2. **เวลาประมวลผล** ≤ 15 นาที/แปลง (ไม่รวม upload time)
 3. **Web Dashboard** ใช้งานได้จริงผ่าน https://carbonscan-ai.vercel.app
 4. **Mobile App** (Android APK) ดาวน์โหลดได้จาก GitHub Releases
 5. **Trained Models** เผยแพร่บน Hugging Face Hub แบบ Open Source (Phase 2)
@@ -716,7 +751,7 @@ Pitching                                      ████████
 
 **1. เกษตรกร / ชุมชนผู้ปลูกต้นไม้:**
 - เปลี่ยนต้นไม้ที่ปลูกเป็นรายได้ผ่านการขาย Carbon Credit
-- ลดต้นทุนเข้าระบบจาก ~100,000 บาท → 0 บาท (ลด 100 เท่า)
+- ลดต้นทุนเข้าระบบจากระดับ 50,000–200,000 บาท → ใกล้ 0 บาท (mobile path) หรือ ~1,500 บาท (auditor path) — ลดราว 100 เท่า
 
 **2. โรงงานอุตสาหกรรม / SMEs:**
 - มีตัวกลาง B2B ที่โปร่งใส (เห็น GPS หมุดของต้นไม้ทุกต้นที่สนับสนุน)
@@ -750,8 +785,8 @@ Pitching                                      ████████
 
 | Metric | Baseline (วิธีดั้งเดิม) | Target (CarbonScan AI) | Improvement |
 |---|---|---|---|
-| ต้นทุน Auditing / แปลง 50 ไร่ | ~150,000 บาท | ~1,500 บาท (Cloud cost) | **100×** |
-| เวลา / แปลง | 7-14 วัน | 30 นาที | **400×** |
+| ต้นทุน Auditing / แปลง | 50,000–200,000 บาท | ~1,500 บาท (auditor) / ~0 (mobile) | **~100×** |
+| เวลา / แปลง | 2–4 สัปดาห์ | ประมวลผล ≤ 15 นาที (เสร็จภายในวันเดียว) | **หลายร้อยเท่า** |
 | Reach (เกษตรกร) | ฟาร์มขนาดใหญ่เท่านั้น | ทุกระดับ (มี smartphone) | Unlimited |
 | Transparency (โรงงาน) | Excel report | 3D Visual + GPS | Verifiable |
 
@@ -793,36 +828,45 @@ A: ใช้ peer-reviewed dataset Demol et al. 2021 (Trees Journal, 65 ต้�
 A: เพราะ Phase 1 ใช้ taper equation (V = π/4 × DBH² × H × form_factor) ซึ่งเป็น approximation — Phase 2 จะใช้ full TreeQSM (Raumonen et al. 2013) ลด error เหลือ 5-10%
 
 **Q5: ค่าใช้จ่าย Run server เดือนละเท่าไหร่?**
-A: ใน Prototype scale (100 jobs/เดือน) ~$45/เดือน (~1,600 บาท) ใน production scale มี Business Model B2B Subscription cover ค่าใช้จ่าย
+A: ในระดับต้นแบบ (~100 jobs/เดือน) ประมาณ **~$15/เดือน (~520 บาท)** = RunPod serverless inference ~$10 (จ่ายตามวินาทีที่รันจริง scale-to-zero) + Railway ~$5; ส่วน Supabase และ Vercel ใช้ free tier (0 บาท). ระดับ production มี Business Model B2B subscription cover ค่าใช้จ่าย
 
 **Q6: ใช้ GPU อะไรเทรน Model?**
-A: Training บน Google Colab Pro+ (NVIDIA A100 40GB) / Local RTX 3060, Production Inference บน RunPod Serverless (A10G 24GB) แบบ pay-per-second เพื่อ Scale-to-zero
+A: Training บน Google Colab / Kaggle **free tier** (NVIDIA T4/P100 16GB ฟรี) หรือ Local RTX 3060; Production inference บน RunPod Serverless (A10G 24GB) แบบ pay-per-second เพื่อ scale-to-zero — หลีกเลี่ยงค่า GPU ประจำ
 
 ---
 
 ## ส่วนที่ 11: งบประมาณ (Budget)
 
-> **TBD:** ตามมาตรฐาน NSC ~3,000-5,000 บาท/โครงการ
+> **หลักการ:** ออกแบบให้ใช้งบ **ต่ำที่สุด** — พึ่ง free tier เป็นหลัก และจ่ายเฉพาะส่วนที่จำเป็นจริงแบบ pay-per-use เพื่อให้เหมาะกับทีมนักศึกษาและกรอบงบ NSC (~3,000–5,000 บาท)
 
-### 11.1 รายการที่ขอสนับสนุนจาก NSC
+### 11.1 กลยุทธ์ต้นทุนต่ำ (Cost-Minimization Strategy)
 
-| รายการ | จำนวน | ราคา/หน่วย | รวม (บาท) |
+| ส่วน | วิธีประหยัด | ค่าใช้จ่าย |
+|---|---|---|
+| **Training GPU** | Google Colab / Kaggle **free tier** (T4/P100 ฟรี) แทน Colab Pro+ | 0 บาท |
+| **Inference GPU** | RunPod Serverless จ่ายตามวินาที (scale-to-zero) — รันเฉพาะตอนประมวลผล/เดโม | ตามใช้จริง |
+| **Database + Auth + Storage** | Supabase **free tier** (500 MB DB, 1 GB storage) | 0 บาท |
+| **Web hosting** | Vercel **Hobby** (ฟรี) + subdomain `*.vercel.app` | 0 บาท |
+| **API hosting** | Railway Hobby | ~$5/เดือน |
+| **Software ทั้งหมด** | Open-source (Next.js, FastAPI, Flutter, PyTorch, COLMAP ฯลฯ) | 0 บาท |
+
+### 11.2 รายการที่ขอสนับสนุนจาก NSC (ประมาณการขั้นต่ำ)
+
+| รายการ | จำนวน | ราคา/หน่วย (บาท) | รวม (บาท) |
 |---|---|---|---|
-| Cloud GPU (RunPod) Phase 2-3 | 3 เดือน | 1,400 | 4,200 |
-| Cloud GPU Training (Colab Pro+) | 2 เดือน | 1,700 | 3,400 |
-| Cloud Storage (Supabase Pro) | 3 เดือน | 850 | 2,550 |
-| Domain name (carbonscan-ai.com) | 1 ปี | 350 | 350 |
-| ค่าเดินทาง (ลงพื้นที่เก็บ Ground Truth) | — | — | 2,000 |
-| ค่าพิมพ์ Proposal + Final Report | 5 ชุด | 200 | 1,000 |
-| ค่าจัดทำ Poster A1 + นามบัตร (รอบชิง) | — | — | 1,500 |
-| **รวม** | | | **15,000** |
+| RunPod Serverless GPU (inference ~$10/เดือน + เดโม) | 3 เดือน | ~350 | 1,050 |
+| Railway (API hosting ~$5/เดือน) | 3 เดือน | ~180 | 540 |
+| ค่าเดินทางเก็บ ground truth ไม้ไทย (ภาคสนาม) | — | — | 1,200 |
+| ค่าพิมพ์เอกสาร (Proposal + Final Report) | — | — | 700 |
+| ค่าจัดทำ Poster A1 (รอบชิงชนะเลิศ) | 1 | 800 | 800 |
+| **รวม** | | | **~4,300** |
 
-⚠️ ปรับยอดตามที่ NSC อนุมัติได้จริง — รายการที่เกินงบ ทีมจะ self-fund
+⚠️ ปรับยอดตามที่ NSC อนุมัติจริง — ส่วนที่เกินทีมใช้ free tier ทดแทนหรือ self-fund
 
-### 11.2 รายการที่ทีมรับผิดชอบเอง
+### 11.3 รายการที่ทีมรับผิดชอบเอง
 
-- Hardware (Notebook ของทีม, Android phone)
-- Software License (ทั้งหมดเป็น Open Source / Free Tier)
+- Hardware (Notebook ของทีม, โทรศัพท์ Android)
+- Software License (ทั้งหมด Open Source / Free Tier — 0 บาท)
 - ค่าอินเทอร์เน็ต / ค่าไฟ
 - เวลาในการพัฒนา
 
@@ -884,6 +928,48 @@ A: Training บน Google Colab Pro+ (NVIDIA A100 40GB) / Local RTX 3060, Produc
 
 [27] He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep Residual Learning for Image Recognition. *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 770–778. (ResNet) arXiv:1512.03385
 
+[28] NEON (National Ecological Observatory Network). (2024). *Discrete return LiDAR point cloud (DP1.30003.001)*. Battelle, Boulder, CO, USA. https://data.neonscience.org/data-products/DP1.30003.001
+
+[29] OpenTopography Facility. *High-Resolution Topography Data and Tools*. https://opentopography.org/
+
+---
+
+### 12.1 ตารางการอ้างอิงในแต่ละหัวข้อ (Citation Map)
+
+> ระบุว่าเอกสารอ้างอิงแต่ละฉบับถูกใช้ในส่วนใดของข้อเสนอ (ตอบประเด็นการตรวจสอบการอ้างอิง)
+
+| # | เอกสารอ้างอิง | ถูกอ้างในหัวข้อ |
+|---|---|---|
+| [1] | UNFCCC — Paris Agreement | 3.1 บริบทระดับโลก |
+| [2] | EU — CBAM Regulation | บทคัดย่อ, 3.1 |
+| [3] | Thailand NDC (Net Zero) | 3.2 บริบทประเทศไทย |
+| [4] | กรมป่าไม้ — สถานการณ์ป่าไม้ | 3.2 |
+| [5] | TGO — T-VER Methodology | 3.3 ต้นทุนการประเมิน |
+| [6] | Brown — Biomass primer (FAO) | 7.2.8 สมการชีวมวล (อ้างเสริม) |
+| [7] | WRI/WBCSD — GHG Protocol | 3.3 Greenwashing |
+| [8] | Qi — PointNet++ | 3.4, 7.1.4, 7.2.2 (ขั้นที่ 5) |
+| [9] | Thomas — KPConv | 3.4 โอกาสทางเทคโนโลยี |
+| [10] | Roussel — lidR / Watershed | 3.4, 3.5, 7.1.4, 7.2.2 (ขั้นที่ 4) |
+| [11] | Raumonen — TreeQSM | 3.4, 3.5, 7.1.4, 7.2.2 (ขั้นที่ 6) |
+| [12] | Zhang — CSF ground filter | 3.4, 7.1.4, 7.2.2 (ขั้นที่ 1) |
+| [13] | Khosravipour — Pit-free CHM | 3.4, 7.1.4, 7.2.2 (ขั้นที่ 3) |
+| [14] | TGO 2017 — Forestry Guideline | 3.5, 4 วัตถุประสงค์, 7.1.4, 7.2.8 |
+| [15] | IPCC 2006 — AFOLU | 7.1.4, 7.2.8 (carbon fraction/root:shoot) |
+| [16] | Schönberger — COLMAP (SfM) | 7.1.4, 7.2.3 |
+| [17] | Cernea — OpenMVS (MVS) | 7.2.3 |
+| [18] | Liang — UAV photogrammetry | 10.3 Q&A (ความแม่นยำ photogrammetry) |
+| [19] | Vicari — TLSeparation | 7.2.2 (ขั้นที่ 5, Phase 1 PCA) |
+| [20] | Mokros — TLS DBH/Height | 10.3 Q&A |
+| [21] | Tsutsumi 1983 — สัก | 3.5, 7.2.8 (ตารางสัมประสิทธิ์) |
+| [22] | Ogawa 1965 — ยางนา | 3.5, 7.2.8 |
+| [23] | Yiping 2010 — ไผ่ | 3.5, 7.2.8 |
+| [24] | Chiarucci 2014 — ยางพารา | 3.5, 7.2.8 |
+| [25] | **Demol 2021 — Belgium validation dataset** | 4, 6, 7.2.5, 7.2.6 (ชุดข้อมูลทดสอบหลัก) |
+| [26] | Chave 2014 — Pantropical allometric | 7.1.4, 7.2.8 (fallback Tier-3) |
+| [27] | He — ResNet | 7.2.7 (Species classifier) |
+| [28] | NEON — LiDAR dataset | 7.2.6, 7.5, 10 (Phase 2 plan) |
+| [29] | OpenTopography | 7.2.6 (แหล่งข้อมูลเสริม) |
+
 ---
 
 ## ส่วนที่ 13: ภาคผนวก (Appendices)
@@ -897,8 +983,10 @@ A: Training บน Google Colab Pro+ (NVIDIA A100 40GB) / Local RTX 3060, Produc
 - [ชื่อ-สกุล], [ตำแหน่งวิชาการ], [คณะ มหาวิทยาลัย], [ความเชี่ยวชาญ]
 
 ### Appendix C: Architecture Diagrams + Figures (Full Size)
+- `fig14_system_simplified.png` — **ระบบใน 1 ภาพ (System at a Glance)** — input → AI → output ⭐
 - `fig09_architecture.png` — System Architecture (v2, 4 layers)
 - `fig10_user_flow.png` — User Journey
+- `fig15_processing_ux.png` — **UX หน้าจอ "กำลังประมวลผล"** (async progress 8 ขั้น + ETA + แจ้งเตือน) ⭐
 - `fig01-08` — Synthetic Pipeline Outputs (Steps 1-8)
 - `fig11_belgium_dbh_parity.png` — DBH validation (Demol 2021)
 - `fig12_belgium_height_parity.png` — Tree Height validation
