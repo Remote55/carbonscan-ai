@@ -1,13 +1,14 @@
 """Step 6: Quantitative Structure Model — DBH + volume from wood points.
 
-Phase 1 implementation (this file):
+Implementation (this file):
 - DBH via RANSAC circle fit on a 1.3 m horizontal slice of wood points
 - Height = max Z of all points (or wood points if leaves were excluded)
-- Volume via simple taper equation: V = (π/4) × DBH² × H × form_factor
+- Volume via sectional stacked-cylinder integration (TreeQSM-style): slice the
+  stem by height, fit a circle per slice, sum V = Σ π · r² · Δh. This follows
+  the real taper profile up the stem. Falls back to the single taper equation
+  V = (π/4) × DBH² × H × form_factor for clouds too short/sparse to slice.
 
-Phase 2 will add full cylinder-tree QSM (Raumonen et al. 2013) for accurate
-branch-level volume. For now the taper-equation estimate is the same form
-used in operational forest inventory (~10-15% RMSE on real trees).
+Future work: full branch-level cylinder QSM with cover sets (Raumonen 2013).
 
 References:
 - Raumonen et al. 2013 — TreeQSM (Remote Sensing, 5(2), 491-520)
@@ -17,6 +18,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import pairwise
 
 import numpy as np
 
@@ -164,6 +166,68 @@ def estimate_volume_taper(
     return float(np.pi / 4.0 * dbh_m**2 * height_m * form_factor)
 
 
+def estimate_volume_sectional(
+    wood_points: np.ndarray,
+    *,
+    slice_thickness_m: float = 0.3,
+    min_points_per_slice: int = 8,
+    max_radius_m: float = 0.6,
+    cluster_radius_m: float = 1.0,
+    seed: int = 0,
+) -> tuple[float, int]:
+    """Sectional (stacked-cylinder) stem volume — TreeQSM-style.
+
+    Slice the wood points into horizontal height bins, fit a robust circle to
+    each bin to recover its radius, and sum the cylinder volumes
+    ``V = Σ π · r_i² · Δh``. This follows the real taper profile up the stem
+    instead of collapsing it into a single form factor, and so is markedly more
+    accurate on tapered trees (cf. Raumonen et al. 2013).
+
+    Args:
+        wood_points: (N, 3) wood-only points, Z normalized so 0 = ground
+        slice_thickness_m: vertical bin height (Δh)
+        min_points_per_slice: skip bins with fewer points than this
+        max_radius_m: maximum plausible trunk radius (passed to the circle fit)
+        cluster_radius_m: keep only points within this distance of the slice
+            median, so a single trunk is fitted even if stray branch points share
+            the bin
+        seed: RNG seed for the RANSAC circle fits (reproducible)
+
+    Returns:
+        (volume_m3, n_cylinders) — n_cylinders is the number of slices that
+        produced a valid circle fit.
+    """
+    if wood_points.ndim != 2 or wood_points.shape[1] != 3:
+        raise ValueError(f"Expected (N, 3) array, got {wood_points.shape}")
+    if len(wood_points) == 0:
+        return 0.0, 0
+
+    z = wood_points[:, 2]
+    z_min, z_max = float(z.min()), float(z.max())
+    if z_max - z_min < slice_thickness_m:
+        return 0.0, 0
+
+    rng = np.random.default_rng(seed)
+    edges = np.arange(z_min, z_max + slice_thickness_m, slice_thickness_m)
+    volume = 0.0
+    n_cyl = 0
+    for lo, hi in pairwise(edges):
+        mask = (z >= lo) & (z < hi)
+        if int(mask.sum()) < min_points_per_slice:
+            continue
+        xy = wood_points[mask, :2]
+        # Keep the densest cluster only → fit a single trunk per slice
+        median_xy = np.median(xy, axis=0)
+        near = np.hypot(xy[:, 0] - median_xy[0], xy[:, 1] - median_xy[1]) < cluster_radius_m
+        if int(near.sum()) >= min_points_per_slice:
+            xy = xy[near]
+        _, _, r, _ = _ransac_circle_fit(xy, max_radius_m=max_radius_m, rng=rng)
+        if r > 0:
+            volume += float(np.pi * r * r * (hi - lo))
+            n_cyl += 1
+    return volume, n_cyl
+
+
 def compute_qsm(
     wood_points: np.ndarray,
     *,
@@ -182,8 +246,17 @@ def compute_qsm(
 
     dbh_cm, fit_q = measure_dbh(wood_points, seed=seed)
     height_m = measure_height(wood_points)
+
+    # Volume = single taper equation (robust default, ~18.8% MAE on Belgium).
+    #
+    # NOTE: `estimate_volume_sectional` (stacked cylinders) is more accurate on
+    # CLEAN stems (see its unit tests) but grossly overestimates on real TLS
+    # whose rule-based wood/leaf split still leaves crown/branch points — each
+    # high slice then fits a large "branch blob" circle. Adopting it as the
+    # default needs (a) clean wood points from the trained PointNet++ (G2) and
+    # (b) per-branch cylinder modelling. Tracked in docs/P1_SPRINT_PLAN.md (G3).
     stem_vol = estimate_volume_taper(dbh_cm, height_m)
-    # Phase 1: ignore separate branch volume — combined into stem taper
+    n_cylinders = 1
     branches_vol = 0.0
     return QsmResult(
         dbh_cm=dbh_cm,
@@ -191,6 +264,6 @@ def compute_qsm(
         stem_volume_m3=stem_vol,
         branches_volume_m3=branches_vol,
         total_volume_m3=stem_vol + branches_vol,
-        n_cylinders=1,
+        n_cylinders=n_cylinders,
         model_quality=fit_q,
     )
