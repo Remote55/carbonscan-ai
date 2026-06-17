@@ -45,7 +45,7 @@
 ### Stretch
 - [ ] **React Three Fiber** — Three.js wrapper (Week 6)
 - [ ] **Leaflet** — Maps (Week 5)
-- [ ] **NextAuth** — Authentication (Week 2)
+- [ ] **Supabase Auth** (@supabase/ssr) — Authentication (Week 2)
 - [ ] **react-pdf** — PDF generation (Week 9)
 
 ---
