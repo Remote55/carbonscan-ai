@@ -342,10 +342,157 @@ def make_user_flow():
 
     plt.savefig(FIG_DIR / "fig10_user_flow.png", dpi=300, bbox_inches="tight", facecolor="white")
     plt.close()
-    print(f"✓ Saved {FIG_DIR / 'fig10_user_flow.png'}")
+    print(f"+ Saved {FIG_DIR / 'fig10_user_flow.png'}")
+
+
+# ----------------------------------------------------------------------------
+# Figure 14 — System at a Glance (simplified, for non-technical readers)
+# ----------------------------------------------------------------------------
+
+
+def make_system_simplified():
+    """3-block INPUT -> AI -> OUTPUT diagram.
+
+    Deliberately minimal so a reader understands the whole system in ~5 sec
+    (addresses reviewer feedback: explain system design simply via a diagram).
+    """
+    fig, ax = plt.subplots(figsize=(14, 5.4))
+    ax.set_xlim(0, 14)
+    ax.set_ylim(0, 5.4)
+    ax.axis("off")
+    fig.patch.set_facecolor("white")
+
+    _box(
+        ax, 0.4, 1.4, 3.8, 2.6,
+        "1.  ข้อมูลเข้า\n(INPUT)\n\nไฟล์ LiDAR\n.las / .laz / .ply\n— หรือ —\nภาพถ่ายมือถือ 30+ รูป",
+        color=FOREST_500, fontsize=12,
+    )
+    _box(
+        ax, 5.1, 1.4, 3.8, 2.6,
+        "2.  ประมวลผลด้วย AI\n(AI PIPELINE)\n\nML Pipeline 8 ขั้น\nบน Cloud GPU\n(~10–15 นาที/แปลง)",
+        color=ERROR, fontsize=12,
+    )
+    _box(
+        ax, 9.8, 1.4, 3.8, 2.6,
+        "3.  ผลลัพธ์\n(OUTPUT)\n\n- ใบรับรองคาร์บอน (PDF)\n- ตลาดซื้อขาย B2B\n- แผนที่ GIS + Audit",
+        color=SKY_500, text_color=CHARCOAL, fontsize=12,
+    )
+
+    _arrow(ax, 4.3, 2.7, 5.0, 2.7, mutation=28)
+    _arrow(ax, 9.0, 2.7, 9.7, 2.7, mutation=28)
+
+    ax.text(7.0, 4.85, "Figure 14 — CarbonScan AI: ระบบใน 1 ภาพ (System at a Glance)",
+            ha="center", fontsize=16, fontweight="bold", color=CHARCOAL)
+    ax.text(7.0, 4.45,
+            "เปลี่ยน LiDAR point cloud  ->  carbon credit ที่ผ่านการตรวจสอบ พร้อมซื้อขาย",
+            ha="center", fontsize=11, color=STONE, style="italic")
+    ax.text(7.0, 0.65,
+            "ผู้ใช้หลัก: Auditor / ผู้รับเหมา carbon survey (LiDAR)   ·   ผู้ใช้รอง: เกษตรกรรายย่อย (มือถือ)   ·   ผู้ซื้อ: โรงงาน CBAM/ESG",
+            ha="center", fontsize=9, color=STONE)
+
+    plt.savefig(FIG_DIR / "fig14_system_simplified.png", dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close()
+    print(f"+ Saved {FIG_DIR / 'fig14_system_simplified.png'}")
+
+
+# ----------------------------------------------------------------------------
+# Figure 15 — "Processing" screen wireframe (async UX for long-running jobs)
+# ----------------------------------------------------------------------------
+
+
+def make_processing_ux():
+    """Wireframe of the 'Processing' screen.
+
+    Shows how the UI handles a long-running (10-15 min) LiDAR job: named
+    8-stage progress, overall % + ETA, and a clear 'you can leave, we'll
+    notify you' message (addresses reviewer feedback: LiDAR processing takes
+    a long time, design appropriate UX).
+    """
+    fig, ax = plt.subplots(figsize=(8.6, 10.6))
+    ax.set_xlim(0, 8.6)
+    ax.set_ylim(0, 10.6)
+    ax.axis("off")
+    fig.patch.set_facecolor("white")
+
+    # screen frame
+    ax.add_patch(FancyBboxPatch(
+        (0.6, 0.5), 7.4, 9.3,
+        boxstyle="round,pad=0.05,rounding_size=0.25",
+        facecolor=SAND, edgecolor=STONE, linewidth=2))
+
+    # header
+    ax.add_patch(FancyBboxPatch(
+        (0.6, 8.6), 7.4, 1.2,
+        boxstyle="round,pad=0.05,rounding_size=0.25",
+        facecolor=FOREST_700, edgecolor=FOREST_700))
+    ax.text(4.3, 9.35, "กำลังประมวลผล Point Cloud", ha="center", va="center",
+            fontsize=14, color="white", fontweight="bold")
+    ax.text(4.3, 8.95, "งาน #J-2026-0142  ·  teak_plot_chiangmai.las (212 MB)",
+            ha="center", va="center", fontsize=9, color="#CFE6D8")
+
+    # overall progress bar
+    ax.text(1.0, 8.18, "ความคืบหน้ารวม", fontsize=10, color=CHARCOAL, fontweight="bold")
+    ax.text(7.6, 8.18, "62%", ha="right", fontsize=11, color=ERROR, fontweight="bold")
+    ax.add_patch(mpatches.Rectangle((1.0, 7.78), 6.6, 0.28, facecolor="#E5E5DF", edgecolor="none"))
+    ax.add_patch(mpatches.Rectangle((1.0, 7.78), 6.6 * 0.62, 0.28, facecolor=FOREST_500, edgecolor="none"))
+
+    # 8 named stages
+    stages = [
+        ("1. อ่านไฟล์ & ตรวจสอบรูปแบบ", "done"),
+        ("2. แยกพื้นดิน (Ground Classification)", "done"),
+        ("3. ปรับความสูง (Height Normalization)", "done"),
+        ("4. สร้างแบบจำลองเรือนยอด (CHM)", "done"),
+        ("5. แยกต้นไม้ทีละต้น (Tree Detection)", "current"),
+        ("6. แยกใบ / ลำต้น (Wood-Leaf)", "pending"),
+        ("7. วัด DBH · ความสูง · ปริมาตร (QSM)", "pending"),
+        ("8. คำนวณคาร์บอน (TGO Allometric)", "pending"),
+    ]
+    y = 7.15
+    for label, st in stages:
+        if st == "done":
+            mcol, mark, tcol = FOREST_500, "✓", CHARCOAL
+        elif st == "current":
+            mcol, mark, tcol = ERROR, "", ERROR
+        else:
+            mcol, mark, tcol = "#B7B7AE", "", STONE
+        filled = st != "pending"
+        ax.add_patch(plt.Circle((1.3, y), 0.17,
+                     facecolor=(mcol if filled else "white"),
+                     edgecolor=mcol, linewidth=2, zorder=3))
+        if mark:
+            ax.text(1.3, y, mark, ha="center", va="center", fontsize=10,
+                    color="white", zorder=4, fontweight="bold")
+        extra = "   <- กำลังทำ (62%)" if st == "current" else ""
+        ax.text(1.75, y, label + extra, va="center", fontsize=10.5, color=tcol,
+                fontweight=("bold" if st == "current" else "normal"))
+        y -= 0.6
+
+    # ETA
+    ax.add_patch(FancyBboxPatch((1.0, 1.7), 6.6, 0.8,
+        boxstyle="round,pad=0.05,rounding_size=0.15",
+        facecolor="#FFF8E7", edgecolor="#E0C97A", linewidth=1.5))
+    ax.text(4.3, 2.1, "เหลือเวลาประมาณ ~6 นาที", ha="center", va="center",
+            fontsize=12, color=CHARCOAL, fontweight="bold")
+
+    # leave + notify note
+    ax.add_patch(FancyBboxPatch((1.0, 0.8), 6.6, 0.75,
+        boxstyle="round,pad=0.05,rounding_size=0.15",
+        facecolor="#E9F5EE", edgecolor=FOREST_300, linewidth=1.5))
+    ax.text(4.3, 1.18,
+            "ปิดหน้านี้ได้เลย — ระบบจะแจ้งเตือน (อีเมล / แจ้งเตือนในแอป) เมื่อเสร็จ\nและดูผลย้อนหลังได้จากหน้า 'งานของฉัน' เสมอ",
+            ha="center", va="center", fontsize=9.5, color=FOREST_700)
+
+    ax.text(4.3, 10.3, "Figure 15 — UX หน้าจอ 'กำลังประมวลผล' (Async Processing)",
+            ha="center", fontsize=13, fontweight="bold", color=CHARCOAL)
+
+    plt.savefig(FIG_DIR / "fig15_processing_ux.png", dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close()
+    print(f"+ Saved {FIG_DIR / 'fig15_processing_ux.png'}")
 
 
 if __name__ == "__main__":
     make_architecture()
     make_user_flow()
-    print(f"\nBoth diagrams saved to: {FIG_DIR}")
+    make_system_simplified()
+    make_processing_ux()
+    print(f"\nAll diagrams saved to: {FIG_DIR}")

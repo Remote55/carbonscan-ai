@@ -149,7 +149,7 @@ WS     /api/v1/ws/jobs/{id}             → progress streaming real-time
 | **Tree Detection** | Watershed (scikit-image) | มาตรฐานของ forestry — อ้างอิง Roussel et al. 2020 (lidR) |
 | **DBH Measurement** | RANSAC circle fitting (custom NumPy) | Robust ต่อ outliers, มาตรฐาน TLS forest measurement |
 | **Volume Estimation** | Taper equation [Phase 1] / TreeQSM [Phase 2] | สมการมาตรฐานสำหรับ stem volume |
-| **Species Classifier** | ResNet-50 + TFLite quantization [Phase 2] | On-device inference < 500ms, accuracy > 85% |
+| **Species Classifier** | ResNet-50 + TFLite quantization [Phase 2] | On-device inference < 500ms, **เป้าหมาย (target) accuracy > 85%** (ยังไม่เทรน — Phase 2) |
 | **Photogrammetry** | COLMAP + OpenMVS [Phase 2] | Convert ภาพมือถือ 30-50 รูป → point cloud (.ply) |
 | **Allometric** | Custom Python (TGO 2017 + Chave 2014) | สมการ AGB = a × DBH^b × H^c ของ TGO + IPCC defaults |
 
