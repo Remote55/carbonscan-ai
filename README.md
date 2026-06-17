@@ -111,11 +111,11 @@ carbonscan-ai/
 |---|---|
 | **Web** | Next.js 14, TypeScript, Tailwind, shadcn/ui, Three.js (R3F), Leaflet |
 | **Mobile** | Flutter 3.x, Riverpod, TFLite, Dio |
-| **Backend** | FastAPI (Python 3.11), Pydantic, SQLAlchemy, Celery |
+| **Backend** | FastAPI (Python 3.11), Pydantic, SQLAlchemy 2.0 async, asyncpg |
 | **Database** | PostgreSQL 16 + PostGIS (via Supabase) |
 | **AI/ML** | PyTorch, PointNet++, Open3D, laspy, PDAL, COLMAP, OpenMVS |
 | **Storage** | Supabase Storage (S3-compatible) |
-| **Queue** | Supabase Queues / Redis |
+| **Queue** | Supabase Queues (PGMQ) |
 | **Cloud GPU** | RunPod Serverless (A10G/RTX 4090) |
 | **Deploy** | Vercel (Web), Railway (API), RunPod (ML Worker) |
 | **DevOps** | pnpm workspaces, Turborepo, Docker, GitHub Actions |

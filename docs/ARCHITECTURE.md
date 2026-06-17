@@ -44,7 +44,7 @@ CarbonScan AI เป็น **distributed system** ที่ใช้ event-drive
 │  │  │ Camera UI    │  │         │   │ 3D Viewer (R3F)      │   │    │
 │  │  │ GPS Capture  │  │         │   │ GIS Map (Leaflet)    │   │    │
 │  │  │ Species ID   │  │         │   │ Carbon Marketplace   │   │    │
-│  │  │ (TFLite)     │  │         │   │ Auth (NextAuth)      │   │    │
+│  │  │ (TFLite)     │  │         │   │ Auth (Supabase)      │   │    │
 │  │  └──────────────┘  │         │   └──────────────────────┘   │    │
 │  └─────────┬──────────┘         └──────────────┬───────────────┘    │
 └────────────┼─────────────────────────────────────┼─────────────────┘
@@ -76,7 +76,7 @@ CarbonScan AI เป็น **distributed system** ที่ใช้ event-drive
 │  │ - users            │    │      │  │ ML Pipeline (PyTorch)  │  │
 │  │ - transactions     │    │      │  │ 1. classify_ground     │  │
 │  │ - carbon_records   │    │      │  │ 2. tree_segmentation   │  │
-│  │ - species_db       │    │      │  │ 3. wood_leaf_seg (DL)  │  │
+│  │ - species_db       │    │      │  │ 3. wood_leaf_seg (PCA) │  │
 │  └────────────────────┘    │      │  │ 4. QSM cylinder fit    │  │
 │  ┌────────────────────┐    │      │  │ 5. allometric → kgC    │  │
 │  │ Supabase Storage   │    │      │  │ 6. species_classifier  │  │
@@ -184,7 +184,7 @@ services/api/app/
 │   ├── job_dispatcher.py
 │   ├── tree_service.py
 │   └── carbon_calculator.py
-└── workers/             # Celery tasks (optional)
+└── runpod_handler.py    # RunPod serverless GPU entry (no Celery)
 ```
 
 **Key Libraries:**
@@ -193,7 +193,7 @@ services/api/app/
 - `geoalchemy2` — PostGIS support
 - `pydantic` v2
 - `supabase-py` — Storage + Auth
-- `celery` + `redis` (queue alternative)
+- Supabase Queues (PGMQ) — Postgres-native job queue (no Celery/Redis)
 
 ---
 

@@ -111,17 +111,22 @@ Report                                 █████████████�
 
 **ปัญหาที่ปิด:** Volume error 18.8% สูงกว่า DBH/Height มาก เพราะใช้ taper equation แบบ approximation
 
-**แนวทาง:**
-1. แทน taper ด้วย **cylinder-fitting QSM** (Raumonen 2013 style) — fit ทรงกระบอกหลายปล้องตามลำต้น/กิ่ง
-2. ใช้ open-source ที่มี (เช่น approach ของ TreeQSM/SimpleForest) หรือ implement cylinder fit แบบ simplified บน wood points จาก G2
-3. รัน `validate_belgium.py` ใหม่ → อัปเดต `fig13_belgium_volume_parity.png`
+**สถานะ (17 มิ.ย.) — มี finding สำคัญ:** ✅ implement `estimate_volume_sectional` (stacked-cylinder, TreeQSM-style) ใน `qsm.py` + 5 unit tests ผ่าน (recover ปริมาตร cylinder/cone จริงได้ และชนะ taper บน cone สะอาด) **แต่** รันบน Belgium จริงได้ **volume error +896%** (จาก 18.8% เดิม) — แย่ลงมาก เพราะ wood/leaf PCA ยังเหลือจุดเรือนยอด พอ slice แล้ว fit วงกลมต่อชั้นไปจับ "ก้อนกิ่ง" รัศมีใหญ่ทุกชั้น
+
+**บทเรียน:** sectional QSM ต้องการ **wood points สะอาด (ขึ้นกับ G2 PointNet++)** + การ model กิ่งจริง ถึงจะชนะ taper → จึง **คง taper เป็น default (18.8%) ไม่ ship regression**; เก็บ `estimate_volume_sectional` เป็น utility ที่ test แล้ว พร้อมใช้เมื่อ G2 ให้ wood สะอาด
+
+**แนวทางที่แก้ไข (ทำหลัง G2):**
+1. ใช้ wood points จาก PointNet++ (สะอาดกว่า PCA) → slice → sectional cylinders
+2. แยก stem (ลำต้นหลัก) จากกิ่งด้วย connectivity/quality gate ก่อน fit
+3. รัน `validate_belgium.py` ใหม่ → ถ้า < taper ค่อย adopt + อัปเดต `fig13`
 
 **Acceptance Criteria:**
-- [ ] Volume MAE บน Belgium **ลดจาก 18.8% → < 10%**
-- [ ] อัปเดตตัวเลขใน Final Report §7.2.5 (และลบ caveat "Phase 2" ออกได้)
-- [ ] unit test ผ่าน
+- [x] implement sectional cylinder volume + unit tests (ถูกต้องบน stem สะอาด) ✅
+- [x] วัดผลจริงบน Belgium → finding: +896% (coupled กับ G2 — บันทึกแล้ว) ✅
+- [ ] **(หลัง G2)** Volume MAE ลดจาก 18.8% → < 10% ด้วย clean wood points
+- [ ] อัปเดตตัวเลขใน Final Report §7.2.5 เมื่อทำได้จริง
 
-**ความเสี่ยง:** cylinder fit ซับซ้อน → mitigation: เริ่มจาก stem-only (ลำต้นหลัก) ก่อน ขยายไปกิ่งถ้ามีเวลา; ถ้าไม่ถึง <10% รายงานค่าที่ดีขึ้นจริง (เช่น 12-14%) ก็ยังเป็น improvement
+**ความเสี่ยง:** sectional ขึ้นกับคุณภาพ wood/leaf → mitigation: ปลด block ด้วย G2 ก่อน; ถ้ายังไม่ถึง <10% คง taper 18.8% (ยังอยู่ใน TLS literature range 10-20%) + รายงานตามจริง — ไม่ overclaim
 
 **งบ:** 0 บาท (CPU)
 
