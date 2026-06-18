@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     RUNPOD_ENDPOINT_ID: str = ""
 
     # --- Queue ---
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # Job queue uses Supabase PGMQ (Postgres-native; no separate Redis/Celery).
 
     # --- File Upload ---
     MAX_UPLOAD_SIZE_MB: int = 500
