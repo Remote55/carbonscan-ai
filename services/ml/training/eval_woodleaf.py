@@ -10,7 +10,9 @@ caller (see notebooks/compare_woodleaf.py).
 
 from __future__ import annotations
 
+import csv
 from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 
@@ -47,3 +49,19 @@ def evaluate_segmenter(
         positive_class: class to score IoU for (default WOOD)
     """
     return [iou_score(label_fn(pts), true, positive_class) for pts, true in samples]
+
+
+def read_comparison_csv(path: str | Path) -> dict[str, list[float]]:
+    """Reconstruct a {method: [iou, ...]} dict from a woodleaf_comparison.csv.
+
+    Lets the comparison figure be regenerated from committed results without
+    re-running the model (notebooks/compare_woodleaf.py --from-csv).
+    """
+    with Path(path).open(encoding="utf-8") as f:
+        rows = [r for r in csv.reader(f) if r]
+    methods = rows[0][1:]  # drop the leading tree_idx column
+    results: dict[str, list[float]] = {m: [] for m in methods}
+    for row in rows[1:]:
+        for method, value in zip(methods, row[1:], strict=True):
+            results[method].append(float(value))
+    return results
