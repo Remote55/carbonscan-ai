@@ -68,7 +68,7 @@ services/api/
 │   │   ├── carbon_calculator.py
 │   │   ├── marketplace_service.py
 │   │   └── storage_service.py        Supabase Storage wrapper
-│   └── workers/                      Optional Celery tasks
+│   └── workers/                      GPU job dispatch (RunPod / Supabase PGMQ)
 │       └── __init__.py
 ├── alembic/                          Database migrations
 │   ├── versions/
@@ -88,7 +88,6 @@ services/api/
 ### Prerequisites
 - Python 3.11
 - PostgreSQL 16 + PostGIS (local or Supabase)
-- Redis (for Celery, optional)
 
 ### Install
 ```bash
@@ -141,8 +140,6 @@ dependencies = [
     "python-multipart>=0.0.9",
     "websockets>=12.0",
     "httpx>=0.27.0",
-    "celery>=5.4.0",
-    "redis>=5.0.0",
     "boto3>=1.34.0",
     "reportlab>=4.2.0",          # PDF generation
     "shapely>=2.0.0",            # geometry helpers
@@ -228,7 +225,6 @@ class Settings(BaseSettings):
     RUNPOD_API_KEY: str | None = None
     RUNPOD_ENDPOINT_ID: str | None = None
 
-    REDIS_URL: str = "redis://localhost:6379"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
 settings = Settings()

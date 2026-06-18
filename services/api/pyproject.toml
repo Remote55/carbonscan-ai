@@ -45,10 +45,6 @@ dependencies = [
     "supabase>=2.5.0",
     "httpx>=0.27.0",
 
-    # Async/Queue
-    "celery>=5.4.0",
-    "redis>=5.0.0",
-
     # Geospatial helpers
     "shapely>=2.0.0",
 
