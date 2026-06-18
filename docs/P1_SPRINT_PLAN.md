@@ -117,18 +117,16 @@ Report                                 █████████████�
 
 **บทเรียน:** sectional QSM ต้องการ **wood points สะอาด (ขึ้นกับ G2 PointNet++)** + การ model กิ่งจริง ถึงจะชนะ taper → จึง **คง taper เป็น default (18.8%) ไม่ ship regression**; เก็บ `estimate_volume_sectional` เป็น utility ที่ test แล้ว พร้อมใช้เมื่อ G2 ให้ wood สะอาด
 
-**แนวทางที่แก้ไข (ทำหลัง G2):**
-1. ใช้ wood points จาก PointNet++ (สะอาดกว่า PCA) → slice → sectional cylinders
-2. แยก stem (ลำต้นหลัก) จากกิ่งด้วย connectivity/quality gate ก่อน fit
-3. รัน `validate_belgium.py` ใหม่ → ถ้า < taper ค่อย adopt + อัปเดต `fig13`
+**✅ สถานะ (18 มิ.ย.) — hypothesis ทดสอบแล้ว/ปิดคำถาม:** หลัง G2 เทรน PointNet++ เสร็จ (IoU 0.96–0.98) รัน experiment ([`notebooks/experiment_g3_pointnet_volume.py`](../services/ml/notebooks/experiment_g3_pointnet_volume.py)) ใช้ **PointNet++ wood (สะอาด) + sectional** บน Belgium 65 ต้น → ยังได้ **373.6% (median 144%)** แย่กว่า taper 23.4% เหมือนเดิม
+> **ข้อสรุปจริง:** ปัญหา **ไม่ใช่** คุณภาพ wood (clean แล้วยังพัง) — แต่เป็น **ตัว algorithm**: การ slice แนวนอนแล้ว fit วงกลมต่อชั้น มันจับ "การกระจายของกิ่ง" (กิ่ง = wood จริง แต่แผ่กว้าง) → overestimate ทุกชั้น (ncyl 47–82). **TreeQSM จริงต้อง fit ทรงกระบอกตาม "แกนกิ่ง" (branch-axis + cover sets) ไม่ใช่ slice แนวนอน** → เป็นงานใหญ่ เกิน scope prototype NSC
 
 **Acceptance Criteria:**
 - [x] implement sectional cylinder volume + unit tests (ถูกต้องบน stem สะอาด) ✅
-- [x] วัดผลจริงบน Belgium → finding: +896% (coupled กับ G2 — บันทึกแล้ว) ✅
-- [ ] **(หลัง G2)** Volume MAE ลดจาก 18.8% → < 10% ด้วย clean wood points
-- [ ] อัปเดตตัวเลขใน Final Report §7.2.5 เมื่อทำได้จริง
+- [x] วัดผลจริงบน Belgium (PCA wood) → finding: +896% ✅
+- [x] **ทดสอบ PointNet++ clean wood + sectional → 373.6% (ยังแพ้ taper)** → hypothesis disproven ✅
+- [x] **ข้อสรุป: คง taper 18.8% (ใน TLS literature range 10–20%)** — full TreeQSM เป็น future work ✅
 
-**ความเสี่ยง:** sectional ขึ้นกับคุณภาพ wood/leaf → mitigation: ปลด block ด้วย G2 ก่อน; ถ้ายังไม่ถึง <10% คง taper 18.8% (ยังอยู่ใน TLS literature range 10-20%) + รายงานตามจริง — ไม่ overclaim
+**ความเสี่ยง:** หมดแล้ว — ปิดคำถามชัดเจนว่า height-sliced sectional ใช้กับต้นไม้มีกิ่งไม่ได้ (ไม่ว่า wood สะอาดแค่ไหน); taper เป็นคำตอบที่ถูกต้องสำหรับ prototype, รายงานตามจริง — ไม่ overclaim
 
 **งบ:** 0 บาท (CPU)
 
