@@ -96,10 +96,12 @@ Report                                 █████████████�
 
 **Acceptance Criteria:**
 - [x] Scaffold + dataset + model + train CLI + integration + tests (TDD) ✅
-- [ ] รัน train จริงบน Colab → **IoU ≥ 0.70** บน held-out test set
-- [ ] เพิ่ม manual-labeled real tree เป็น test set (CloudCompare)
-- [ ] ตาราง/รูปเทียบ **PointNet++ vs PCA baseline** (โชว์ว่า DL ดีขึ้นจริง)
-- [x] integrate เข้า pipeline + unit test ผ่าน (41/41, ไม่ break ของเดิม) ✅
+- [x] รัน train จริงบน Colab → **IoU 0.9785** บน held-out synthetic (>> เป้า 0.70) ✅ (18 มิ.ย.)
+- [ ] เพิ่ม manual-labeled real tree เป็น test set (CloudCompare) ← **ต้องใช้ข้อมูลภาคสนาม**
+- [x] ตาราง/รูปเทียบ **PointNet++ vs PCA**: 0.978 vs 0.769 (+0.208, ชนะ 12/12) → `fig17` ✅
+- [x] integrate เข้า pipeline + unit test ผ่าน (61/61, ไม่ break ของเดิม) ✅
+
+> **สรุป G2:** เสร็จเชิงเทคนิคแล้ว เหลือแค่ตัวเลข IoU บน "ไม้จริง" ซึ่งต้องรอ field data (ดู [FIELD_DATA_COLLECTION.md](FIELD_DATA_COLLECTION.md))
 
 **ความเสี่ยง:** train ไม่ทัน/IoU ไม่ถึง → mitigation: PCA fallback ยัง functional (proposal เขียนไว้แล้วว่า DL เป็น enhancement); ตั้ง checkpoint กลาง S2 ถ้าไม่เวิร์คให้ลด scope เป็น "เทรนได้ + รายงานผลเบื้องต้น"
 
