@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from training.eval_woodleaf import evaluate_segmenter, make_test_samples
+from training.eval_woodleaf import evaluate_segmenter, make_test_samples, read_comparison_csv
 
 WOOD, LEAF = 0, 1
 
@@ -47,3 +47,15 @@ def test_evaluate_returns_one_iou_per_sample_in_range():
     ious = evaluate_segmenter(lambda p: np.zeros(len(p), dtype=np.int8), samples)
     assert len(ious) == 4
     assert all(0.0 <= v <= 1.0 for v in ious)
+
+
+def test_read_comparison_csv_roundtrip(tmp_path):
+    p = tmp_path / "c.csv"
+    p.write_text(
+        "tree_idx,PCA (Phase 1),PointNet++ (Phase 2)\n0,0.75,0.98\n1,0.80,0.97\n",
+        encoding="utf-8",
+    )
+    results = read_comparison_csv(p)
+    assert list(results) == ["PCA (Phase 1)", "PointNet++ (Phase 2)"]
+    assert results["PCA (Phase 1)"] == [0.75, 0.80]
+    assert results["PointNet++ (Phase 2)"] == [0.98, 0.97]

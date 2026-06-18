@@ -32,7 +32,11 @@ ML_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ML_ROOT))
 
 from pipeline.wood_leaf_separation import WoodLeafSegmenter, segment_wood_leaf  # noqa: E402
-from training.eval_woodleaf import evaluate_segmenter, make_test_samples  # noqa: E402
+from training.eval_woodleaf import (  # noqa: E402
+    evaluate_segmenter,
+    make_test_samples,
+    read_comparison_csv,
+)
 
 DEFAULT_OUT = ML_ROOT.parent.parent / "docs" / "proposal" / "figures"
 
@@ -118,12 +122,21 @@ def _bar_chart(results: dict[str, list[float]], out: Path) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(description="Compare PCA vs PointNet++ wood-leaf (G2)")
     p.add_argument("--model", type=str, default=None, help="path to PointNet++ .pt (omit = PCA only)")
+    p.add_argument("--from-csv", type=str, default=None,
+                   help="re-plot fig17 from an existing woodleaf_comparison.csv (no model needed)")
     p.add_argument("--n-test", type=int, default=12)
     p.add_argument("--n-points", type=int, default=4096)
     p.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT))
     args = p.parse_args()
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.from_csv:
+        results = read_comparison_csv(args.from_csv)
+        _print_table(results)
+        _bar_chart(results, out_dir / "fig17_woodleaf_pca_vs_pointnet.png")
+        return
+
     run(args.model, args.n_test, args.n_points, out_dir)
 
 
