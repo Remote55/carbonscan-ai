@@ -75,3 +75,35 @@ def test_metrics_from_pred_known_overlap():
     m = _metrics_from_pred(pred, gt)
     assert m["wood_iou"] == round(2 / 3, 4)
     assert m["leaf_iou"] == 0.5
+
+
+def _toy_tree(seed=0):
+    """A vertical wood trunk + a scattered leaf blob (enough points for PCA)."""
+    rng = np.random.default_rng(seed)
+    z = np.linspace(0, 5, 200)
+    trunk = np.column_stack([rng.normal(0, 0.02, 200), rng.normal(0, 0.02, 200), z])
+    leaf = rng.normal([0, 0, 5], 0.6, size=(200, 3))
+    points = np.vstack([trunk, leaf])
+    gt = np.concatenate([np.zeros(200, np.uint8), np.ones(200, np.uint8)])
+    return points, gt
+
+
+def test_evaluate_cloud_returns_metrics(tmp_path):
+    from pipeline.realdata_eval import evaluate_cloud
+
+    points, gt = _toy_tree()
+    m = evaluate_cloud(points, gt, backend="tlsep")
+    assert set(m) == {
+        "wood_iou", "leaf_iou", "mean_iou", "accuracy",
+        "wood_frac_gt", "wood_frac_pred", "n_points",
+    }
+    assert 0.0 <= m["mean_iou"] <= 1.0
+    assert m["n_points"] == 400
+
+
+def test_evaluate_cloud_decimates(tmp_path):
+    from pipeline.realdata_eval import evaluate_cloud
+
+    points, gt = _toy_tree()
+    m = evaluate_cloud(points, gt, backend="tlsep", max_points=150)
+    assert m["n_points"] == 150

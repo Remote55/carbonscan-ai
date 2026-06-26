@@ -89,3 +89,25 @@ def _metrics_from_pred(pred: np.ndarray, gt: np.ndarray) -> dict:
         "wood_frac_pred": round(float(np.mean(pred == 0)), 4),
         "n_points": int(len(gt)),
     }
+
+
+def evaluate_cloud(
+    points: np.ndarray,
+    gt: np.ndarray,
+    *,
+    backend: str = "tlsep",
+    model_path: str | None = None,
+    max_points: int = 200_000,
+) -> dict:
+    """Zero-shot: segment one tree with `backend` and score against `gt`."""
+    from pipeline import wood_leaf_separation
+
+    points = np.asarray(points, dtype=np.float64)
+    gt = np.asarray(gt, dtype=np.uint8)
+    points, gt = _decimate_joint(points, gt, max_points)
+
+    segmenter = wood_leaf_separation.WoodLeafSegmenter(model_path=model_path, backend=backend)
+    if backend == "pointnet":
+        segmenter.load()
+    pred = np.asarray(segmenter.segment(points), dtype=np.uint8)
+    return _metrics_from_pred(pred, gt)
