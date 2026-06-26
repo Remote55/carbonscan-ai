@@ -309,6 +309,11 @@ def eval_realdata(dataset: str, root: str, backends: str, model_path: str | None
                 click.echo(f"skip {f.name}: missing wood-only file {wood_only.name}")
                 continue
             pts, gt = realdata_eval.derive_labels_from_woodonly(f, wood_only)
+            wood_frac = float(np.mean(gt == 0))
+            if wood_frac in (0.0, 1.0):
+                click.echo(
+                    f"warn {f.name}: wood_frac={wood_frac} — check tol or file pairing"
+                )
             trees.append((f.stem, pts, gt))
 
     if not trees:
