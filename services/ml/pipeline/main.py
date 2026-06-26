@@ -54,6 +54,7 @@ def process_points(
     wood_leaf_backend: str = "tlsep",
     model_path: str | None = None,
     default_species: str | None = None,
+    segmented_ply_out: str | None = None,
     progress_callback: Any = None,
 ) -> PipelineResult:
     """Run the pipeline on an in-memory (N, 3) point cloud.
@@ -68,6 +69,8 @@ def process_points(
         wood_leaf_backend: "tlsep" (PCA, default) or "pointnet" (needs model_path)
         model_path: PointNet++ checkpoint when backend="pointnet"
         default_species: scientific name for the allometric equation
+        segmented_ply_out: optional path to write a per-point segmented PLY
+            (whole plot: ground=2, non-ground split wood=0/leaf=1) for the viewer
         progress_callback: optional callable(stage: str, pct: int)
     """
     from pipeline import (
@@ -136,6 +139,18 @@ def process_points(
             )
         )
 
+    if segmented_ply_out:
+        # Assemble a per-point class for the whole plot so the web viewer can
+        # colour it: ground = 2; non-ground split wood = 0 / leaf = 1.
+        from pipeline.ply_export import write_segmented_ply
+
+        classes = np.full(len(points), 2, dtype=np.uint8)
+        non_ground = ~ground_mask
+        if np.any(non_ground):
+            wl = segmenter.segment(points[non_ground])
+            classes[non_ground] = np.asarray(wl, dtype=np.uint8)
+        write_segmented_ply(points, classes, segmented_ply_out)
+
     _p("complete", 100)
 
     total_carbon = sum(t.carbon_kg or 0.0 for t in trees)
@@ -163,6 +178,7 @@ def process_point_cloud(
     wood_leaf_backend: str = "tlsep",
     model_path: str | None = None,
     default_species: str | None = None,
+    segmented_ply_out: str | None = None,
     max_points: int = 200_000,
     progress_callback: Any = None,
 ) -> PipelineResult:
@@ -171,6 +187,7 @@ def process_point_cloud(
     Args:
         input_path: .las / .laz / .ply / .txt / .xyz / .csv
         output_path: optional JSON output path
+        segmented_ply_out: optional path to write a per-point segmented PLY
         (other args forwarded to process_points)
     """
     input_path = Path(input_path)
@@ -188,6 +205,7 @@ def process_point_cloud(
         wood_leaf_backend=wood_leaf_backend,
         model_path=model_path,
         default_species=default_species,
+        segmented_ply_out=segmented_ply_out,
         progress_callback=progress_callback,
     )
     result.metadata["input_file"] = str(input_path)
@@ -222,8 +240,10 @@ def cli() -> None:
 @click.option("--model", "model_path", type=click.Path(), default=None,
               help="PointNet++ checkpoint (required for --backend pointnet)")
 @click.option("--species", "default_species", default=None, help="scientific name for allometric")
+@click.option("--segmented-ply", "segmented_ply_out", type=click.Path(), default=None,
+              help="write a per-point segmented PLY (wood/leaf/ground) for the 3D viewer")
 def process(input_path: str, output_path: str, backend: str, model_path: str | None,
-            default_species: str | None) -> None:
+            default_species: str | None, segmented_ply_out: str | None) -> None:
     """Process a point cloud file end-to-end."""
 
     def _print_progress(stage: str, pct: int) -> None:
@@ -235,12 +255,15 @@ def process(input_path: str, output_path: str, backend: str, model_path: str | N
         wood_leaf_backend=backend,
         model_path=model_path,
         default_species=default_species,
+        segmented_ply_out=segmented_ply_out,
         progress_callback=_print_progress,
     )
     click.echo(f"\nOK - {result.summary['total_trees']} trees, "
                f"{result.summary['total_carbon_kg']} kg C, "
                f"{result.summary['total_co2eq_kg']} kg CO2eq")
     click.echo(f"OK - output written to: {output_path}")
+    if segmented_ply_out:
+        click.echo(f"OK - segmented PLY written to: {segmented_ply_out}")
 
 
 if __name__ == "__main__":
