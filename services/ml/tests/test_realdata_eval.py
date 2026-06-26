@@ -49,7 +49,7 @@ def test_decimate_joint_noop_when_small():
 
     points = np.zeros((5, 3))
     gt = np.array([0, 1, 0, 1, 0], np.uint8)
-    p, g = _decimate_joint(points, gt, max_points=100)
+    _p, g = _decimate_joint(points, gt, max_points=100)
     assert len(g) == 5
 
 

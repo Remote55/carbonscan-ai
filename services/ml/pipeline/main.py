@@ -296,7 +296,7 @@ def eval_realdata(dataset: str, root: str, backends: str, model_path: str | None
                 pts, gt = realdata_eval.load_labelled_cloud(
                     f, label_col=label_col, wood_labels=wood_vals
                 )
-            except Exception as exc:  # noqa: BLE001 - skip unreadable file, keep going
+            except Exception as exc:  # skip unreadable file, keep going
                 click.echo(f"skip {f.name}: {exc}")
                 continue
             trees.append((f.stem, pts, gt))

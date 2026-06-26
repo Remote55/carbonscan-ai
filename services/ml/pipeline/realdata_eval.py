@@ -87,7 +87,7 @@ def _metrics_from_pred(pred: np.ndarray, gt: np.ndarray) -> dict:
         "accuracy": round(float(np.mean(pred == gt)), 4),
         "wood_frac_gt": round(float(np.mean(gt == 0)), 4),
         "wood_frac_pred": round(float(np.mean(pred == 0)), 4),
-        "n_points": int(len(gt)),
+        "n_points": len(gt),
     }
 
 
