@@ -266,5 +266,68 @@ def process(input_path: str, output_path: str, backend: str, model_path: str | N
         click.echo(f"OK - segmented PLY written to: {segmented_ply_out}")
 
 
+@cli.command("eval-realdata")
+@click.option("--dataset", type=click.Choice(["wan", "shivalik"]), required=True)
+@click.option("--root", required=True, type=click.Path(exists=True))
+@click.option("--backend", "backends", default="tlsep",
+              help="comma-separated backends: tlsep,pointnet")
+@click.option("--model", "model_path", type=click.Path(), default=None,
+              help="PointNet++ checkpoint (required for backend pointnet)")
+@click.option("--out", "output_path", type=click.Path(), default="realdata_iou.json")
+@click.option("--max-points", default=200_000, type=int)
+@click.option("--label-col", default=3, type=int, help="(wan) label column index")
+@click.option("--wood-labels", default="0",
+              help="(wan) comma-separated label values that mean wood")
+def eval_realdata(dataset: str, root: str, backends: str, model_path: str | None,
+                  output_path: str, max_points: int, label_col: int,
+                  wood_labels: str) -> None:
+    """Zero-shot wood/leaf IoU on a real labelled dataset (wan | shivalik)."""
+    from pipeline import realdata_eval
+
+    root_path = Path(root)
+    backend_list = [b.strip() for b in backends.split(",") if b.strip()]
+    trees: list[tuple[str, Any, Any]] = []
+
+    if dataset == "wan":
+        wood_vals = [float(x) for x in wood_labels.split(",") if x.strip()]
+        files = sorted([*root_path.glob("*.txt"), *root_path.glob("*.csv")])
+        for f in files:
+            try:
+                pts, gt = realdata_eval.load_labelled_cloud(
+                    f, label_col=label_col, wood_labels=wood_vals
+                )
+            except Exception as exc:  # noqa: BLE001 - skip unreadable file, keep going
+                click.echo(f"skip {f.name}: {exc}")
+                continue
+            trees.append((f.stem, pts, gt))
+    else:  # shivalik: pair "<stem>.las" with wood-only "<stem>_wood.las"
+        for f in sorted([*root_path.glob("*.las"), *root_path.glob("*.laz")]):
+            if f.stem.endswith("_wood"):
+                continue
+            wood_only = f.with_name(f"{f.stem}_wood{f.suffix}")
+            if not wood_only.exists():
+                click.echo(f"skip {f.name}: missing wood-only file {wood_only.name}")
+                continue
+            pts, gt = realdata_eval.derive_labels_from_woodonly(f, wood_only)
+            trees.append((f.stem, pts, gt))
+
+    if not trees:
+        raise click.ClickException(f"no trees found under {root_path}")
+
+    result = realdata_eval.evaluate_dataset(
+        trees, backends=backend_list, model_path=model_path, max_points=max_points
+    )
+    Path(output_path).write_text(
+        json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    for backend, s in result["summary"].items():
+        click.echo(
+            f"[{backend}] trees={s['n_trees']} "
+            f"wood_iou={s['mean_wood_iou']} leaf_iou={s['mean_leaf_iou']} "
+            f"mean_iou={s['mean_iou']}"
+        )
+    click.echo(f"OK - output written to: {output_path}")
+
+
 if __name__ == "__main__":
     cli()

@@ -131,3 +131,34 @@ def test_evaluate_dataset_aggregates(monkeypatch):
     assert s["mean_wood_iou"] == 0.8
     assert s["mean_leaf_iou"] == 0.6
     assert s["mean_iou"] == 0.7
+
+
+def test_cli_eval_realdata_wan(tmp_path):
+    import json
+
+    from click.testing import CliRunner
+
+    from pipeline.main import cli
+
+    # two toy labelled trees: cols x y z label, wood label = 0
+    root = tmp_path / "wan"
+    root.mkdir()
+    for name, seed in [("a.txt", 1), ("b.txt", 2)]:
+        pts, gt = _toy_tree(seed)
+        rows = np.column_stack([pts, gt.astype(float)])
+        np.savetxt(root / name, rows)
+
+    out = tmp_path / "wan_iou.json"
+    res = CliRunner().invoke(
+        cli,
+        [
+            "eval-realdata", "--dataset", "wan", "--root", str(root),
+            "--backend", "tlsep", "--out", str(out),
+            "--label-col", "3", "--wood-labels", "0",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert out.exists()
+    data = json.loads(out.read_text())
+    assert data["summary"]["tlsep"]["n_trees"] == 2
+    assert len(data["per_tree"]) == 2
