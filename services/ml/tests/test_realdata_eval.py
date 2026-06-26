@@ -16,3 +16,15 @@ def test_load_labelled_cloud_maps_wood_labels(tmp_path):
     assert points.dtype == np.float64
     assert gt.tolist() == [0, 1, 0]  # label 1 -> wood(0); label 0 -> leaf(1)
     assert gt.dtype == np.uint8
+
+
+def test_derive_labels_from_woodonly(tmp_path):
+    full = tmp_path / "full.txt"
+    full.write_text("0 0 0\n1 0 0\n2 0 0\n3 0 0\n4 0 0\n5 0 0\n")
+    wood = tmp_path / "wood.txt"
+    wood.write_text("0 0 0\n2 0 0\n4 0 0\n")  # points 0,2,4 are wood
+    from pipeline.realdata_eval import derive_labels_from_woodonly
+
+    points, gt = derive_labels_from_woodonly(full, wood, tol=1e-6)
+    assert points.shape == (6, 3)
+    assert gt.tolist() == [0, 1, 0, 1, 0, 1]  # matched -> wood(0), else leaf(1)

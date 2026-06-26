@@ -40,3 +40,23 @@ def load_labelled_cloud(
     labels = arr[:, label_col]
     gt = np.where(np.isin(labels, np.asarray(wood_labels, dtype=labels.dtype)), 0, 1)
     return points, gt.astype(np.uint8)
+
+
+def derive_labels_from_woodonly(
+    full_path: str | Path, wood_only_path: str | Path, tol: float = 1e-3
+) -> tuple[np.ndarray, np.ndarray]:
+    """Derive per-point wood/leaf labels by matching against a wood-only cloud.
+
+    Shivalik provides ground truth as a separate file containing only the wood
+    points. A full-tree point within `tol` (metres) of any wood-only point is
+    labelled wood (0); the rest are leaf (1). Matching uses XYZ only (avoids the
+    zero-intensity quirk noted in the dataset's paper). Both clouds are loaded
+    in full (no decimation) so the match stays aligned.
+    """
+    from scipy.spatial import cKDTree
+
+    full = load_point_cloud(full_path, max_points=_NO_DECIMATION)
+    wood_only = load_point_cloud(wood_only_path, max_points=_NO_DECIMATION)
+    dist, _ = cKDTree(wood_only).query(full, k=1)
+    gt = np.where(dist <= tol, 0, 1).astype(np.uint8)
+    return full, gt
