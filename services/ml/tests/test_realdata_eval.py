@@ -28,3 +28,50 @@ def test_derive_labels_from_woodonly(tmp_path):
     points, gt = derive_labels_from_woodonly(full, wood, tol=1e-6)
     assert points.shape == (6, 3)
     assert gt.tolist() == [0, 1, 0, 1, 0, 1]  # matched -> wood(0), else leaf(1)
+
+
+def test_decimate_joint_keeps_pairs():
+    from pipeline.realdata_eval import _decimate_joint
+
+    n = 1000
+    points = np.zeros((n, 3))
+    points[:, 0] = np.arange(n)  # x encodes original index
+    gt = (np.arange(n) % 3).astype(np.uint8)
+    p, g = _decimate_joint(points, gt, max_points=100)
+    assert len(g) == 100
+    assert p.shape == (100, 3)
+    # invariant gt == x % 3 must survive
+    assert np.array_equal(g, (p[:, 0].astype(int) % 3).astype(np.uint8))
+
+
+def test_decimate_joint_noop_when_small():
+    from pipeline.realdata_eval import _decimate_joint
+
+    points = np.zeros((5, 3))
+    gt = np.array([0, 1, 0, 1, 0], np.uint8)
+    p, g = _decimate_joint(points, gt, max_points=100)
+    assert len(g) == 5
+
+
+def test_metrics_from_pred_perfect():
+    from pipeline.realdata_eval import _metrics_from_pred
+
+    gt = np.array([0, 0, 1, 1], np.uint8)
+    m = _metrics_from_pred(gt.copy(), gt)
+    assert m["wood_iou"] == 1.0
+    assert m["leaf_iou"] == 1.0
+    assert m["mean_iou"] == 1.0
+    assert m["accuracy"] == 1.0
+    assert m["wood_frac_gt"] == 0.5
+    assert m["n_points"] == 4
+
+
+def test_metrics_from_pred_known_overlap():
+    from pipeline.realdata_eval import _metrics_from_pred
+
+    gt = np.array([0, 0, 0, 1], np.uint8)
+    pred = np.array([0, 0, 1, 1], np.uint8)
+    # wood: inter {0,1}=2, union {0,1,2}=3 -> 2/3 ; leaf: inter {3}=1, union {2,3}=2 -> 1/2
+    m = _metrics_from_pred(pred, gt)
+    assert m["wood_iou"] == round(2 / 3, 4)
+    assert m["leaf_iou"] == 0.5

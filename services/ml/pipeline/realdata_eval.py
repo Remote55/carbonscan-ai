@@ -60,3 +60,32 @@ def derive_labels_from_woodonly(
     dist, _ = cKDTree(wood_only).query(full, k=1)
     gt = np.where(dist <= tol, 0, 1).astype(np.uint8)
     return full, gt
+
+
+def _decimate_joint(
+    points: np.ndarray, gt: np.ndarray, max_points: int, seed: int = 0
+) -> tuple[np.ndarray, np.ndarray]:
+    """Jointly subsample points + gt (seeded) so the pairing is preserved."""
+    n = len(points)
+    if n <= max_points:
+        return points, gt
+    rng = np.random.default_rng(seed)
+    idx = np.sort(rng.choice(n, max_points, replace=False))
+    return points[idx], gt[idx]
+
+
+def _metrics_from_pred(pred: np.ndarray, gt: np.ndarray) -> dict:
+    """Per-class IoU + accuracy + class fractions for one tree."""
+    pred = np.asarray(pred)
+    gt = np.asarray(gt)
+    wood_iou = iou_score(pred, gt, positive_class=0)
+    leaf_iou = iou_score(pred, gt, positive_class=1)
+    return {
+        "wood_iou": round(wood_iou, 4),
+        "leaf_iou": round(leaf_iou, 4),
+        "mean_iou": round((wood_iou + leaf_iou) / 2, 4),
+        "accuracy": round(float(np.mean(pred == gt)), 4),
+        "wood_frac_gt": round(float(np.mean(gt == 0)), 4),
+        "wood_frac_pred": round(float(np.mean(pred == 0)), 4),
+        "n_points": int(len(gt)),
+    }
