@@ -111,3 +111,35 @@ def evaluate_cloud(
         segmenter.load()
     pred = np.asarray(segmenter.segment(points), dtype=np.uint8)
     return _metrics_from_pred(pred, gt)
+
+
+def evaluate_dataset(
+    trees: list[tuple[str, np.ndarray, np.ndarray]],
+    *,
+    backends: Sequence[str],
+    model_path: str | None = None,
+    max_points: int = 200_000,
+) -> dict:
+    """Run `evaluate_cloud` over every (tree_id, points, gt) for each backend.
+
+    Returns {"per_tree": [...], "summary": {backend: {n_trees, mean_*_iou}}}.
+    """
+    per_tree: list[dict] = []
+    summary: dict[str, dict] = {}
+    for backend in backends:
+        wood, leaf, mean = [], [], []
+        for tree_id, points, gt in trees:
+            m = evaluate_cloud(
+                points, gt, backend=backend, model_path=model_path, max_points=max_points
+            )
+            per_tree.append({"tree_id": tree_id, "backend": backend, **m})
+            wood.append(m["wood_iou"])
+            leaf.append(m["leaf_iou"])
+            mean.append(m["mean_iou"])
+        summary[backend] = {
+            "n_trees": len(trees),
+            "mean_wood_iou": round(float(np.mean(wood)), 4) if wood else 0.0,
+            "mean_leaf_iou": round(float(np.mean(leaf)), 4) if leaf else 0.0,
+            "mean_iou": round(float(np.mean(mean)), 4) if mean else 0.0,
+        }
+    return {"per_tree": per_tree, "summary": summary}
