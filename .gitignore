@@ -119,3 +119,6 @@ secrets/
 # Personal scratch
 scratch/
 notes/personal/
+
+# Real-world evaluation datasets (downloaded manually, too large to commit)
+services/ml/data/realdata/
