@@ -101,3 +101,37 @@ export const api = {
 };
 
 export { ApiError };
+
+// --- Point-cloud analysis (sync MVP: POST /api/v1/upload/analyze) ---
+
+export interface AnalyzeTree {
+  tree_id: number;
+  species_sci: string | null;
+  dbh_cm: number;
+  height_m: number;
+  volume_m3: number | null;
+  biomass_kg: number | null;
+  carbon_kg: number | null;
+  co2eq_kg: number | null;
+  location: Record<string, number>;
+  point_count: number;
+}
+
+export interface AnalyzeSummary {
+  total_trees: number;
+  total_carbon_kg: number;
+  total_co2eq_kg: number;
+}
+
+export interface AnalyzeResponse {
+  metadata: Record<string, unknown>;
+  summary: AnalyzeSummary;
+  trees: AnalyzeTree[];
+}
+
+/** Upload a point-cloud file to the backend, run the pipeline, get carbon results. */
+export function analyzePointCloud(file: File): Promise<AnalyzeResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.upload<AnalyzeResponse>('/upload/analyze', formData);
+}

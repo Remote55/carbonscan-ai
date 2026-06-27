@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { analyzePointCloud, ApiError, type AnalyzeResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,35 +18,47 @@ import { decimate, parsePly } from "@/lib/ply-loader";
 
 const MAX_POINTS = 200_000;
 
+const fmt = (n: number | null | undefined, d = 2) =>
+  n == null ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d });
+
 export default function ViewerPage() {
   const demoTree = useMemo(() => generateDemoTree({ seed: 42 }), []);
 
   const [loaded, setLoaded] = useState<PointCloud | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   const cloud = loaded ?? demoTree;
   const nPoints = cloud.classes.length;
 
-  const loadFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".ply")) {
+  const loadFile = useCallback(async (f: File) => {
+    if (!f.name.toLowerCase().endsWith(".ply")) {
       setError("รองรับเฉพาะไฟล์ .ply เท่านั้น");
       return;
     }
     setIsLoading(true);
     setError(null);
+    setAnalysis(null);
+    setAnalyzeError(null);
     try {
-      const buffer = await file.arrayBuffer();
+      const buffer = await f.arrayBuffer();
       const parsed = decimate(parsePly(buffer), MAX_POINTS);
       if (parsed.classes.length === 0) {
         setError("ไฟล์นี้ไม่มีจุด (point) ที่อ่านได้");
         return;
       }
       setLoaded(parsed);
-      setFileName(file.name);
+      setFile(f);
+      setFileName(f.name);
     } catch (err) {
       setError(`อ่านไฟล์ไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -57,18 +70,40 @@ export default function ViewerPage() {
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file) void loadFile(file);
+      const f = e.dataTransfer.files?.[0];
+      if (f) void loadFile(f);
     },
     [loadFile],
   );
 
   const resetToDemo = useCallback(() => {
     setLoaded(null);
+    setFile(null);
     setFileName(null);
     setError(null);
+    setAnalysis(null);
+    setAnalyzeError(null);
     if (inputRef.current) inputRef.current.value = "";
   }, []);
+
+  const runAnalysis = useCallback(async () => {
+    if (!file) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      setAnalysis(await analyzePointCloud(file));
+    } catch (err) {
+      const detail =
+        err instanceof ApiError
+          ? `(${err.status}) ${(err.body as { detail?: string })?.detail ?? err.statusText}`
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      setAnalyzeError(`วิเคราะห์ไม่สำเร็จ: ${detail}`);
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [file]);
 
   return (
     <main className="container mx-auto px-4 py-12">
@@ -106,9 +141,7 @@ export default function ViewerPage() {
               }`}
             >
               <p className="text-sm text-muted-foreground">
-                {isLoading
-                  ? "กำลังอ่านไฟล์…"
-                  : "ลากไฟล์ .ply มาวางที่นี่ หรือ"}
+                {isLoading ? "กำลังอ่านไฟล์…" : "ลากไฟล์ .ply มาวางที่นี่ หรือ"}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button
@@ -131,8 +164,8 @@ export default function ViewerPage() {
                 accept=".ply"
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void loadFile(file);
+                  const f = e.target.files?.[0];
+                  if (f) void loadFile(f);
                 }}
               />
             </div>
@@ -156,6 +189,86 @@ export default function ViewerPage() {
             <PointCloudLegend />
           </CardContent>
         </Card>
+
+        {loaded ? (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>ผลวิเคราะห์คาร์บอน (ML pipeline จริง)</CardTitle>
+              <CardDescription>
+                ส่งไฟล์นี้เข้า backend → รัน pipeline (ground → tree → wood/leaf → QSM →
+                allometric) → คืนค่าคาร์บอนจริง
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button type="button" onClick={runAnalysis} disabled={analyzing}>
+                {analyzing ? "กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)" : "วิเคราะห์คาร์บอน"}
+              </Button>
+
+              {analyzeError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {analyzeError}
+                </p>
+              ) : null}
+
+              {analysis ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border border-foreground/10 p-4">
+                      <div className="text-2xl font-bold">{analysis.summary.total_trees}</div>
+                      <div className="text-sm text-muted-foreground">จำนวนต้นไม้</div>
+                    </div>
+                    <div className="rounded-lg border border-foreground/10 p-4">
+                      <div className="text-2xl font-bold">
+                        {fmt(analysis.summary.total_carbon_kg)} <span className="text-base">kg</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">คาร์บอนรวม</div>
+                    </div>
+                    <div className="rounded-lg border border-foreground/10 p-4">
+                      <div className="text-2xl font-bold">
+                        {fmt(analysis.summary.total_co2eq_kg / 1000, 3)}{" "}
+                        <span className="text-base">tCO₂e</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">CO₂ เทียบเท่า</div>
+                    </div>
+                  </div>
+
+                  {analysis.trees.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-left text-muted-foreground">
+                          <tr className="border-b border-foreground/10">
+                            <th className="py-2 pr-4">ต้นที่</th>
+                            <th className="py-2 pr-4">DBH (cm)</th>
+                            <th className="py-2 pr-4">สูง (m)</th>
+                            <th className="py-2 pr-4">ปริมาตร (m³)</th>
+                            <th className="py-2 pr-4">คาร์บอน (kg)</th>
+                            <th className="py-2">CO₂e (kg)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analysis.trees.map((t) => (
+                            <tr key={t.tree_id} className="border-b border-foreground/5">
+                              <td className="py-2 pr-4">{t.tree_id}</td>
+                              <td className="py-2 pr-4">{fmt(t.dbh_cm)}</td>
+                              <td className="py-2 pr-4">{fmt(t.height_m)}</td>
+                              <td className="py-2 pr-4">{fmt(t.volume_m3, 4)}</td>
+                              <td className="py-2 pr-4">{fmt(t.carbon_kg)}</td>
+                              <td className="py-2">{fmt(t.co2eq_kg)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      ไม่พบต้นไม้ในไฟล์นี้ (ลองไฟล์ที่เป็น plot หลายต้น)
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </main>
   );
