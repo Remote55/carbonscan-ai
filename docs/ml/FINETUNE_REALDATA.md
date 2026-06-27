@@ -58,10 +58,15 @@ packages). Then:
 !python -m training.train_woodleaf \
     --train-npz wan_train.npz --val-npz wan_test.npz \
     --init-checkpoint woodleaf_pn2.pt \
-    --epochs 40 --lr 1e-4 --batch-size 8 \
+    --class-weight auto \
+    --epochs 60 --lr 1e-4 --batch-size 8 \
     --out woodleaf_pn2_wan.pt
 ```
 
+- **`--class-weight auto` is important.** The data is ~70% leaf, so plain
+  cross-entropy lets the model ignore the minority **wood** class (a first run
+  without it left wood IoU stuck at ~0.19). Auto uses inverse-frequency
+  ('balanced') weights to lift the wood class.
 - `--init-checkpoint` starts from the synthetic weights (fine-tune, not from
   scratch). Use a **low LR (1e-4)** so it adapts without forgetting.
 - The per-epoch `val_wood_IoU` is the **wood-class IoU on the held-out real test

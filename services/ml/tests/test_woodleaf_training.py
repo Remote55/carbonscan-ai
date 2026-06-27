@@ -188,3 +188,15 @@ def test_segmenter_pointnet_falls_back_when_too_few_points(tmp_path):
     points = np.random.default_rng(0).standard_normal((100, 3)).astype(np.float32)
     labels = seg.segment(points)
     assert labels.shape == (100,)
+
+
+def test_class_weights_balanced_upweights_minority():
+    pytest.importorskip("torch")  # train_woodleaf imports torch at module load
+    from training.train_woodleaf import _class_weights
+
+    y = np.array([WOOD] * 25 + [LEAF] * 75)  # 25% wood, 75% leaf
+    w = _class_weights(y, num_classes=2)
+    # sklearn 'balanced': total / (n_classes * count)
+    assert np.isclose(w[WOOD], 100 / (2 * 25))   # 2.0
+    assert np.isclose(w[LEAF], 100 / (2 * 75), atol=1e-4)  # 0.667
+    assert w[WOOD] > w[LEAF]  # rare wood class up-weighted
