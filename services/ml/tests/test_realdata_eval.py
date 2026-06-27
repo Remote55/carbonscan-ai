@@ -122,7 +122,7 @@ def test_evaluate_cloud_decimates(tmp_path):
 
 
 def test_evaluate_dataset_aggregates(monkeypatch):
-    import pipeline.realdata_eval as re
+    from pipeline import realdata_eval
 
     def fake_eval(points, gt, *, backend, model_path=None, max_points=200_000):
         return {
@@ -131,12 +131,12 @@ def test_evaluate_dataset_aggregates(monkeypatch):
             "n_points": len(gt),
         }
 
-    monkeypatch.setattr(re, "evaluate_cloud", fake_eval)
+    monkeypatch.setattr(realdata_eval, "evaluate_cloud", fake_eval)
     trees = [
         ("t1", np.zeros((4, 3)), np.array([0, 0, 1, 1], np.uint8)),
         ("t2", np.zeros((4, 3)), np.array([0, 1, 0, 1], np.uint8)),
     ]
-    result = re.evaluate_dataset(trees, backends=["tlsep"])
+    result = realdata_eval.evaluate_dataset(trees, backends=["tlsep"])
     assert len(result["per_tree"]) == 2
     s = result["summary"]["tlsep"]
     assert s["n_trees"] == 2
