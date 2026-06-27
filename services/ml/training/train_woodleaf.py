@@ -31,6 +31,15 @@ def _make_loader(n_samples, n_points, seed0, batch_size, shuffle):
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
 
 
+def _npz_loader(path, batch_size, shuffle):
+    """Loader from a converter .npz holding x:(N,P,3) float32 + y:(N,P) int64."""
+    data = np.load(path)
+    x = data["x"].astype(np.float32)
+    y = data["y"].astype(np.int64)
+    ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
+    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+
+
 @torch.no_grad()
 def evaluate(model, loader, device) -> float:
     """Mean wood-class IoU over a loader."""
@@ -50,10 +59,22 @@ def train(args) -> float:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[train] device={device}")
 
-    train_loader = _make_loader(args.n_train, args.n_points, 0, args.batch_size, True)
-    val_loader = _make_loader(args.n_val, args.n_points, 10_000, args.batch_size, False)
+    if args.train_npz:
+        if not args.val_npz:
+            raise SystemExit("--val-npz is required when --train-npz is given")
+        print(f"[train] real data: train={args.train_npz}  val/held-out={args.val_npz}")
+        train_loader = _npz_loader(args.train_npz, args.batch_size, True)
+        val_loader = _npz_loader(args.val_npz, args.batch_size, False)
+    else:
+        train_loader = _make_loader(args.n_train, args.n_points, 0, args.batch_size, True)
+        val_loader = _make_loader(args.n_val, args.n_points, 10_000, args.batch_size, False)
 
     model = PointNet2SegSSG(num_classes=2).to(device)
+    if args.init_checkpoint:
+        ckpt = torch.load(args.init_checkpoint, map_location=device)
+        model.load_state_dict(ckpt["state_dict"])
+        print(f"[train] fine-tuning from {args.init_checkpoint} "
+              f"(prior val_iou={ckpt.get('val_iou')})")
     opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=20, gamma=0.5)
 
@@ -95,6 +116,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--device", type=str, default="auto")
     p.add_argument("--out", type=str, default="woodleaf_pn2.pt")
+    # Real-data fine-tuning (overrides the synthetic generator when given)
+    p.add_argument("--train-npz", type=str, default=None,
+                   help="real training samples .npz (x,y); overrides synthetic")
+    p.add_argument("--val-npz", type=str, default=None,
+                   help="real held-out test samples .npz (x,y)")
+    p.add_argument("--init-checkpoint", type=str, default=None,
+                   help="checkpoint to fine-tune from (e.g. the synthetic woodleaf_pn2.pt)")
     return p
 
 

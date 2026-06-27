@@ -1,0 +1,99 @@
+# Fine-tuning Wood/Leaf PointNet++ on Real TLS Data (Wan 2021)
+
+> **Why:** the synthetic-trained model scores IoU **0.978 on the synthetic test**
+> but only **~0.33 zero-shot on real TLS** (PCA baseline ~0.25). That sim-to-real
+> gap is expected — closing it needs training on *real labelled* data. This
+> runbook fine-tunes the model on the real Wan 2021 dataset and reports a
+> **leakage-free held-out** real IoU.
+
+## Data
+**Wan 2021** — Dryad `10.5061/dryad.rfj6q5799` (CC-BY). 3 plot files
+`x y z R G B label` (label col 6: **0 = wood, 1 = leaf**), 73 trees / 3 species
+(white birch, Dahurian larch, Chinese scholar tree). ~7.8 GB total — keep it
+**local** (git-ignored under `services/ml/data/realdata/wan2021/`).
+
+## Step 1 — Convert locally (handles the multi-GB files → tiny `.npz`)
+
+Run where the big `.txt` files live. The converter seek-samples each plot, tiles
+it into ~2.5 m cells (≈ single-tree scale), normalises each cell to the unit
+sphere (PointNet++ input format), and splits tiles **spatially** with a buffer
+gap so train/test never share a tree.
+
+```bash
+cd services/ml
+./.venv/Scripts/python.exe -m training.realdata_dataset \
+  --plots data/realdata/wan2021/reference_pc_White_Birch.txt \
+          data/realdata/wan2021/reference_pc_Dahurian_Larch.txt \
+          data/realdata/wan2021/reference_pc_Chinese_scholar_tree.txt \
+  --out-train data/realdata/wan_train.npz \
+  --out-test  data/realdata/wan_test.npz
+```
+
+Expected output (≈):
+```
+train_samples: 295   test_samples: 77   train_wood_frac: 0.287   test_wood_frac: 0.241
+```
+`wan_train.npz` (~12 MB) + `wan_test.npz` (~3 MB) — small enough to upload to Colab.
+
+### The split (anti-cheat)
+Per plot, tiles are cut along x at `frac` (default 0.70); tiles inside a `buffer`
+band (default 2.5 m) around the cut are **dropped**, so train and test cover
+**spatially disjoint** regions — no tree leaks across the split. All 3 species
+appear in both sets → this measures *within-distribution* generalisation to
+**unseen trees**.
+
+> **Harder, cross-species test (optional):** pass only 2 plots to `--plots` and
+> evaluate on the 3rd species' tiles (regenerate with that plot as the test set).
+> This is leave-one-species-out and is a stronger (harder) claim.
+
+## Step 2 — Fine-tune on Colab (free GPU)
+
+Upload `wan_train.npz`, `wan_test.npz`, and the existing synthetic checkpoint
+`woodleaf_pn2.pt`, plus the repo (or at least the `training/` + `pipeline/`
+packages). Then:
+
+```python
+!pip install torch numpy
+# fine-tune from the synthetic checkpoint on real data:
+!python -m training.train_woodleaf \
+    --train-npz wan_train.npz --val-npz wan_test.npz \
+    --init-checkpoint woodleaf_pn2.pt \
+    --epochs 40 --lr 1e-4 --batch-size 8 \
+    --out woodleaf_pn2_wan.pt
+```
+
+- `--init-checkpoint` starts from the synthetic weights (fine-tune, not from
+  scratch). Use a **low LR (1e-4)** so it adapts without forgetting.
+- The per-epoch `val_wood_IoU` is the **wood-class IoU on the held-out real test
+  tiles** — this is the honest number to report.
+- Best checkpoint is saved to `woodleaf_pn2_wan.pt`.
+
+**Baselines to compare against (optional):**
+```python
+# train from scratch on real only (no synthetic init) — shows the value of pretraining
+!python -m training.train_woodleaf --train-npz wan_train.npz --val-npz wan_test.npz \
+    --epochs 60 --lr 1e-3 --out woodleaf_pn2_wan_scratch.pt
+```
+
+## Step 3 — Report honestly
+
+| Setting | Wood IoU (real, held-out) |
+|---|---|
+| PCA baseline (`tlsep`), zero-shot | ~0.25 |
+| PointNet++ synthetic-only, zero-shot | ~0.33 |
+| **PointNet++ fine-tuned on real** | **← fill in from Colab** |
+| (reference) PointNet++ on synthetic test | 0.978 |
+
+Frame for the report: *"PointNet++ trained on synthetic reaches 0.978 on the
+synthetic test but only ~0.33 zero-shot on independent real TLS. After
+fine-tuning on real labelled TLS (Wan 2021, leakage-free spatial held-out test),
+wood IoU recovers to **X** — demonstrating that the architecture works on real
+data once real training labels are available, and motivating Thai field-data
+collection for in-country species."*
+
+## Notes
+- Files produced here (`*.npz`, `*.pt`, `data/realdata/`) are git-ignored — they
+  are reproducible from the dataset + this runbook.
+- Converter knobs: `--tile` (cell size m), `--n-points` (per-sample point count),
+  `--min-pts` (drop sparse cells), `--frac` / `--buffer` (split). Defaults match
+  the numbers above.
