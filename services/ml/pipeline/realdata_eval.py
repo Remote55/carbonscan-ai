@@ -36,6 +36,8 @@ def load_labelled_cloud(
     path = Path(path)
     delimiter = "," if path.suffix.lower() == ".csv" else None
     arr = np.atleast_2d(np.loadtxt(path, delimiter=delimiter))
+    if label_col >= arr.shape[1]:
+        raise ValueError(f"label_col={label_col} but file has only {arr.shape[1]} columns: {path}")
     points = arr[:, :3].astype(np.float64)
     labels = arr[:, label_col]
     gt = np.where(np.isin(labels, np.asarray(wood_labels, dtype=labels.dtype)), 0, 1)
@@ -57,6 +59,8 @@ def derive_labels_from_woodonly(
 
     full = load_point_cloud(full_path, max_points=_NO_DECIMATION)
     wood_only = load_point_cloud(wood_only_path, max_points=_NO_DECIMATION)
+    if len(wood_only) == 0:
+        raise ValueError(f"wood-only cloud is empty: {wood_only_path}")
     dist, _ = cKDTree(wood_only).query(full, k=1)
     gt = np.where(dist <= tol, 0, 1).astype(np.uint8)
     return full, gt
