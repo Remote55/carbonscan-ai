@@ -40,6 +40,18 @@ def _npz_loader(path, batch_size, shuffle):
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
 
 
+def _class_weights(labels: np.ndarray, num_classes: int = 2) -> np.ndarray:
+    """Inverse-frequency ('balanced') class weights to counter imbalance.
+
+    weight[c] = total / (num_classes * count[c]) — the sklearn 'balanced' rule.
+    Up-weights the rare class (wood) so the loss stops ignoring it. Returns
+    float32 weights aligned to class index.
+    """
+    counts = np.bincount(np.asarray(labels).reshape(-1), minlength=num_classes).astype(np.float64)
+    counts = np.where(counts == 0, 1.0, counts)  # guard against a missing class
+    return (counts.sum() / (num_classes * counts)).astype(np.float32)
+
+
 @torch.no_grad()
 def evaluate(model, loader, device) -> float:
     """Mean wood-class IoU over a loader."""
@@ -75,6 +87,12 @@ def train(args) -> float:
         model.load_state_dict(ckpt["state_dict"])
         print(f"[train] fine-tuning from {args.init_checkpoint} "
               f"(prior val_iou={ckpt.get('val_iou')})")
+    weight = None
+    if args.class_weight == "auto":
+        w = _class_weights(train_loader.dataset.tensors[1].numpy(), num_classes=2)
+        weight = torch.tensor(w, device=device)
+        print(f"[train] class-weighted loss (auto): wood={w[WOOD]:.3f} leaf={w[1 - WOOD]:.3f}")
+
     opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=20, gamma=0.5)
 
@@ -86,7 +104,7 @@ def train(args) -> float:
         for x, y in train_loader:
             x, y = x.to(device), y.to(device)
             logits = model(x).reshape(-1, 2)
-            loss = F.cross_entropy(logits, y.reshape(-1))
+            loss = F.cross_entropy(logits, y.reshape(-1), weight=weight)
             opt.zero_grad()
             loss.backward()
             opt.step()
@@ -123,6 +141,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="real held-out test samples .npz (x,y)")
     p.add_argument("--init-checkpoint", type=str, default=None,
                    help="checkpoint to fine-tune from (e.g. the synthetic woodleaf_pn2.pt)")
+    p.add_argument("--class-weight", choices=["none", "auto"], default="none",
+                   help="auto = inverse-frequency weighted loss (lifts the minority wood class)")
     return p
 
 
