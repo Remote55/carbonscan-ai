@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     RUNPOD_API_KEY: str = ""
     RUNPOD_ENDPOINT_ID: str = ""
 
+    # --- ML pipeline (sync MVP: shell out to the ml venv CLI) ---
+    # Empty = auto-detect from the monorepo layout (services/ml + its .venv).
+    ML_DIR: str = ""
+    ML_PYTHON: str = ""
+
     # --- Queue ---
     # Job queue uses Supabase PGMQ (Postgres-native; no separate Redis/Celery).
 
