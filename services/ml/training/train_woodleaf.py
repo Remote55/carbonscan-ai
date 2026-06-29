@@ -52,6 +52,13 @@ def _class_weights(labels: np.ndarray, num_classes: int = 2) -> np.ndarray:
     return (counts.sum() / (num_classes * counts)).astype(np.float32)
 
 
+def _iou_triple(preds: np.ndarray, gts: np.ndarray) -> tuple[float, float, float]:
+    """Pooled per-point (wood_iou, leaf_iou, mean_iou) over flat label arrays."""
+    wood = iou_score(preds, gts, positive_class=WOOD)
+    leaf = iou_score(preds, gts, positive_class=1 - WOOD)
+    return wood, leaf, (wood + leaf) / 2.0
+
+
 @torch.no_grad()
 def evaluate(model, loader, device) -> float:
     """Mean wood-class IoU over a loader."""

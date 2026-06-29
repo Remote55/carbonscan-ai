@@ -200,3 +200,16 @@ def test_class_weights_balanced_upweights_minority():
     assert np.isclose(w[WOOD], 100 / (2 * 25))   # 2.0
     assert np.isclose(w[LEAF], 100 / (2 * 75), atol=1e-4)  # 0.667
     assert w[WOOD] > w[LEAF]  # rare wood class up-weighted
+
+
+def test_iou_triple_known_values():
+    pytest.importorskip("torch")  # train_woodleaf imports torch at module load
+    from training.train_woodleaf import _iou_triple
+
+    gt = np.array([WOOD, WOOD, WOOD, LEAF])
+    pred = np.array([WOOD, WOOD, LEAF, LEAF])
+    # wood: inter {0,1}=2, union {0,1,2}=3 -> 2/3 ; leaf: inter {3}=1, union {2,3}=2 -> 1/2
+    wood, leaf, mean = _iou_triple(pred, gt)
+    assert wood == round(2 / 3, 10) or abs(wood - 2 / 3) < 1e-9
+    assert abs(leaf - 0.5) < 1e-9
+    assert abs(mean - (2 / 3 + 0.5) / 2) < 1e-9
