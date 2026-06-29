@@ -213,3 +213,30 @@ def test_iou_triple_known_values():
     assert wood == round(2 / 3, 10) or abs(wood - 2 / 3) < 1e-9
     assert abs(leaf - 0.5) < 1e-9
     assert abs(mean - (2 / 3 + 0.5) / 2) < 1e-9
+
+
+def test_evaluate_full_reports_per_class_metrics():
+    pytest.importorskip("torch")
+    import torch
+    from torch.utils.data import DataLoader, TensorDataset
+
+    from training.train_woodleaf import evaluate_full
+
+    class ConstWood(torch.nn.Module):
+        """Always predicts class 0 (wood) for every point."""
+        def forward(self, x):
+            b, n, _ = x.shape
+            logits = torch.zeros(b, n, 2)
+            logits[..., 0] = 1.0  # argmax over last dim -> 0
+            return logits
+
+    x = torch.zeros(2, 4, 3)
+    y = torch.tensor([[0, 0, 1, 1], [0, 1, 0, 1]])  # 4 wood, 4 leaf
+    loader = DataLoader(TensorDataset(x, y), batch_size=2)
+    m = evaluate_full(ConstWood(), loader, "cpu")
+    assert set(m) == {"wood_iou", "leaf_iou", "mean_iou", "accuracy"}
+    # pred all wood: wood inter=4 union=8 ->0.5 ; leaf inter=0 union=4 ->0.0 ; acc 4/8=0.5
+    assert m["wood_iou"] == 0.5
+    assert m["leaf_iou"] == 0.0
+    assert m["mean_iou"] == 0.25
+    assert m["accuracy"] == 0.5

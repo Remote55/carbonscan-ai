@@ -72,6 +72,28 @@ def evaluate(model, loader, device) -> float:
     return float(np.mean(ious)) if ious else 0.0
 
 
+@torch.no_grad()
+def evaluate_full(model, loader, device) -> dict:
+    """Pooled per-point wood/leaf/mean IoU + accuracy over a loader."""
+    model.eval()
+    preds, gts = [], []
+    for x, y in loader:
+        p = model(x.to(device)).argmax(dim=-1).cpu().numpy().reshape(-1)
+        preds.append(p)
+        gts.append(y.numpy().reshape(-1))
+    if not preds:
+        return {"wood_iou": 0.0, "leaf_iou": 0.0, "mean_iou": 0.0, "accuracy": 0.0}
+    pf = np.concatenate(preds)
+    gf = np.concatenate(gts)
+    wood, leaf, mean = _iou_triple(pf, gf)
+    return {
+        "wood_iou": round(wood, 4),
+        "leaf_iou": round(leaf, 4),
+        "mean_iou": round(mean, 4),
+        "accuracy": round(float((pf == gf).mean()), 4),
+    }
+
+
 def train(args) -> float:
     device = args.device
     if device == "auto":
