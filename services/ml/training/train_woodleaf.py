@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from training.metrics import iou_score
 from training.pointnet2_seg import PointNet2SegSSG
-from training.woodleaf_dataset import WOOD, build_woodleaf_dataset
+from training.woodleaf_dataset import LEAF, WOOD, build_woodleaf_dataset
 
 
 def _make_loader(n_samples, n_points, seed0, batch_size, shuffle):
@@ -31,13 +31,18 @@ def _make_loader(n_samples, n_points, seed0, batch_size, shuffle):
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
 
 
+def _loader_from_arrays(x, y, batch_size, shuffle):
+    """Wrap numpy arrays in a DataLoader (expects float32 x, int64 y)."""
+    ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
+    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+
+
 def _npz_loader(path, batch_size, shuffle):
     """Loader from a converter .npz holding x:(N,P,3) float32 + y:(N,P) int64."""
     data = np.load(path)
-    x = data["x"].astype(np.float32)
-    y = data["y"].astype(np.int64)
-    ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+    return _loader_from_arrays(
+        data["x"].astype(np.float32), data["y"].astype(np.int64), batch_size, shuffle
+    )
 
 
 def _class_weights(labels: np.ndarray, num_classes: int = 2) -> np.ndarray:
@@ -50,6 +55,26 @@ def _class_weights(labels: np.ndarray, num_classes: int = 2) -> np.ndarray:
     counts = np.bincount(np.asarray(labels).reshape(-1), minlength=num_classes).astype(np.float64)
     counts = np.where(counts == 0, 1.0, counts)  # guard against a missing class
     return (counts.sum() / (num_classes * counts)).astype(np.float32)
+
+
+def _iou_triple(preds: np.ndarray, gts: np.ndarray) -> tuple[float, float, float]:
+    """Pooled per-point (wood_iou, leaf_iou, mean_iou) over flat label arrays."""
+    wood = iou_score(preds, gts, positive_class=WOOD)
+    leaf = iou_score(preds, gts, positive_class=LEAF)
+    return wood, leaf, (wood + leaf) / 2.0
+
+
+def _augment_with_synthetic(
+    x: np.ndarray, y: np.ndarray, n: int, seed: int = 50_000
+) -> tuple[np.ndarray, np.ndarray]:
+    """Append `n` synthetic samples (matching point count) to a real (npz) set.
+
+    seed0 is set high to avoid overlapping the synthetic train (0) / val (10_000) seeds.
+    """
+    sx, sy = build_woodleaf_dataset(n_samples=n, n_points=x.shape[1], seed0=seed)
+    x_out = np.concatenate([x, sx.astype(np.float32)], axis=0)
+    y_out = np.concatenate([y, sy.astype(np.int64)], axis=0)
+    return x_out, y_out
 
 
 @torch.no_grad()
@@ -65,6 +90,28 @@ def evaluate(model, loader, device) -> float:
     return float(np.mean(ious)) if ious else 0.0
 
 
+@torch.no_grad()
+def evaluate_full(model, loader, device) -> dict:
+    """Pooled per-point wood/leaf/mean IoU + accuracy over a loader."""
+    model.eval()
+    preds, gts = [], []
+    for x, y in loader:
+        p = model(x.to(device)).argmax(dim=-1).cpu().numpy().reshape(-1)
+        preds.append(p)
+        gts.append(y.numpy().reshape(-1))
+    if not preds:
+        return {"wood_iou": 0.0, "leaf_iou": 0.0, "mean_iou": 0.0, "accuracy": 0.0}
+    pf = np.concatenate(preds)
+    gf = np.concatenate(gts)
+    wood, leaf, mean = _iou_triple(pf, gf)
+    return {
+        "wood_iou": round(wood, 4),
+        "leaf_iou": round(leaf, 4),
+        "mean_iou": round(mean, 4),
+        "accuracy": round(float((pf == gf).mean()), 4),
+    }
+
+
 def train(args) -> float:
     device = args.device
     if device == "auto":
@@ -74,8 +121,15 @@ def train(args) -> float:
     if args.train_npz:
         if not args.val_npz:
             raise SystemExit("--val-npz is required when --train-npz is given")
-        print(f"[train] real data: train={args.train_npz}  val/held-out={args.val_npz}")
-        train_loader = _npz_loader(args.train_npz, args.batch_size, True)
+        data = np.load(args.train_npz)
+        x = data["x"].astype(np.float32)
+        y = data["y"].astype(np.int64)
+        if args.augment_synthetic > 0:
+            x, y = _augment_with_synthetic(x, y, args.augment_synthetic)
+            print(f"[train] augmented with {args.augment_synthetic} synthetic samples")
+        print(f"[train] real data: train={args.train_npz} ({len(x)} samples)  "
+              f"val/held-out={args.val_npz}")
+        train_loader = _loader_from_arrays(x, y, args.batch_size, True)
         val_loader = _npz_loader(args.val_npz, args.batch_size, False)
     else:
         train_loader = _make_loader(args.n_train, args.n_points, 0, args.batch_size, True)
@@ -91,7 +145,8 @@ def train(args) -> float:
     if args.class_weight == "auto":
         w = _class_weights(train_loader.dataset.tensors[1].numpy(), num_classes=2)
         weight = torch.tensor(w, device=device)
-        print(f"[train] class-weighted loss (auto): wood={w[WOOD]:.3f} leaf={w[1 - WOOD]:.3f}")
+        print(f"[train] class-weighted loss (auto, on training set): "
+              f"wood={w[WOOD]:.3f} leaf={w[LEAF]:.3f}")
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=20, gamma=0.5)
@@ -121,6 +176,13 @@ def train(args) -> float:
             print(f"  + saved checkpoint (IoU {best_iou:.4f}) -> {out_path}")
 
     print(f"[done] best val wood IoU = {best_iou:.4f}  (target >= 0.70)")
+    best_ckpt = torch.load(out_path, map_location=device)
+    model.load_state_dict(best_ckpt["state_dict"])
+    final = evaluate_full(model, val_loader, device)
+    print(f"[held-out] wood_iou={final['wood_iou']} leaf_iou={final['leaf_iou']} "
+          f"mean_iou={final['mean_iou']} accuracy={final['accuracy']}")
+    print("  (note: held-out split is spatially disjoint from train; "
+          "also used for best-epoch selection)")
     return best_iou
 
 
@@ -143,6 +205,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="checkpoint to fine-tune from (e.g. the synthetic woodleaf_pn2.pt)")
     p.add_argument("--class-weight", choices=["none", "auto"], default="none",
                    help="auto = inverse-frequency weighted loss (lifts the minority wood class)")
+    p.add_argument("--augment-synthetic", type=int, default=0,
+                   help="add N synthetic samples to the (npz) training set as augmentation")
     return p
 
 

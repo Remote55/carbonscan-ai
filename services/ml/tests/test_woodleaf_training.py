@@ -200,3 +200,58 @@ def test_class_weights_balanced_upweights_minority():
     assert np.isclose(w[WOOD], 100 / (2 * 25))   # 2.0
     assert np.isclose(w[LEAF], 100 / (2 * 75), atol=1e-4)  # 0.667
     assert w[WOOD] > w[LEAF]  # rare wood class up-weighted
+
+
+def test_iou_triple_known_values():
+    pytest.importorskip("torch")  # train_woodleaf imports torch at module load
+    from training.train_woodleaf import _iou_triple
+
+    gt = np.array([WOOD, WOOD, WOOD, LEAF])
+    pred = np.array([WOOD, WOOD, LEAF, LEAF])
+    # wood: inter {0,1}=2, union {0,1,2}=3 -> 2/3 ; leaf: inter {3}=1, union {2,3}=2 -> 1/2
+    wood, leaf, mean = _iou_triple(pred, gt)
+    assert abs(wood - 2 / 3) < 1e-9
+    assert abs(leaf - 0.5) < 1e-9
+    assert abs(mean - (2 / 3 + 0.5) / 2) < 1e-9
+
+
+def test_augment_with_synthetic_concatenates():
+    pytest.importorskip("torch")
+    from training.train_woodleaf import _augment_with_synthetic
+
+    x = np.zeros((3, 64, 3), dtype=np.float32)
+    y = np.zeros((3, 64), dtype=np.int64)
+    ax, ay = _augment_with_synthetic(x, y, n=2, seed=123)
+    assert ax.shape == (5, 64, 3)
+    assert ay.shape == (5, 64)
+    assert ax.dtype == np.float32
+    assert ay.dtype == np.int64
+    # original samples preserved at the front
+    assert np.array_equal(ax[:3], x)
+
+
+def test_evaluate_full_reports_per_class_metrics():
+    pytest.importorskip("torch")
+    import torch
+    from torch.utils.data import DataLoader, TensorDataset
+
+    from training.train_woodleaf import evaluate_full
+
+    class ConstWood(torch.nn.Module):
+        """Always predicts class 0 (wood) for every point."""
+        def forward(self, x):
+            b, n, _ = x.shape
+            logits = torch.zeros(b, n, 2)
+            logits[..., 0] = 1.0  # argmax over last dim -> 0
+            return logits
+
+    x = torch.zeros(2, 4, 3)
+    y = torch.tensor([[0, 0, 1, 1], [0, 1, 0, 1]])  # 4 wood, 4 leaf
+    loader = DataLoader(TensorDataset(x, y), batch_size=2)
+    m = evaluate_full(ConstWood(), loader, "cpu")
+    assert set(m) == {"wood_iou", "leaf_iou", "mean_iou", "accuracy"}
+    # pred all wood: wood inter=4 union=8 ->0.5 ; leaf inter=0 union=4 ->0.0 ; acc 4/8=0.5
+    assert m["wood_iou"] == 0.5
+    assert m["leaf_iou"] == 0.0
+    assert m["mean_iou"] == 0.25
+    assert m["accuracy"] == 0.5

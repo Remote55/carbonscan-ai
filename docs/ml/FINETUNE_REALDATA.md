@@ -102,3 +102,42 @@ collection for in-country species."*
 - Converter knobs: `--tile` (cell size m), `--n-points` (per-sample point count),
   `--min-pts` (drop sparse cells), `--frac` / `--buffer` (split). Defaults match
   the numbers above.
+
+## Same-environment experiments (train+test on real Wan, 4 variants)
+
+Per advisor guidance: train/test on the **same real environment** with more data,
+use synthetic only as **augmentation**, and **keep every result**.
+
+### Step A — regenerate a bigger real training set (local)
+```bash
+cd services/ml && python -m training.realdata_dataset \
+  --plots data/realdata/wan2021/reference_pc_White_Birch.txt \
+          data/realdata/wan2021/reference_pc_Dahurian_Larch.txt \
+          data/realdata/wan2021/reference_pc_Chinese_scholar_tree.txt \
+  --out-train data/realdata/wan_train.npz --out-test data/realdata/wan_test.npz \
+  --n-off 10000 --per 1500
+```
+Upload the two `.npz` to Colab (no checkpoint needed — these are from-scratch runs).
+
+### Step B — run the 4 variants on Colab (GPU)
+```python
+# 1) from-scratch, no class-weight
+!python -m training.train_woodleaf --train-npz wan_train.npz --val-npz wan_test.npz \
+    --epochs 60 --lr 1e-3 --out wan_v1.pt
+# 2) from-scratch, class-weight
+!python -m training.train_woodleaf --train-npz wan_train.npz --val-npz wan_test.npz \
+    --class-weight auto --epochs 60 --lr 1e-3 --out wan_v2.pt
+# 3) from-scratch + synthetic augmentation, no class-weight
+!python -m training.train_woodleaf --train-npz wan_train.npz --val-npz wan_test.npz \
+    --augment-synthetic 200 --epochs 60 --lr 1e-3 --out wan_v3.pt
+# 4) from-scratch + synthetic augmentation, class-weight
+!python -m training.train_woodleaf --train-npz wan_train.npz --val-npz wan_test.npz \
+    --augment-synthetic 200 --class-weight auto --epochs 60 --lr 1e-3 --out wan_v4.pt
+```
+
+### Step C — record results
+Each run ends with a line like:
+```
+[held-out] wood_iou=0.31 leaf_iou=0.55 mean_iou=0.43 accuracy=0.62
+```
+Copy those numbers into the matrix table in `docs/ml/WOODLEAF_RESULTS.md` (one row per variant).
