@@ -31,13 +31,17 @@ def _make_loader(n_samples, n_points, seed0, batch_size, shuffle):
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
 
 
+def _loader_from_arrays(x, y, batch_size, shuffle):
+    ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
+    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+
+
 def _npz_loader(path, batch_size, shuffle):
     """Loader from a converter .npz holding x:(N,P,3) float32 + y:(N,P) int64."""
     data = np.load(path)
-    x = data["x"].astype(np.float32)
-    y = data["y"].astype(np.int64)
-    ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+    return _loader_from_arrays(
+        data["x"].astype(np.float32), data["y"].astype(np.int64), batch_size, shuffle
+    )
 
 
 def _class_weights(labels: np.ndarray, num_classes: int = 2) -> np.ndarray:
@@ -116,8 +120,15 @@ def train(args) -> float:
     if args.train_npz:
         if not args.val_npz:
             raise SystemExit("--val-npz is required when --train-npz is given")
-        print(f"[train] real data: train={args.train_npz}  val/held-out={args.val_npz}")
-        train_loader = _npz_loader(args.train_npz, args.batch_size, True)
+        data = np.load(args.train_npz)
+        x = data["x"].astype(np.float32)
+        y = data["y"].astype(np.int64)
+        if args.augment_synthetic > 0:
+            x, y = _augment_with_synthetic(x, y, args.augment_synthetic)
+            print(f"[train] augmented with {args.augment_synthetic} synthetic samples")
+        print(f"[train] real data: train={args.train_npz} ({len(x)} samples)  "
+              f"val/held-out={args.val_npz}")
+        train_loader = _loader_from_arrays(x, y, args.batch_size, True)
         val_loader = _npz_loader(args.val_npz, args.batch_size, False)
     else:
         train_loader = _make_loader(args.n_train, args.n_points, 0, args.batch_size, True)
@@ -163,6 +174,11 @@ def train(args) -> float:
             print(f"  + saved checkpoint (IoU {best_iou:.4f}) -> {out_path}")
 
     print(f"[done] best val wood IoU = {best_iou:.4f}  (target >= 0.70)")
+    best_ckpt = torch.load(out_path, map_location=device)
+    model.load_state_dict(best_ckpt["state_dict"])
+    final = evaluate_full(model, val_loader, device)
+    print(f"[held-out] wood_iou={final['wood_iou']} leaf_iou={final['leaf_iou']} "
+          f"mean_iou={final['mean_iou']} accuracy={final['accuracy']}")
     return best_iou
 
 
@@ -185,6 +201,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="checkpoint to fine-tune from (e.g. the synthetic woodleaf_pn2.pt)")
     p.add_argument("--class-weight", choices=["none", "auto"], default="none",
                    help="auto = inverse-frequency weighted loss (lifts the minority wood class)")
+    p.add_argument("--augment-synthetic", type=int, default=0,
+                   help="add N synthetic samples to the (npz) training set as augmentation")
     return p
 
 
