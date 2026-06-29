@@ -210,7 +210,7 @@ def test_iou_triple_known_values():
     pred = np.array([WOOD, WOOD, LEAF, LEAF])
     # wood: inter {0,1}=2, union {0,1,2}=3 -> 2/3 ; leaf: inter {3}=1, union {2,3}=2 -> 1/2
     wood, leaf, mean = _iou_triple(pred, gt)
-    assert wood == round(2 / 3, 10) or abs(wood - 2 / 3) < 1e-9
+    assert abs(wood - 2 / 3) < 1e-9
     assert abs(leaf - 0.5) < 1e-9
     assert abs(mean - (2 / 3 + 0.5) / 2) < 1e-9
 

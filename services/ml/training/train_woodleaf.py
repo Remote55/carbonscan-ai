@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from training.metrics import iou_score
 from training.pointnet2_seg import PointNet2SegSSG
-from training.woodleaf_dataset import WOOD, build_woodleaf_dataset
+from training.woodleaf_dataset import LEAF, WOOD, build_woodleaf_dataset
 
 
 def _make_loader(n_samples, n_points, seed0, batch_size, shuffle):
@@ -32,6 +32,7 @@ def _make_loader(n_samples, n_points, seed0, batch_size, shuffle):
 
 
 def _loader_from_arrays(x, y, batch_size, shuffle):
+    """Wrap numpy arrays in a DataLoader (expects float32 x, int64 y)."""
     ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
 
@@ -59,7 +60,7 @@ def _class_weights(labels: np.ndarray, num_classes: int = 2) -> np.ndarray:
 def _iou_triple(preds: np.ndarray, gts: np.ndarray) -> tuple[float, float, float]:
     """Pooled per-point (wood_iou, leaf_iou, mean_iou) over flat label arrays."""
     wood = iou_score(preds, gts, positive_class=WOOD)
-    leaf = iou_score(preds, gts, positive_class=1 - WOOD)
+    leaf = iou_score(preds, gts, positive_class=LEAF)
     return wood, leaf, (wood + leaf) / 2.0
 
 
@@ -144,7 +145,8 @@ def train(args) -> float:
     if args.class_weight == "auto":
         w = _class_weights(train_loader.dataset.tensors[1].numpy(), num_classes=2)
         weight = torch.tensor(w, device=device)
-        print(f"[train] class-weighted loss (auto): wood={w[WOOD]:.3f} leaf={w[1 - WOOD]:.3f}")
+        print(f"[train] class-weighted loss (auto, on training set): "
+              f"wood={w[WOOD]:.3f} leaf={w[LEAF]:.3f}")
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=20, gamma=0.5)
@@ -179,6 +181,8 @@ def train(args) -> float:
     final = evaluate_full(model, val_loader, device)
     print(f"[held-out] wood_iou={final['wood_iou']} leaf_iou={final['leaf_iou']} "
           f"mean_iou={final['mean_iou']} accuracy={final['accuracy']}")
+    print("  (note: held-out split is spatially disjoint from train; "
+          "also used for best-epoch selection)")
     return best_iou
 
 
