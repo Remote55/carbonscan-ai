@@ -59,6 +59,19 @@ def _iou_triple(preds: np.ndarray, gts: np.ndarray) -> tuple[float, float, float
     return wood, leaf, (wood + leaf) / 2.0
 
 
+def _augment_with_synthetic(
+    x: np.ndarray, y: np.ndarray, n: int, seed: int = 50_000
+) -> tuple[np.ndarray, np.ndarray]:
+    """Append `n` synthetic samples (matching point count) to a real (npz) set.
+
+    seed0 is set high to avoid overlapping the synthetic train (0) / val (10_000) seeds.
+    """
+    sx, sy = build_woodleaf_dataset(n_samples=n, n_points=x.shape[1], seed0=seed)
+    x_out = np.concatenate([x, sx.astype(np.float32)], axis=0)
+    y_out = np.concatenate([y, sy.astype(np.int64)], axis=0)
+    return x_out, y_out
+
+
 @torch.no_grad()
 def evaluate(model, loader, device) -> float:
     """Mean wood-class IoU over a loader."""

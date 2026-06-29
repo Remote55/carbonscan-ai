@@ -215,6 +215,21 @@ def test_iou_triple_known_values():
     assert abs(mean - (2 / 3 + 0.5) / 2) < 1e-9
 
 
+def test_augment_with_synthetic_concatenates():
+    pytest.importorskip("torch")
+    from training.train_woodleaf import _augment_with_synthetic
+
+    x = np.zeros((3, 64, 3), dtype=np.float32)
+    y = np.zeros((3, 64), dtype=np.int64)
+    ax, ay = _augment_with_synthetic(x, y, n=2, seed=123)
+    assert ax.shape == (5, 64, 3)
+    assert ay.shape == (5, 64)
+    assert ax.dtype == np.float32
+    assert ay.dtype == np.int64
+    # original samples preserved at the front
+    assert np.array_equal(ax[:3], x)
+
+
 def test_evaluate_full_reports_per_class_metrics():
     pytest.importorskip("torch")
     import torch
