@@ -149,12 +149,14 @@ def build(
     frac: float = 0.7,
     buffer: float = 2.5,
     label_col: int = 6,
+    n_off: int = 3000,
+    per: int = 1000,
 ) -> dict:
     """Convert plots -> per-plot spatial split -> concatenated train/test .npz."""
     xtr_l, ytr_l, xte_l, yte_l = [], [], [], []
     per_plot = {}
     for path in plot_paths:
-        pts, lab = load_wan_plot(path, label_col=label_col)
+        pts, lab = load_wan_plot(path, label_col=label_col, n_off=n_off, per=per)
         x, y, centers = tile_samples(
             pts, lab, tile=tile, n_points=n_points, min_pts=min_pts
         )
@@ -189,6 +191,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--frac", type=float, default=0.7, help="train fraction along the spatial cut")
     p.add_argument("--buffer", type=float, default=2.5, help="held-out gap (m) between train/test")
     p.add_argument("--label-col", type=int, default=6)
+    p.add_argument("--n-off", type=int, default=3000, help="seek offsets across each plot file")
+    p.add_argument("--per", type=int, default=1000, help="contiguous lines read per offset")
     return p
 
 
@@ -198,6 +202,7 @@ if __name__ == "__main__":
         args.plots, args.out_train, args.out_test,
         tile=args.tile, n_points=args.n_points, min_pts=args.min_pts,
         frac=args.frac, buffer=args.buffer, label_col=args.label_col,
+        n_off=args.n_off, per=args.per,
     )
     print(stats)
     print(f"wrote {args.out_train} + {args.out_test}")
