@@ -104,11 +104,16 @@ def _bar_chart(results: dict[str, list[float]], out: Path) -> None:
     for i, k in enumerate(names):
         ys = results[k]
         xs = np.full(len(ys), i) + jitter.uniform(-0.12, 0.12, len(ys))
-        ax.scatter(xs, ys, color="#14140F", alpha=0.5, s=22, zorder=4)
-    ax.axhline(0.70, color="#E63946", linestyle="--", label="target IoU = 0.70", zorder=2)
-    for b, m in zip(bars, means, strict=True):
-        ax.text(b.get_x() + b.get_width() / 2, m + 0.02, f"{m:.3f}", ha="center", fontweight="bold")
-    ax.set_ylim(0, 1.0)
+        ax.scatter(xs, ys, color="#14140F", alpha=0.45, s=22, zorder=4,
+                   edgecolor="white", linewidth=0.4)
+    ax.axhline(0.70, color="#E63946", linestyle="--", linewidth=1.5,
+               label="target IoU = 0.70", zorder=2)
+    # value labels sit above the highest scatter point of each bar (clear of the dots)
+    for b, m, k in zip(bars, means, names, strict=True):
+        top = max(max(results[k]), m)
+        ax.text(b.get_x() + b.get_width() / 2, top + 0.04, f"{m:.3f}",
+                ha="center", va="bottom", fontweight="bold", fontsize=13, color="#14140F")
+    ax.set_ylim(0, 1.18)
     ax.set_ylabel("Wood IoU (held-out synthetic trees)")
     ax.set_title("Figure 17 — Wood-Leaf Segmentation: PCA vs PointNet++")
     ax.legend(loc="lower right")
