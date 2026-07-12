@@ -20,10 +20,10 @@ export default function HomePage() {
           </Link>
           <div className="flex items-center gap-3">
             <Link
-              href="/marketplace"
+              href="/dashboard/viewer"
               className="hidden text-sm font-medium text-muted-foreground hover:text-foreground sm:block"
             >
-              Marketplace
+              3D Viewer
             </Link>
             <Link
               href="/login"
@@ -73,10 +73,10 @@ export default function HomePage() {
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
-                href="/marketplace"
+                href="/dashboard/viewer"
                 className="inline-flex h-12 items-center gap-2 rounded-lg border border-border bg-background px-6 text-base font-medium transition-colors hover:bg-muted"
               >
-                ดู Marketplace
+                ทดลอง 3D Viewer
               </Link>
             </div>
 
@@ -107,7 +107,7 @@ export default function HomePage() {
               {
                 icon: Sparkles,
                 title: 'AI Wood-Leaf Segmentation',
-                desc: 'PointNet++ แยกใบและลำต้นได้แม่นยำ IoU ≥ 0.70',
+                desc: 'PointNet++ แยกใบและลำต้น — Mean IoU 0.61 บนไม้จริง (Wan 2021)',
               },
               {
                 icon: ShieldCheck,
@@ -176,14 +176,11 @@ export default function HomePage() {
               </span>
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground">
-              <Link href="/about" className="hover:text-foreground">
-                About
-              </Link>
-              <Link href="https://github.com/Remote55/carbonscan-ai" className="hover:text-foreground">
+              <Link
+                href="https://github.com/Remote55/carbonscan-ai"
+                className="hover:text-foreground"
+              >
                 GitHub
-              </Link>
-              <Link href="/privacy" className="hover:text-foreground">
-                Privacy
               </Link>
             </div>
           </div>

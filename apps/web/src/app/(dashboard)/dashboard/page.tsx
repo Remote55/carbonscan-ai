@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase-server';
 
@@ -26,29 +27,44 @@ export default async function DashboardPage() {
           <span className="font-medium text-foreground">{userMetadata.role ?? 'community'}</span>
         </p>
 
-        <div className="mt-12 rounded-xl border border-border bg-card p-8">
-          <h2 className="text-xl font-semibold">เริ่มต้นใช้งาน</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Dashboard ยังอยู่ใน Phase 1 — features ที่จะมา:
-          </p>
-          <ul className="mt-4 space-y-2 text-sm">
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-              อัปโหลดไฟล์ LiDAR (.las/.laz)
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-              ดูต้นไม้ของคุณบนแผนที่ GIS
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-              3D Point Cloud Viewer
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-              Marketplace สำหรับ Carbon Credit
-            </li>
-          </ul>
+        <div className="mt-10 grid gap-6 sm:grid-cols-2">
+          {/* Ready now — 3D Viewer */}
+          <Link
+            href="/dashboard/viewer"
+            className="group rounded-xl border border-primary/30 bg-primary/5 p-6 transition-all hover:border-primary/60 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">🌲 3D Point Cloud Viewer</h2>
+              <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
+                พร้อมใช้
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              ดูต้นไม้แบบ 3 มิติ แยกสีลำต้น / ใบ / พื้นดิน — หมุน ซูม และลากไฟล์ .ply ที่ segment แล้วมาดูได้
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary transition-all group-hover:gap-2">
+              เปิด Viewer <span aria-hidden>→</span>
+            </span>
+          </Link>
+
+          {/* Coming next */}
+          <div className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-lg font-semibold">เร็ว ๆ นี้ (Phase ถัดไป)</h2>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                อัปโหลด LiDAR (.las/.laz) แล้วประมวลผลอัตโนมัติ
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                แผนที่ GIS แสดงตำแหน่งต้นไม้
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                Marketplace ซื้อขาย Carbon Credit
+              </li>
+            </ul>
+          </div>
         </div>
 
         <div className="mt-6 text-sm text-muted-foreground">

@@ -7,6 +7,16 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+/**
+ * True when a real backend API is configured (env var set to a non-localhost URL).
+ * The deployed demo has no backend, so the carbon-analysis UI checks this to show
+ * a clear message instead of a raw "Failed to fetch" network error.
+ */
+export const IS_API_CONFIGURED =
+  typeof process.env.NEXT_PUBLIC_API_URL === 'string' &&
+  process.env.NEXT_PUBLIC_API_URL.length > 0 &&
+  !process.env.NEXT_PUBLIC_API_URL.includes('localhost');
+
 class ApiError extends Error {
   constructor(
     public status: number,

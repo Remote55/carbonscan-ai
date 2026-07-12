@@ -124,3 +124,5 @@ notes/personal/
 
 # Real-world evaluation datasets (downloaded manually, too large to commit)
 services/ml/data/realdata/
+.vercel
+.env*
