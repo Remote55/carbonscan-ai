@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     ALLOWED_LAS_EXTENSIONS: str = ".las,.laz,.ply"
     ALLOWED_IMAGE_EXTENSIONS: str = ".jpg,.jpeg,.png"
 
+    # Where POST /jobs/analyze persists uploads for the worker to read.
+    # Empty = <system temp>/carbonscan-jobs. Must be shared between API + worker.
+    JOB_UPLOAD_DIR: str = ""
+
     @property
     def MAX_UPLOAD_SIZE_BYTES(self) -> int:
         return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024

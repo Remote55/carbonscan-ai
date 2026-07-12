@@ -7,21 +7,17 @@ TODO Phase 1:
 - Create Job record + push to Queue
 """
 
-import os
 import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
-from app.core.config import settings
 from app.schemas.analyze import AnalyzeResponse
 from app.services.pipeline_runner import PipelineError, run_pipeline
+from app.services.upload_validation import validate_upload
 
 router = APIRouter()
-
-# Formats the ML pipeline can load (pipeline.field_eval.load_point_cloud)
-_ANALYZE_EXTENSIONS = {".las", ".laz", ".ply", ".txt", ".xyz", ".csv"}
 
 
 def _run_pipeline_on_bytes(data: bytes, ext: str) -> dict:
@@ -42,19 +38,8 @@ async def analyze_point_cloud(file: UploadFile = File(...)) -> AnalyzeResponse:
 
     Synchronous MVP (small files). Phase 2 moves heavy jobs to a queue + GPU worker.
     """
-    ext = os.path.splitext((file.filename or "").lower())[1]
-    if ext not in _ANALYZE_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type '{ext}'. Allowed: {sorted(_ANALYZE_EXTENSIONS)}",
-        )
     data = await file.read()
-    if not data:
-        raise HTTPException(status_code=400, detail="Empty file")
-    if len(data) > settings.MAX_UPLOAD_SIZE_BYTES:
-        raise HTTPException(
-            status_code=413, detail=f"File too large (> {settings.MAX_UPLOAD_SIZE_MB} MB)"
-        )
+    ext = validate_upload(file.filename, data)
 
     try:
         result = await run_in_threadpool(_run_pipeline_on_bytes, data, ext)
