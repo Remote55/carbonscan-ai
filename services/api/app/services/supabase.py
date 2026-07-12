@@ -65,6 +65,7 @@ async def sync_user_to_db(supabase_user: dict[str, Any]) -> None:
 
     TODO Phase 1: Replace with proper repository pattern.
     """
-    # Implementation requires DB session — moved to dependency-injected service.
-    # See: app/api/v1/auth.py /me endpoint where this is wired.
-    raise NotImplementedError("Wire from auth.py with DbSession dependency")
+    # NOTE: user upsert now happens in DbJobStore.create (INSERT ... ON CONFLICT).
+    # This standalone helper is kept as a documented no-op until a dedicated
+    # /me sync flow needs it; wire it from a DbSession dependency then.
+    return None

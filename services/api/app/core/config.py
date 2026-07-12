@@ -65,7 +65,9 @@ class Settings(BaseSettings):
     ML_PYTHON: str = ""
 
     # --- Queue ---
-    # Job queue uses Supabase PGMQ (Postgres-native; no separate Redis/Celery).
+    # Jobs use the `jobs` table itself as the queue (claimed via
+    # SELECT ... FOR UPDATE SKIP LOCKED in DbJobStore). No Redis/PGMQ needed.
+    # See services/api/docs/WORKER_RUNBOOK.md.
 
     # --- File Upload ---
     MAX_UPLOAD_SIZE_MB: int = 500
