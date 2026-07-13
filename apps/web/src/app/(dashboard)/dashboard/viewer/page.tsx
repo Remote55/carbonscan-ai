@@ -2,13 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import {
-  ApiError,
-  IS_API_CONFIGURED,
-  pollJobUntilDone,
-  submitAnalyzeJob,
-  type AnalyzeResponse,
-} from "@/lib/api";
+import { analyzePointCloud, ApiError, IS_API_CONFIGURED, type AnalyzeResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,7 +34,6 @@ export default function ViewerPage() {
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [jobStatus, setJobStatus] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -97,17 +90,8 @@ export default function ViewerPage() {
     if (!file) return;
     setAnalyzing(true);
     setAnalyzeError(null);
-    setJobStatus(null);
     try {
-      const created = await submitAnalyzeJob(file);
-      const job = await pollJobUntilDone(created.id, {
-        onUpdate: (j) => setJobStatus(j.status),
-      });
-      if (job.status === "completed" && job.result) {
-        setAnalysis(job.result);
-      } else {
-        setAnalyzeError(job.error_message ?? `งานจบด้วยสถานะ: ${job.status}`);
-      }
+      setAnalysis(await analyzePointCloud(file));
     } catch (err) {
       if (err instanceof ApiError) {
         const detail = `(${err.status}) ${(err.body as { detail?: string })?.detail ?? err.statusText}`;
@@ -222,9 +206,7 @@ export default function ViewerPage() {
               {IS_API_CONFIGURED ? (
                 <>
                   <Button type="button" onClick={runAnalysis} disabled={analyzing}>
-                    {analyzing
-                      ? `กำลังวิเคราะห์…${jobStatus ? ` (${jobStatus})` : ""}`
-                      : "วิเคราะห์คาร์บอน"}
+                    {analyzing ? "กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)" : "วิเคราะห์คาร์บอน"}
                   </Button>
 
                   {analyzeError ? (
