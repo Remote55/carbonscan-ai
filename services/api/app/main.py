@@ -23,11 +23,11 @@ from app.core.exceptions import AppException
 async def lifespan(_app: FastAPI):
     """Application lifespan — startup and shutdown hooks."""
     # Startup
-    print(f"🌲 Starting CarbonScan AI API v{__version__} ({settings.APP_ENV})")
+    print(f"Starting CarbonScan AI API v{__version__} ({settings.APP_ENV})")
     # TODO: warm up DB connection pool, ML model cache, etc.
     yield
     # Shutdown
-    print("👋 Shutting down CarbonScan AI API")
+    print("Shutting down CarbonScan AI API")
     # TODO: close DB connections, flush logs, etc.
 
 
