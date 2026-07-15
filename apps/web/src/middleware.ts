@@ -12,13 +12,24 @@ import { NextResponse, type NextRequest } from 'next/server';
 type CookieSetItem = { name: string; value: string; options: CookieOptions };
 
 export async function middleware(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // No Supabase env → skip auth handling entirely. Lets local `npm run dev`
+  // render public pages without secrets, and makes production degrade
+  // gracefully (no 500 on every request) if the env is ever missing, instead
+  // of throwing inside createServerClient.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({
     request,
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {

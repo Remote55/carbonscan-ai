@@ -1,5 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Sarabun, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
+import {
+  Inter,
+  Sarabun,
+  Space_Grotesk,
+  JetBrains_Mono,
+  Fraunces,
+} from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
@@ -27,6 +33,15 @@ const spaceGrotesk = Space_Grotesk({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
+  display: 'swap',
+});
+
+// Premium display serif for the marketing surface (hero + landing sections).
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-fraunces',
   display: 'swap',
 });
 
@@ -111,6 +126,7 @@ export default function RootLayout({
         sarabun.variable,
         spaceGrotesk.variable,
         jetbrainsMono.variable,
+        fraunces.variable,
         GeistSans.variable,
         'font-sans',
       )}
