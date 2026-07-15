@@ -4,7 +4,7 @@ import {
   Sarabun,
   Space_Grotesk,
   JetBrains_Mono,
-  Fraunces,
+  Pacifico,
 } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
@@ -36,12 +36,11 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
-// Premium display serif for the marketing surface (hero + landing sections).
-const fraunces = Fraunces({
+// Script accent for the marketing hero (nature-landing feel).
+const pacifico = Pacifico({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--font-fraunces',
+  weight: '400',
+  variable: '--font-pacifico',
   display: 'swap',
 });
 
@@ -126,7 +125,7 @@ export default function RootLayout({
         sarabun.variable,
         spaceGrotesk.variable,
         jetbrainsMono.variable,
-        fraunces.variable,
+        pacifico.variable,
         GeistSans.variable,
         'font-sans',
       )}
