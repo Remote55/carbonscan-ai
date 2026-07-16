@@ -252,13 +252,12 @@ def build_evidence_dataset(
         raise ValueError("protocol source filenames must be logical basenames")
 
     resolved_sources = [Path(path).resolve() for path in plot_paths]
-    for source in resolved_sources:
-        try:
-            source.relative_to(repo_root)
-        except ValueError as exc:
-            raise ValueError(
-                f"source path must be within repo_root: {source.name}"
-            ) from exc
+    output_paths = {out_train, out_dev, manifest_path}
+    source_collisions = output_paths.intersection(resolved_sources)
+    if source_collisions:
+        names = sorted(path.name for path in source_collisions)
+        raise ValueError(f"output paths must not alias source files: {names!r}")
+
     supplied_names = [Path(path).name for path in plot_paths]
     if len(supplied_names) != len(set(supplied_names)) or sorted(
         supplied_names

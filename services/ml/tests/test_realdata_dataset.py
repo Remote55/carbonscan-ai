@@ -247,6 +247,31 @@ def test_build_evidence_dataset_rejects_absolute_source_record(
     assert list((tmp_path / "output").iterdir()) == []
 
 
+def test_build_evidence_dataset_allows_sources_outside_repo_root_without_leak(tmp_path):
+    repo_root = tmp_path / "feature-worktree"
+    source_root = tmp_path / "authorized-wan-data"
+    output = repo_root / "output"
+    repo_root.mkdir()
+    source_root.mkdir()
+    output.mkdir()
+    sources = _write_tiny_wan_plots(source_root)
+
+    manifest = realdata_dataset.build_evidence_dataset(
+        sources,
+        output / "train.npz",
+        output / "dev.npz",
+        output / "manifest.json",
+        protocol=_tiny_protocol(),
+        repo_root=repo_root,
+    )
+
+    _assert_path_private(manifest, repo_root)
+    _assert_path_private(manifest, source_root)
+    assert (output / "train.npz").is_file()
+    assert (output / "dev.npz").is_file()
+    assert (output / "manifest.json").is_file()
+
+
 @pytest.mark.parametrize("invalid_label", ["2", "1.5", "256"])
 def test_build_evidence_dataset_rejects_non_binary_labels(tmp_path, invalid_label):
     sources = _write_tiny_wan_plots(tmp_path)
@@ -341,3 +366,29 @@ def test_build_evidence_dataset_rejects_resolved_output_alias_before_write(tmp_p
 
     assert shared.read_bytes() == b"do-not-overwrite"
     assert not manifest.exists()
+
+
+def test_build_evidence_dataset_rejects_output_aliasing_raw_source_before_write(
+    tmp_path,
+):
+    sources = _write_tiny_wan_plots(tmp_path)
+    raw_source = tmp_path / "plot_a.txt"
+    original_raw = raw_source.read_bytes()
+    output = tmp_path / "artifacts"
+    nested = tmp_path / "nested"
+    output.mkdir()
+    nested.mkdir()
+    raw_alias = nested / ".." / "plot_a.txt"
+
+    with pytest.raises(ValueError, match="output paths.*source files"):
+        realdata_dataset.build_evidence_dataset(
+            sources,
+            output / "train.npz",
+            output / "dev.npz",
+            raw_alias,
+            protocol=_tiny_protocol(),
+            repo_root=tmp_path,
+        )
+
+    assert raw_source.read_bytes() == original_raw
+    assert list(output.iterdir()) == []
