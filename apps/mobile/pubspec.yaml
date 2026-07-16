@@ -5,7 +5,8 @@ version: 0.1.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
-  flutter: ">=3.22.0"
+  # Keep the declared minimum aligned with the SDK verified in local and CI gates.
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
@@ -71,8 +72,8 @@ dev_dependencies:
   flutter_lints: ^4.0.0
 
   # --- Code generation (uncomment in Phase 1 when adding @freezed/@riverpod classes) ---
-  # Requires Dart >= 3.6 (Flutter >= 3.27). Currently we pin Flutter 3.24.x
-  # in CI which ships Dart 3.5. Bump both together when re-enabling.
+  # CI pins Flutter 3.44.0 with Dart 3.12; re-evaluate these dependencies
+  # when re-enabling codegen.
   # build_runner: ^2.4.11
   # freezed: ^2.5.2
   # json_serializable: ^6.7.1
