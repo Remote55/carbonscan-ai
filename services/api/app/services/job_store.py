@@ -170,10 +170,12 @@ class DbJobStore:
         # Also resolves the previously-NotImplemented sync_user_to_db gap.
         await self._s.execute(
             text(
-                "INSERT INTO users (id, email) VALUES (:id, :email) "
+                "INSERT INTO users (id, email, role) VALUES (:id, :email, :role) "
                 "ON CONFLICT (id) DO NOTHING"
             ),
-            {"id": owner_id, "email": owner_email},
+            # role is NOT NULL with only an ORM-side default, which raw SQL
+            # bypasses — pass it explicitly to match User.role default.
+            {"id": owner_id, "email": owner_email, "role": "community"},
         )
         job = Job(
             user_id=owner_id,
