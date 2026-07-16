@@ -144,8 +144,23 @@ export interface AnalyzeSummary {
   total_co2eq_kg: number;
 }
 
+export interface AnalyzeMetadata {
+  pipeline_version: string;
+  git_commit: string;
+  git_dirty: boolean;
+  wood_leaf_backend: string;
+  input_sha256: string;
+  checkpoint_sha256: string | null;
+  algorithms: Record<string, string>;
+  evidence_status: string;
+  candidate_status: string;
+  n_input_points: number;
+  status: string;
+  input_file?: string | null;
+}
+
 export interface AnalyzeResponse {
-  metadata: Record<string, unknown>;
+  metadata: AnalyzeMetadata;
   summary: AnalyzeSummary;
   trees: AnalyzeTree[];
 }

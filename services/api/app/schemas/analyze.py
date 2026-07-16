@@ -26,9 +26,26 @@ class AnalyzeSummary(BaseModel):
     total_co2eq_kg: float
 
 
+class AnalyzeMetadata(BaseModel):
+    """Auditable identity and implementation details for one pipeline run."""
+
+    pipeline_version: str
+    git_commit: str
+    git_dirty: bool
+    wood_leaf_backend: str
+    input_sha256: str = Field(min_length=64, max_length=64)
+    checkpoint_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    algorithms: dict[str, str]
+    evidence_status: str
+    candidate_status: str
+    n_input_points: int = Field(ge=0)
+    status: str
+    input_file: str | None = None
+
+
 class AnalyzeResponse(BaseModel):
     """Full pipeline result returned by POST /upload/analyze."""
 
-    metadata: dict
+    metadata: AnalyzeMetadata
     summary: AnalyzeSummary
     trees: list[AnalyzeTree]
