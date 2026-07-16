@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "carbonscan-ml"
+name = "treeq-carbon-ml"
 version = "0.1.0"
-description = "CarbonScan AI ML Pipeline — LiDAR Wood-Leaf Segmentation + QSM + Allometric"
+description = "TreeQ Carbon Platform ML pipeline for point clouds and allometric estimates"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
-authors = [{ name = "CarbonScan AI Team" }]
+authors = [{ name = "TreeQ Carbon Team" }]
 
 dependencies = [
     "numpy>=1.26.0",
@@ -79,6 +79,7 @@ dev = [
 ]
 
 [project.scripts]
+treeq-pipeline = "pipeline.main:cli"
 carbonscan-pipeline = "pipeline.main:cli"
 
 [tool.hatch.build.targets.wheel]

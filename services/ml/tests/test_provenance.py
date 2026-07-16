@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import subprocess
 from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
 
 from pipeline.provenance import (
     ALGORITHM_MAP,
+    git_worktree_dirty,
     hash_points,
     normalized_payload,
     normalized_sha256,
@@ -83,3 +86,29 @@ def test_hash_points_rejects_non_xyz_shape():
         assert "Expected points (N, 3)" in str(exc)
     else:
         raise AssertionError("hash_points accepted a non-XYZ array")
+
+
+def test_git_worktree_dirty_distinguishes_clean_and_modified_repo(tmp_path: Path):
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.invalid"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "TreeQ Test"],
+        cwd=tmp_path,
+        check=True,
+    )
+    tracked = tmp_path / "tracked.txt"
+    tracked.write_text("clean\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.txt"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "initial"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    assert git_worktree_dirty(tmp_path) is False
+    tracked.write_text("modified\n", encoding="utf-8")
+    assert git_worktree_dirty(tmp_path) is True

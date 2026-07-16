@@ -71,6 +71,18 @@ def resolve_git_commit(repo_root: str | Path) -> str:
     return proc.stdout.strip()
 
 
+def git_worktree_dirty(repo_root: str | Path) -> bool:
+    """Return whether tracked or untracked files differ from the recorded commit."""
+    proc = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=normal"],
+        cwd=Path(repo_root),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return bool(proc.stdout.strip())
+
+
 def checkpoint_identity(model_path: str | Path | None) -> str | None:
     """Return a checkpoint hash, or None for a non-model baseline."""
     if model_path is None:

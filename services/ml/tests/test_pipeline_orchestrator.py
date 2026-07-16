@@ -39,6 +39,20 @@ def test_process_points_records_backend(synth_points):
     assert result.metadata["wood_leaf_backend"] == "tlsep"
 
 
+def test_process_points_records_auditable_provenance(synth_points):
+    result = process_points(synth_points, wood_leaf_backend="tlsep")
+    metadata = result.metadata
+    assert len(metadata["input_sha256"]) == 64
+    assert len(metadata["git_commit"]) == 40
+    assert isinstance(metadata["git_dirty"], bool)
+    assert metadata["checkpoint_sha256"] is None
+    assert metadata["algorithms"]["ground_segmentation"] == "percentile_grid"
+    assert metadata["algorithms"]["wood_leaf"] == "tlsep"
+    assert metadata["algorithms"]["species"] == "stub"
+    assert metadata["evidence_status"] == "baseline"
+    assert metadata["candidate_status"] == "candidate_not_evaluated"
+
+
 def test_process_points_pointnet_backend(synth_points):
     pytest.importorskip("torch")
     model = Path(__file__).resolve().parents[1] / "woodleaf_pn2.pt"

@@ -19,6 +19,16 @@ from typing import Any
 import click
 import numpy as np
 
+from pipeline.provenance import (
+    ALGORITHM_MAP,
+    checkpoint_identity,
+    git_worktree_dirty,
+    hash_points,
+    resolve_git_commit,
+)
+
+PIPELINE_VERSION = "0.3.0"
+
 
 @dataclass
 class TreeResult:
@@ -155,10 +165,26 @@ def process_points(
 
     total_carbon = sum(t.carbon_kg or 0.0 for t in trees)
     total_co2 = sum(t.co2eq_kg or 0.0 for t in trees)
+    algorithms = dict(ALGORITHM_MAP)
+    algorithms["wood_leaf"] = wood_leaf_backend
+    repo_root = Path(__file__).resolve().parents[3]
     return PipelineResult(
         metadata={
-            "pipeline_version": "0.2.0",
+            "pipeline_version": PIPELINE_VERSION,
+            "git_commit": resolve_git_commit(repo_root),
+            "git_dirty": git_worktree_dirty(repo_root),
             "wood_leaf_backend": wood_leaf_backend,
+            "checkpoint_sha256": (
+                checkpoint_identity(model_path) if wood_leaf_backend == "pointnet" else None
+            ),
+            "input_sha256": hash_points(points),
+            "algorithms": algorithms,
+            "evidence_status": "baseline" if wood_leaf_backend == "tlsep" else "experimental",
+            "candidate_status": (
+                "candidate_not_evaluated"
+                if wood_leaf_backend == "tlsep"
+                else "not_promoted"
+            ),
             "n_input_points": len(points),
             "status": "ok",
         },
@@ -230,7 +256,7 @@ def process_point_cloud(
 # --- CLI ---
 @click.group()
 def cli() -> None:
-    """CarbonScan AI ML Pipeline CLI."""
+    """TreeQ Carbon Platform ML Pipeline CLI."""
 
 
 @cli.command()
