@@ -26,7 +26,7 @@ export const CORE_DEMO_EVIDENCE = {
   },
   coreDemo: {
     reproducible: true,
-    analyzedCommit: "9d7b43c3a29a3e6b9efece694e176e22fc88fbee",
+    analyzedCommit: "b6fe198f3de5c227c1adc7f1a481fc809339959f",
     pipelineVersion: "0.3.0",
     backend: "tlsep",
     totalTrees: 3,
