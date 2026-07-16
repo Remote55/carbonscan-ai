@@ -211,3 +211,11 @@ def test_active_web_package_uses_current_product_name():
     package = json.loads(Path("apps/web/package.json").read_text(encoding="utf-8"))
 
     assert package["description"] == "TreeQ Carbon Platform — Web Dashboard (Next.js 14)"
+
+
+def test_mobile_ci_uses_flutter_version_supported_by_app():
+    workflow = Path(".github/workflows/ci-mobile.yml").read_text(encoding="utf-8")
+    pubspec = Path("apps/mobile/pubspec.yaml").read_text(encoding="utf-8")
+
+    assert 'FLUTTER_VERSION: "3.44.0"' in workflow
+    assert 'flutter: ">=3.44.0"' in pubspec
