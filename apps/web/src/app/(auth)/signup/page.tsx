@@ -123,7 +123,7 @@ export default function SignupPage() {
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="community">ชุมชน / เกษตรกร (ผู้ปลูกต้นไม้)</option>
-            <option value="industrial">โรงงานอุตสาหกรรม (ผู้ซื้อ Carbon Credit)</option>
+            <option value="industrial">โรงงานอุตสาหกรรม (ผู้สนใจข้อมูลคาร์บอน)</option>
             <option value="auditor">Auditor (ตรวจสอบ)</option>
           </select>
         </div>

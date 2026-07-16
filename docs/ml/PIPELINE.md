@@ -1,6 +1,6 @@
-# 🔬 ML Pipeline Details
+# ML Pipeline Details — TreeQ Carbon Platform
 
-> Step-by-step explanation of the CarbonScan AI ML Pipeline
+> อธิบายอัลกอริทึมที่โค้ดปัจจุบันรันจริง ไม่ใช่ target architecture
 
 ---
 
@@ -17,379 +17,219 @@
 
 ## Overview
 
-```
-Input: .las / .laz / .ply (Point Cloud)
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ Pre-processing      │
-        │ - Read              │
-        │ - Filter outliers   │
-        │ - Voxel downsample  │
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ 1. Ground Class.    │
-        │   (CSF algorithm)   │
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ 2. Height Normalize │
-        │   (DTM subtraction) │
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ 3. Canopy Height    │
-        │   Model (Pit-free)  │
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ 4. Tree Segmentation│
-        │   (Watershed)       │
-        └─────────┬───────────┘
-                  │
-                  ▼ for each tree
-        ┌─────────────────────┐
-        │ 5. Wood-Leaf Sep    │
-        │   (PointNet++)      │  ⭐ Deep Learning
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ 6. QSM              │
-        │   (Cylinder fit)    │
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ 7. Species Classify │
-        │   (ResNet on RGB)   │  ⭐ Deep Learning
-        └─────────┬───────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │ 8. Allometric → C   │
-        │   (TGO equations)   │
-        └─────────┬───────────┘
-                  │
-                  ▼
-Output: JSON per tree
-       {dbh_cm, height_m, volume_m3, biomass_kg, carbon_kg, co2eq_kg}
+```text
+Input .las/.laz/.ply/.txt/.xyz/.csv
+  │
+  ├─ 1. Percentile-grid ground segmentation
+  ├─ 2. KNN-IDW height normalization
+  ├─ 3. Max-Z CHM + morphology
+  ├─ 4. Local maxima + watershed tree segmentation
+  ├─ 5. tlsep/PCA wood-leaf baseline
+  │       └─ PointNet++ backend: Experimental, ต้องระบุ checkpoint
+  ├─ 6. RANSAC DBH + max-Z height + taper volume
+  ├─ 7. Species classification: Stub / caller-supplied default
+  └─ 8. species_db allometric or Chave fallback
+          ↓
+JSON: per-tree geometry, biomass, carbon stock, CO2e + run provenance
 ```
 
----
+Algorithm identity ของแต่ละ run ถูกแนบใน `metadata.algorithms` จาก
+`services/ml/pipeline/provenance.py` เพื่อไม่ให้ชื่อเชิงวิจัยถูกสับสนกับ implementation จริง
 
-## Step 1: Ground Classification (CSF)
+## Input and loading
 
-**Algorithm:** Cloth Simulation Filter
-**Library:** PDAL
-**Time:** ~30 sec / 1 ไร่
+`process_point_cloud()` อ่านไฟล์ด้วย `pipeline.field_eval.load_point_cloud()` และจำกัดจำนวนจุดด้วย
+`max_points` ซึ่ง default เป็น 200,000 จุด เส้นทางนี้ไม่ได้ทำ outlier filtering หรือ voxel downsampling
+โดยอัตโนมัติก่อน 8 ขั้น ดังนั้นเอกสารหรือ demo ต้องไม่กล่าวว่าทำ preprocessing สองอย่างนี้แล้ว
 
-### What it does
-แยกจุด point cloud ออกเป็น 2 ประเภท: ground (พื้นดิน) และ non-ground (พืชพรรณ)
+## Step 1: Ground segmentation
 
-### How it works
-1. Invert point cloud (พลิกบน-ล่าง)
-2. จำลอง "ผ้า" ตกลงบนยอด → ผ้าจะติดอยู่บนพื้นดิน
-3. จุดที่ใกล้ผ้า = ground
+**Status:** Implemented
+**Code identity:** `percentile_grid`
+**File:** `services/ml/pipeline/ground_classification.py`
 
-### Parameters
-```python
-{
-    "resolution": 0.5,    # คลอธ grid spacing (ม.)
-    "threshold": 0.5,     # ระยะห่างที่ยอมรับ (ม.)
-    "rigidness": 3,       # 1 (loose) - 3 (rigid)
-}
-```
-
-### Output
-Each point has classification:
-- `2` = ground
-- `1` = unclassified (everything else)
-
----
-
-## Step 2: Height Normalization
-
-**Library:** lidR (R) ported to Python (Open3D + scipy)
-**Time:** ~30 sec / 1 ไร่
-
-### What it does
-Subtract DTM (Digital Terrain Model) จากทุกจุด → จุดที่อยู่บนพื้นดินมี Z = 0
-
-### Why?
-ต้นไม้ที่อยู่บนเนินกับที่ราบ → ความสูง absolute Z จะต่างกัน แต่ความสูงจริงเท่ากัน
-
-### Algorithm
-1. Build DTM from ground points (TIN interpolation)
-2. For each non-ground point: `z_normalized = z - dtm(x, y)`
-
----
-
-## Step 3: Canopy Height Model (CHM)
-
-**Algorithm:** Pit-free CHM (Khosravipour et al. 2014)
-**Library:** Custom (numpy + scipy)
-**Time:** ~1 min / 1 ไร่
-
-### What it does
-สร้าง raster 2D ที่แต่ละ pixel = ความสูงของยอดต้นไม้ที่จุดนั้น
-
-### Why pit-free?
-Standard CHM มี "หลุม" (pits) จากจุดที่ผ่านใบลงไปถึงพื้น → ทำให้ tree detection ผิด
-
-Pit-free algorithm:
-1. สร้าง CHM หลาย threshold (0, 10, 20, 30, 40, 50 ม.)
-2. Combine → ใช้ max(CHM_t) → ไม่มีหลุม
-
-### Output
-`numpy.ndarray` (H, W) ที่แต่ละ cell = max height ในระยะ resolution × resolution ม.
-
----
-
-## Step 4: Individual Tree Detection (ITD)
-
-**Algorithm:** Watershed Segmentation
-**Library:** scikit-image
-**Time:** ~10 sec / CHM
-
-### What it does
-แยก CHM raster ออกเป็น "polygons" → แต่ละ polygon = 1 ต้นไม้
-
-### Algorithm
-1. หา local maxima ใน CHM (= treetops)
-2. ใช้ maxima เป็น markers
-3. Watershed flood-fill จาก markers → boundaries = ขอบทรงพุ่ม
-
-### Parameters
-```python
-{
-    "min_distance": 3,      # minimum distance between treetops (pixels)
-    "min_height": 4.0,      # minimum tree height (m)
-}
-```
-
-### Output
-Each point in original cloud gets `treeID` (integer) or `NA` (not a tree, e.g., shrub)
-
----
-
-## Step 5: Wood-Leaf Semantic Segmentation ⭐
-
-**Algorithm:** PointNet++ (Qi et al. 2017)
-**Library:** PyTorch + Open3D-ML
-**Time:** ~5 sec / tree (on GPU)
-
-### What it does
-สำหรับแต่ละ tree point cloud → label แต่ละจุดว่าเป็น `wood` (ลำต้น/กิ่ง) หรือ `leaf` (ใบ)
-
-### Why DL not rule-based?
-- Rule-based (เช่น TLSeparation) ใช้ geometric features (linearity, sphericity)
-- DL learn features จาก data → robust กับ tree species, scan quality ต่าง ๆ
-
-### Training Strategy
-- **Dataset:** NEON forest LiDAR + manual annotation (use CloudCompare)
-- **Architecture:** PointNet++ MSG (Multi-Scale Grouping)
-- **Loss:** Cross-entropy + Dice loss
-- **Augmentation:** rotation, scaling, noise
-- **Target:** IoU ≥ 0.70 บน validation set
-
-### Fallback (Phase 1 ก่อน DL พร้อม)
-ใช้ **TLSeparation** (Cembrowski et al.) — rule-based, works without training
+โค้ดแบ่งแกน XY เป็น grid ขนาด default 1 เมตร หา percentile ที่ 5 ของ Z ในแต่ละ cell
+แล้วจัดจุดที่สูงไม่เกิน candidate ground + 0.3 เมตรเป็น ground
 
 ```python
-from tlseparation import wood_leaf_classification
-
-result = wood_leaf_classification(
-    point_cloud,
-    k=20,                 # k-nearest neighbors
-    knn_downsample=0.5,
+classify_ground_array(
+    points,
+    grid_resolution=1.0,
+    percentile=5.0,
+    z_threshold=0.3,
 )
-# Output: 0 = wood, 1 = leaf
 ```
 
----
+นี่เป็น heuristic ที่อ้างอิงแนวคิด ground filtering แต่ **ไม่ใช่ Cloth Simulation Filter (CSF)**
+และไม่ได้เรียก PDAL ใน array pipeline ปัจจุบัน CSF เป็น target/future replacement เท่านั้น
 
-## Step 6: Quantitative Structure Model (QSM)
+## Step 2: Height normalization
 
-**Algorithm:** Cylinder Fitting (TreeQSM-inspired)
-**Library:** Custom Python (numpy + scipy)
-**Time:** ~2 sec / tree
+**Status:** Implemented
+**Code identity:** `knn_idw`
+**File:** `services/ml/pipeline/height_normalization.py`
 
-### What it does
-จาก wood points → fit ทรงกระบอกครอบลำต้นและกิ่ง → คำนวณปริมาตรไม้ (Volume in m³)
+สร้าง `cKDTree` จาก ground points แล้วประมาณ terrain Z ใต้แต่ละจุดด้วย inverse-distance weighted mean
+ของ ground neighbors ใกล้สุด default 5 จุด จากนั้นคำนวณ `z_normalized = z - terrain_z`
 
-### Algorithm Overview
-1. Skeleton extraction (find centerline of wood structure)
-2. Branching detection (where stem splits)
-3. Cylinder fit per segment (RANSAC)
-4. Sum volumes ของทุก cylinder
+โค้ดปัจจุบัน **ไม่ใช่ TIN interpolation**
 
-### Output
-```python
-{
-    "stem_volume_m3": 0.234,
-    "branches_volume_m3": 0.058,
-    "total_volume_m3": 0.292,
-    "n_cylinders": 47,
-    "model_quality": 0.89,  # 0-1 fit quality
-}
+## Step 3: Canopy Height Model
+
+**Status:** Implemented
+**Code identity:** `max_z_morphology`
+**File:** `services/ml/pipeline/canopy_height_model.py`
+
+Rasterize maximum normalized Z ต่อ cell ที่ resolution default 0.5 เมตร แล้วใช้ morphological closing
+ขนาด 2×2 เพื่อเติม empty cells บางส่วน
+
+โค้ดปัจจุบัน **ไม่ใช่ full multi-threshold pit-free CHM** ของ Khosravipour et al. 2014;
+pit-free เป็น Phase 2 target ที่ระบุใน source comments
+
+## Step 4: Individual-tree segmentation
+
+**Status:** Implemented
+**Code identity:** `watershed`
+**File:** `services/ml/pipeline/tree_segmentation.py`
+
+1. ตัด CHM ต่ำกว่า `min_height=4.0 m`
+2. หา local maxima ด้วย `min_distance=3` pixels
+3. ใช้ maxima เป็น markers ของ watershed บน negative CHM
+4. map labels กลับไปยัง points และไม่ assign จุดต่ำกว่า 1.5 เมตร
+
+ผลคือ integer tree IDs โดย `0` หมายถึง unassigned
+
+## Step 5: Wood-leaf segmentation
+
+### tlsep baseline
+
+**Status:** Implemented และเป็น default
+**Code identity:** `tlsep`
+**File:** `services/ml/pipeline/wood_leaf_separation.py`
+
+implementation เป็น TLSeparation-inspired local PCA heuristic: คำนวณ eigenvalue ratios,
+linearity, planarity และ verticality จาก K-nearest neighbors แล้วให้ class `0=wood`, `1=leaf`
+ไม่ต้องใช้ checkpoint และทำงานบน CPU ได้
+
+### PointNet++ candidate
+
+**Status:** Experimental, not promoted
+**Code identity:** `pointnet`
+**Files:** `services/ml/pipeline/wood_leaf_separation.py`, `services/ml/training/pointnet2_seg.py`
+
+backend นี้ต้องรับ `.pt` checkpoint อย่างชัดเจน จุดน้อยกว่า 512 จุดจะ fallback ไป heuristic
+ผล Wan ที่บันทึกไว้คือ Wood IoU 0.418, Leaf IoU 0.808, Mean IoU 0.613 และ accuracy 0.831
+แต่ held-out loader เดียวกันถูกใช้เลือก best epoch และ checkpoint/tree-ID provenance สำหรับ independent
+final test ยังไม่ครบ จึงห้ามเรียกว่า production default
+
+Promotion gate อยู่ใน `pipeline.provenance.evaluate_promotion()` และต้องผ่าน Wood IoU improvement,
+DBH/height/volume non-regression, measurable-tree count, checkpoint identity, training provenance และ
+reproducible independent real test พร้อมกัน
+
+## Step 6: QSM-derived geometry
+
+**Status:** Implemented with limitations
+**Code identity:** `ransac_dbh_maxz_height_taper_volume`
+**File:** `services/ml/pipeline/qsm.py`
+
+- DBH: RANSAC circle fit จาก wood points ใน slice รอบ 1.3 เมตร หนา 0.3 เมตร
+- Height: maximum normalized Z ของ points ที่ส่งเข้า QSM
+- Stem volume: `π/4 × DBH² × H × 0.50`
+- Branch volume: `0.0`
+- `n_cylinders`: `1` ใน default path
+
+ไฟล์มีฟังก์ชัน `estimate_volume_sectional()` สำหรับทดลอง stacked cylinders แต่ `compute_qsm()`
+จงใจใช้ taper equation เพราะ sectional method overestimate เมื่อ heuristic wood points ยังมี crown/branch blobs
+ดังนั้น implementation นี้ **ไม่ใช่ full TreeQSM**, ไม่มี skeleton/branch-axis cylinders และห้ามเคลม branch volume
+
+Demol isolated-tree validation 65 ต้นให้ DBH MAE 1.1673846154 cm, Height MAE 0.5446153846 m
+และ Volume MAPE 18.7650916186% ภายใต้ preprocessing เฉพาะของ evaluation script
+ผลนี้ไม่ใช่ full eight-stage หรือ carbon validation
+
+## Step 7: Species classification
+
+**Status:** Stub
+**Code identity:** `stub`
+**File:** `services/ml/pipeline/species_classifier.py`
+
+`load()`, `classify()` และ `classify_batch()` raise `NotImplementedError` ทั้งหมด
+pipeline orchestrator ไม่เรียก ResNet; ใช้ `default_species` ที่ caller ส่งมาเพื่อเลือกสมการ allometric
+หรือใช้ unknown-species fallback เมื่อไม่ส่งค่า
+
+ResNet-50/TFLite, iNaturalist training data และ on-device inference เป็น roadmap ไม่ใช่สิ่งที่ทำเสร็จ
+
+## Step 8: Allometric carbon calculation
+
+**Status:** Implemented
+**Code identity:** `species_db_or_chave_fallback`
+**Files:** `services/ml/pipeline/allometric.py`, `services/ml/data/species_db.csv`
+
+เส้นทาง `auto` เลือกดังนี้:
+
+1. ถ้า species อยู่ใน CSV และมี `agb_a/agb_b/agb_c` ครบ ใช้สมการ species-specific
+2. ไม่เช่นนั้นใช้ Chave 2014 pantropical equation กับ wood density จาก species หรือ default 600 kg/m³
+3. เพิ่ม below-ground biomass ด้วย root-to-shoot ratio
+4. คูณ carbon fraction และ 44/12 เพื่อรายงาน carbon stock กับ CO₂e
+
+```text
+AGB_species = a × DBH^b × H^c
+AGB_Chave   = 0.0673 × (ρ × DBH² × H)^0.976
+BGB         = AGB × root_to_shoot
+Carbon      = (AGB + BGB) × carbon_fraction
+CO2e        = Carbon × 44/12
 ```
 
-### Validation
-เทียบกับ **destructive sampling** (โค่นต้นแล้วชั่ง) ในงานวิจัย — TreeQSM RMSE typically 10-15%
+`species_db.csv` เป็น source of truth ของ coefficients ใน repo ปัจจุบัน การเทียบ coefficients ทุกแถวกับ
+TGO Forestry Guideline 2017 ต้นฉบับยังเป็นงานค้าง จึงห้ามกล่าวว่าระบบผ่าน TGO certification
 
----
+## Output and provenance
 
-## Step 7: Species Classification ⭐
-
-**Algorithm:** ResNet-50 with Transfer Learning
-**Library:** PyTorch + torchvision
-**Time:** ~100 ms / image (GPU), ~500ms (CPU/Mobile)
-
-### What it does
-จาก RGB photo ของเปลือก/ใบไม้ → predict species (5 classes)
-
-### Why on-device (mobile)?
-- เร็ว (no API call needed)
-- Privacy
-- Offline support
-
-### Training
-- **Dataset:** scraped from iNaturalist + manual labeling (Phase 1 deliverable)
-- **Classes:** Tectona, Dipterocarpus, Bambusa, Hevea, Afzelia + "Unknown"
-- **Backbone:** ResNet-50 pretrained ImageNet
-- **Fine-tune:** last 2 layers
-- **Target:** Top-1 accuracy ≥ 85%
-
-### Mobile Deployment
-- Export to TFLite (int8 quantization)
-- Model size: < 20 MB
-- Inference: < 500ms on mid-range Android
-
----
-
-## Step 8: Allometric Carbon Calculation
-
-**Library:** Custom Python (pandas + species DB)
-**Time:** < 1 ms / tree
-
-### Formulas (TGO Forestry Sector Guideline 2017)
-
-**Aboveground Biomass (AGB):**
-$$
-\text{AGB} = a \times \text{DBH}^b \times H^c \quad (\text{kg})
-$$
-
-**Belowground Biomass (BGB):**
-$$
-\text{BGB} = \text{AGB} \times R_{\text{root/shoot}}
-$$
-
-**Total Biomass:**
-$$
-B = \text{AGB} + \text{BGB}
-$$
-
-**Carbon Stock:**
-$$
-C = B \times C_{\text{fraction}}
-$$
-(IPCC default $C_{\text{fraction}} = 0.47$)
-
-**CO2 Equivalent:**
-$$
-\text{CO}_2\text{eq} = C \times \frac{44}{12}
-$$
-
-### Wood Density vs Allometric
-Two ways to calculate biomass:
-1. **From DBH + H:** Use allometric equation (this is what we use)
-2. **From Volume + Density:** $B = V \times \rho$ (alternative cross-check)
-
-We compute both and report whichever has higher confidence.
-
-📖 ดู [ALLOMETRIC.md](ALLOMETRIC.md) สำหรับสมการแต่ละชนิดต้นไม้
-
----
-
-## Pipeline Output Format
+`PipelineResult.metadata` มี fields ที่ API validate ด้วย `AnalyzeMetadata`:
 
 ```json
 {
-  "metadata": {
-    "input_file": "abc.las",
-    "processing_time_seconds": 423,
-    "pipeline_version": "0.1.0",
-    "model_versions": {
-      "wood_leaf_segmenter": "v1.0",
-      "species_classifier": "v1.0"
-    }
+  "pipeline_version": "0.3.0",
+  "git_commit": "<40-character commit>",
+  "git_dirty": false,
+  "wood_leaf_backend": "tlsep",
+  "checkpoint_sha256": null,
+  "input_sha256": "<normalized XYZ SHA-256>",
+  "algorithms": {
+    "ground_segmentation": "percentile_grid",
+    "height_normalization": "knn_idw",
+    "chm": "max_z_morphology",
+    "tree_segmentation": "watershed",
+    "wood_leaf": "tlsep",
+    "qsm": "ransac_dbh_maxz_height_taper_volume",
+    "species": "stub",
+    "allometric": "species_db_or_chave_fallback"
   },
-  "summary": {
-    "total_trees": 42,
-    "total_carbon_kg": 5847.3,
-    "total_co2eq_kg": 21430.6,
-    "species_breakdown": {
-      "Tectona grandis": 15,
-      "Dipterocarpus alatus": 22,
-      "Bambusa spp.": 5
-    }
-  },
-  "trees": [
-    {
-      "tree_id": 1,
-      "location": {"lat": 18.7883, "lon": 98.9853, "z": 320.4},
-      "species_sci": "Tectona grandis",
-      "species_confidence": 0.92,
-      "dbh_cm": 25.3,
-      "height_m": 15.8,
-      "crown_radius_m": 3.2,
-      "volume_m3": 0.45,
-      "biomass_kg": 292.5,
-      "carbon_kg": 137.5,
-      "co2eq_kg": 504.2,
-      "point_count": 8472,
-      "wood_leaf_iou": 0.78
-    }
-  ]
+  "evidence_status": "baseline",
+  "candidate_status": "candidate_not_evaluated",
+  "n_input_points": 145123,
+  "status": "ok"
 }
 ```
 
----
+`input_sha256` เป็น hash ของ normalized little-endian float64 XYZ array ไม่ใช่ raw file bytes
 
-## Performance Benchmarks (Target)
+## Reproducible core demo
 
-| Step | Time | Hardware |
-|---|---|---|
-| 1. Ground class. | 30s/plot | CPU |
-| 2. Height norm. | 30s/plot | CPU |
-| 3. CHM | 1min/plot | CPU |
-| 4. Tree seg. | 10s/plot | CPU |
-| 5. Wood-leaf (per tree) | 5s | GPU |
-| 6. QSM (per tree) | 2s | CPU |
-| 7. Species (per tree) | 1s | GPU |
-| 8. Allometric | < 1ms | CPU |
-| **Total** | **~10 min/plot** | **GPU+CPU** |
+```powershell
+cd services/ml
+python scripts/run_core_demo.py --output-dir ../../temp/core-demo --repo-root ../..
+```
 
-(Assuming 30-50 trees/plot)
+runner สร้าง fixture seed 42, รัน `tlsep` path สองครั้ง แล้วบังคับให้ normalized JSON hash และ PLY hash
+เท่ากัน Reviewed result อยู่ใน `docs/evidence/core_demo_manifest.json` และใช้ยืนยัน reproducibility เท่านั้น
 
----
+## Known limits
 
-## Future Improvements
-
-1. **Deep QSM** — End-to-end DL for volume (skip cylinder fitting)
-2. **TreeID via Re-identification** — Track ต้นเดียวกันข้ามปี (4D Carbon)
-3. **Multi-modal fusion** — Combine LiDAR + RGB end-to-end
-4. **Lighter models** — Distill to smaller models for faster inference
-
----
-
-📖 **See also:**
-- [ALLOMETRIC.md](ALLOMETRIC.md) — Detailed equations per species
-- [DATASETS.md](DATASETS.md) — Training data
-- [services/ml/README.md](../../services/ml/README.md) — Code structure
+- ground step ไม่ใช่ CSF
+- CHM ไม่ใช่ full pit-free
+- PointNet++ ยัง Experimental และไม่มี promotion evidence ครบ
+- QSM path ไม่มี branch-level model และใช้ taper volume
+- species classifier เป็น Stub
+- Demol geometry ไม่ validate carbon
+- carbon stock/CO₂e estimates ไม่ใช่ certified credits
+- production API/worker deployment ยังไม่พร้อมต่อเนื่อง

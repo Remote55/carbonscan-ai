@@ -7,7 +7,7 @@
 
 ## 👉 อ่านก่อนเริ่มงานเสมอ
 
-**`docs/PROJECT_SPEC.md`** = context ฉบับเต็ม (22 sections) — อธิบายทั้งโปรเจกต์: pipeline, allometric,
+**`docs/PROJECT_SPEC.md`** = context ฉบับเต็ม (23 numbered sections: §0–§22) — อธิบายทั้งโปรเจกต์: pipeline, allometric,
 backend, web, mobile, สถานะจริง, known bugs, roadmap. **อ่านไฟล์นั้นก่อนแตะโค้ด**
 
 เอกสารนี้ (AGENTS.md) = orientation สั้นๆ + คำสั่ง build/run/test + กติกา
@@ -16,9 +16,10 @@ backend, web, mobile, สถานะจริง, known bugs, roadmap. **อ่
 
 ## โปรเจกต์คืออะไร (1 ย่อหน้า)
 
-**TreeQ Carbon Platform** (เดิมชื่อ *CarbonScan AI*) — แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้จาก **3D point cloud**
-ด้วย AI แยก **ลำต้น(wood)/ใบ(leaf)** → วัด **DBH + ความสูง** → คำนวณ **ชีวมวล→คาร์บอน→CO₂e** ด้วยสมการ
-มาตรฐาน (TGO/Chave 2014/IPCC) แบบโปร่งใส ต่อยอดเป็น B2B carbon offset matchmaking
+**TreeQ Carbon Platform** (เดิมชื่อ *CarbonScan AI*) — prototype ประเมินคาร์บอนชีวมวลต้นไม้จาก **3D point cloud**
+ด้วย `tlsep` baseline แยก **ลำต้น(wood)/ใบ(leaf)** → วัด **DBH + ความสูง** → คำนวณ
+**ชีวมวล→carbon stock→CO₂e estimate** จาก `species_db.csv` หรือ Chave fallback พร้อม provenance
+ส่วน PointNet++, photogrammetry, marketplace และ certification ต้องรายงานตามสถานะ Experimental/Planned
 สร้างเพื่อแข่ง **NSC 2026 หมวด 14 (อุดมศึกษา)**
 
 ---
@@ -29,7 +30,7 @@ backend, web, mobile, สถานะจริง, known bugs, roadmap. **อ่
 apps/web/        Next.js 14 (App Router, TS, Tailwind, shadcn) — landing + dashboard + 3D viewer
 apps/mobile/     Flutter (Riverpod, go_router, camera, Supabase) — สแกน/ถ่ายภาพ → คาร์บอน
 services/api/    FastAPI (SQLAlchemy async, asyncpg, Pydantic v2, Alembic) — REST + async-job worker
-services/ml/     PyTorch pipeline (PointNet++, Open3D, laspy) — 8-step ML pipeline + allometric
+services/ml/     Point-cloud pipeline — tlsep default, PointNet++ Experimental, 8-step pipeline + allometric
 docs/            เอกสาร (PROJECT_SPEC.md, ml/, learning/, decisions/, superpowers/)
 proposal/        NSC proposal
 memory/          project memory
@@ -96,14 +97,19 @@ flutter pub get
 
 ## สถานะปัจจุบัน (2026-07-16)
 
-**✅ เสร็จ:** ML pipeline 8 ขั้น (species = stub), allometric (tests ผ่าน), wood-leaf เทรน Wan 2021
-(mean IoU 0.61/wood 0.42), backend async-job (34 tests), web landing ใหม่ (nature-template) live,
-3D viewer, E2E ผ่าน tunnel ได้คาร์บอนจริง
+**✅ เสร็จ:** ML core path ขั้น 1–6/8 (species ขั้น 7 = Stub), allometric tests, deterministic `tlsep`
+core demo พร้อม hashes/provenance, backend sync+async-job, web landing และ 3D viewer ที่แสดง typed provenance
+
+**หลักฐานที่ต้องพูดครบ:** PointNet++ = Experimental; Wan held-out Wood IoU `0.418`, Leaf IoU `0.808`,
+Mean IoU `0.613`, accuracy `0.831` และ held-out loader ถูกใช้เลือก best epoch ด้วย · Demol isolated-tree
+65 ต้น DBH MAE `1.1673846154 cm`, Height MAE `0.5446153846 m`, Volume MAPE `18.7650916186%`;
+ผล Demol ไม่ใช่ full-pipeline/allometric/carbon validation
 
 **⚠️ ค้าง:**
-- Rebrand `CarbonScan AI → TreeQ Carbon Platform`: **เสร็จแค่ apps/web** · เหลือ mobile/docs/proposal/README/GitHub-repo-name/logo.png
+- Rebrand core surface แล้ว · เหลือ mobile/legacy docs/proposal/GitHub-repo-name/logo assets
 - Species classifier (ขั้น 7) = stub → ต้องเทรน ResNet จริง
-- Dataset: research+verify open dataset (LeWoS/FOR-instance) เพิ่ม → retrain ดัน wood IoU (อาจารย์สั่งเลิกเก็บข้อมูลไม้ไทยเอง ใช้ open dataset แทน)
+- PointNet++ promotion = ต้องมี verified checkpoint/training provenance, independent real test และ DBH/height/volume non-regression
+- Dataset: research+verify open dataset เพิ่มตามคำสั่งอาจารย์ แล้วสร้าง independent final split
 - Deploy API+worker จริง (RunPod/Railway) — ตอนนี้ demo ผ่าน Cloudflare tunnel
 - verify allometric coefficients กับ TGO Guideline 2017
 

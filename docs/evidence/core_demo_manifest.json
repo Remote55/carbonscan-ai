@@ -103,7 +103,7 @@
       "name": "5b. PointNet++ wood/leaf candidate",
       "status": "Experimental",
       "implementation": "PointNet++ backend exists but is not the promoted default",
-      "evidence": "services/ml/pipeline/pointnet_inference.py; docs/ml/WOODLEAF_RESULTS.md",
+      "evidence": "services/ml/pipeline/wood_leaf_separation.py; services/ml/training/pointnet2_seg.py; docs/ml/WOODLEAF_RESULTS.md",
       "claim": "Wan held-out Wood IoU 0.418 and Mean IoU 0.613, with selection/provenance limitations; not production-promoted."
     },
     {

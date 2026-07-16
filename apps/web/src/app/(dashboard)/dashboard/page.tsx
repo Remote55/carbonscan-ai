@@ -40,7 +40,8 @@ export default async function DashboardPage() {
               </span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              ดูต้นไม้แบบ 3 มิติ แยกสีลำต้น / ใบ / พื้นดิน — หมุน ซูม และลากไฟล์ .ply ที่ segment แล้วมาดูได้
+              ดูต้นไม้แบบ 3 มิติ แยกสีลำต้น / ใบ / พื้นดิน — หมุน ซูม และลากไฟล์ .ply ที่ segment
+              แล้วมาดูได้
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary transition-all group-hover:gap-2">
               เปิด Viewer <span aria-hidden>→</span>
@@ -57,11 +58,11 @@ export default async function DashboardPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                แผนที่ GIS แสดงตำแหน่งต้นไม้
+                แผนที่ GIS แสดงตำแหน่งต้นไม้ (Planned)
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                Marketplace ซื้อขาย Carbon Credit
+                Marketplace / Carbon Credit transaction (Planned)
               </li>
             </ul>
           </div>

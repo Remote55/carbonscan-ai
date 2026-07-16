@@ -1,15 +1,16 @@
-# 📐 Allometric Equations (TGO Standards)
+# 📐 Allometric Equations — Implemented Estimates
 
 > สมการแอลโลเมตริกสำหรับคำนวณ Biomass + Carbon ของต้นไม้แต่ละชนิด
 >
-> **Status:** 🟢 **Implemented** in `services/ml/pipeline/allometric.py` with 15 passing tests
+> **Status:** 🟢 **Implemented** in `services/ml/pipeline/allometric.py` with 16 focused tests
 > **Source of truth:** `services/ml/data/species_db.csv`
+> **Certification status:** coefficients ยังต้อง verify กับ TGO Forestry Guideline 2017 ต้นฉบับ
 
 ---
 
 ## 1. Theory
 
-### Allometric Equation (Tier 2/3 — Species-Specific)
+### Species-Specific Equation (เมื่อ coefficients ใน CSV ครบ)
 $$
 \text{AGB} = a \times \text{DBH}^b \times H^c \quad (\text{kg})
 $$
@@ -19,7 +20,7 @@ $$
 - **H** = Total tree height ในหน่วย m
 - **a, b, c** = coefficients ที่ขึ้นกับชนิดต้นไม้ (จากงานวิจัย field measurement)
 
-### Pantropical Model (Tier 1 — Fallback for unknown species)
+### Pantropical Model (Fallback for unknown species)
 $$
 \text{AGB} = 0.0673 \times (\rho \times \text{DBH}^2 \times H)^{0.976}
 $$
@@ -39,14 +40,16 @@ $$
 ### Why Allometric?
 - ✅ Non-destructive (ไม่ต้องตัดต้นไม้)
 - ✅ ใช้ field-measurable parameters (DBH + Height)
-- ✅ ยอมรับใน Carbon Credit Market (TGO T-VER, VCS, Gold Standard)
+- ⚠️ สมการเป็นเครื่องมือประมาณ biomass/carbon; การยอมรับในโครงการเครดิตต้องผ่าน methodology,
+  baseline, additionality, leakage, uncertainty, verification และ registry process แยกต่างหาก
 
 ---
 
 ## 2. Species Database (5 Pilot Species)
 
-ค่าทั้งหมดมาจาก peer-reviewed literature ที่ได้รับการอ้างอิงกว้างขวาง
-**ดู `services/ml/data/species_db.csv` เป็น source of truth** (โหลดผ่าน `load_species_db()`)
+ค่าด้านล่างถอดจาก source labels ที่บันทึกไว้ใน repo
+**ดู `services/ml/data/species_db.csv` เป็น source of truth ของโค้ด** (โหลดผ่าน `load_species_db()`)
+คำว่า source of truth หมายถึงค่าที่โปรแกรมใช้ ไม่ได้แปลว่าทุกแถวผ่าน external verification แล้ว
 
 ### 2.1 ไม้สัก (Tectona grandis) — "Teak"
 
@@ -114,8 +117,8 @@ $$
 
 ## 3. Calculation Example (ตัวอย่างคำนวณด้วยมือ)
 
-> ✅ **Verified** — ตัวเลขในส่วนนี้ตรงกับ output ของ `calculate_carbon()`
-> ใน `services/ml/pipeline/allometric.py` (16/16 tests passing)
+> ✅ **Code-verified** — ตัวเลขในส่วนนี้ตรงกับ output ของ `calculate_carbon()`
+> ใน `services/ml/pipeline/allometric.py`; ไม่ใช่ field/carbon-credit validation
 
 ### ไม้สัก DBH = 30 cm, H = 18 m
 
@@ -153,20 +156,19 @@ $$
 $$
 
 → **ไม้สัก 1 ต้น (DBH 30cm, สูง 18m) เก็บ ≈ 1.233 tCO₂eq**
-→ **มูลค่าที่ราคา ฿2/kg CO₂eq = ≈ ฿2,466 ต่อต้น**
 
 ### Comparison: 5 Species @ DBH=30 cm, H=18 m
 
 ตารางคำนวณจริงจาก `calculate_carbon()` ใน Python:
 
-| Species | ชื่อไทย | CO₂eq (ton) | Value @ ฿2/kg |
-|---|---|---|---|
-| Tectona grandis | ไม้สัก | 1.233 | ฿2,466 |
-| Hevea brasiliensis | ยางพารา | 2.197 | ฿4,394 |
-| Dipterocarpus alatus | ยางนา | 2.801 | ฿5,602 |
-| Afzelia xylocarpa | มะค่าโมง | 3.309 | ฿6,618 |
-| Bambusa spp. | ไผ่ | 3.478 | ฿6,956 |
-| _(Unknown — Chave fallback)_ | — | 1.121 | ฿2,242 |
+| Species | ชื่อไทย | Estimated CO₂eq (ton) |
+|---|---|---:|
+| Tectona grandis | ไม้สัก | 1.233 |
+| Hevea brasiliensis | ยางพารา | 2.197 |
+| Dipterocarpus alatus | ยางนา | 2.801 |
+| Afzelia xylocarpa | มะค่าโมง | 3.309 |
+| Bambusa spp. | ไผ่ | 3.478 |
+| _(Unknown — Chave fallback)_ | — | 1.121 |
 
 📝 **Note:** ไผ่และมะค่าโมงคำนวณได้สูง เพราะ:
 - ไผ่: `b=2.28, c=0.59` (allometric exponents สูง สำหรับโครงสร้างหลายลำ)
@@ -219,17 +221,17 @@ print(f"Method used: {result.method}")
 ### Method Selection (Auto)
 
 ```python
-# Species in DB → species-specific equation (Tier 2/3)
+# Species in DB → species-specific equation
 calculate_carbon(30, 18, "Tectona grandis")  # method = "species_specific"
 
-# Unknown species → Chave 2014 pantropical (Tier 1)
+# Unknown species → Chave 2014 pantropical fallback
 calculate_carbon(30, 18, "Unknown sp.")      # method = "chave_pantropical"
 
 # No species hint → Chave 2014 with default density (600 kg/m³)
 calculate_carbon(30, 18, None)               # method = "chave_pantropical"
 ```
 
-### Cross-Validation with Volume Method
+### Separate Volume-Density Function
 
 ```python
 from pipeline.allometric import calculate_carbon_from_volume
@@ -239,12 +241,13 @@ result_vol = calculate_carbon_from_volume(
     volume_m3=0.5,
     wood_density=660,  # kg/m³ for teak
 )
-# We compute both methods and flag if they differ > 30%
+# ฟังก์ชันนี้เรียกแยกได้ แต่ pipeline orchestrator ปัจจุบันไม่ได้เรียกสองวิธี
+# หรือสร้าง automatic 30% review flag
 ```
 
 ---
 
-## 5. Validation Tests (15 tests passing)
+## 5. Unit Tests (16 tests)
 
 อยู่ใน [`services/ml/tests/test_allometric.py`](../../services/ml/tests/test_allometric.py):
 
@@ -254,7 +257,7 @@ result_vol = calculate_carbon_from_volume(
 | `TestChavePantropical` | 2 | Chave 2014 formula sanity, zero handling |
 | `TestSpeciesSpecific` | 1 | Teak with known DBH-H gives reasonable AGB |
 | `TestFullCarbonCalc` | 5 | E2E flow + fallback + edge cases (negative DBH/H → ValueError) |
-| `TestVolumeMethod` | 2 | V × ρ + cross-validation methods agree within 50% |
+| `TestVolumeMethod` | 2 | V × ρ function + test-level ballpark comparison |
 | `TestConstants` | 3 | CO₂/C=3.667, Cf=0.47, R/S=0.24 (IPCC 2006) |
 
 รัน: `cd services/ml && pytest tests/test_allometric.py -v`
@@ -306,7 +309,7 @@ result_vol = calculate_carbon_from_volume(
 ## 7. Handling Unknown Species
 
 หาก:
-- Mobile species classifier confidence < 70%
+- caller ไม่ส่ง species hint (species classifier ยังเป็น Stub)
 - Species ไม่อยู่ใน DB
 - Auditor ไม่ระบุ species
 
@@ -318,21 +321,21 @@ calculate_carbon(dbh_cm=30, height_m=18, species_sci=None)
 # → uses chave_pantropical with ρ=600 kg/m³
 ```
 
-ผลลัพธ์จะติด flag `species_confidence=None` ใน Tree record และ
-Auditor ต้อง manual verify ก่อน issue carbon credit
+ผลลัพธ์จะมี `species_confidence=None` และใช้ generic fallback; การระบุชนิดไม้และการออกเครดิต
+ต้องมี external review/process ที่อยู่นอก prototype
 
 ---
 
-## 8. Cross-Validation (Volume vs Allometric)
+## 8. Volume vs Allometric — Not Integrated
 
-ML pipeline คำนวณคาร์บอน **2 วิธีคู่ขนาน**:
+ใน codebase มีฟังก์ชันคำนวณ **2 วิธี**:
 - **Method 1:** Allometric จาก DBH + H (`calculate_carbon`)
 - **Method 2:** V × ρ จาก QSM volume + wood density (`calculate_carbon_from_volume`)
 
-ถ้าทั้ง 2 วิธีให้ค่าใกล้กัน (diff < 15%) → **High confidence**
-ถ้าต่างกัน > 30% → **Flag for manual review**
+แต่ `pipeline.main.process_points()` เรียก Method 1 เท่านั้น ไม่มี automatic agreement score,
+mean value หรือ >30% manual-review flag ใน output ปัจจุบัน
 
-ใน final output JSON ส่ง:
+ตัวอย่างด้านล่างเป็น **Planned schema ไม่ใช่ current output**:
 ```json
 {
   "carbon_kg_allometric": 309,
@@ -350,13 +353,13 @@ ML pipeline คำนวณคาร์บอน **2 วิธีคู่ขน
 1. **Expand species DB** → 50+ ชนิดต้นไม้ไทย (Phase 4)
 2. **Region-specific coefficients** → ป่าดิบ vs ป่าเบญจพรรณ vs ป่าผลัดใบ
 3. **Carbon sequestration rate** → ไม่ใช่แค่ stock แต่รวม annual growth (kgC/year)
-4. **TGO certification** → ขอ certification เพื่อใช้ใน T-VER จริง
+4. **Formal MRV/certification workflow** → Planned; ต้องแยก measurement estimate ออกจากการรับรอง T-VER
 
 ---
 
 ## 10. ⚠️ Action Items (User)
 
-ก่อนส่ง NSC Proposal ครั้งสุดท้าย (29 พ.ค.):
+ก่อนอ้างว่า coefficients สอดคล้อง TGO หรือใช้กับ external carbon project:
 
 - [ ] Download TGO Forestry Guideline 2017 PDF จาก http://www.tgo.or.th/
 - [ ] Verify wood density 5 ชนิดในตาราง section 2 ตรงกับ TGO

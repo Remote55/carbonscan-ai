@@ -136,3 +136,10 @@ def test_truth_block_requires_exactly_one_marker_pair():
     duplicate = source + source
     with pytest.raises(ValueError, match="truth markers"):
         replace_truth_block(duplicate, "new")
+
+
+def test_ml_ci_does_not_swallow_test_failures():
+    workflow = Path(".github/workflows/ci-ml.yml").read_text(encoding="utf-8")
+    assert "pytest tests/ -v --tb=short || true" not in workflow
+    assert "scripts/run_core_demo.py" in workflow
+    assert "scripts/sync_truth.py --check" in workflow
