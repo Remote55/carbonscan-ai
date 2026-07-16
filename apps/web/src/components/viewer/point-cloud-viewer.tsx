@@ -3,15 +3,28 @@
 import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { useMemo } from "react";
+import { Color, SRGBColorSpace } from "three";
 
 import { CLASS_GROUND, CLASS_LEAF, CLASS_WOOD } from "@/lib/demo-pointcloud";
 
-/** RGB (0–1) per class — wood (brown), leaf (green), ground (tan). */
+/** RGB (0–1) per class — wood (brown), leaf (green), ground (tan). sRGB, matches the legend. */
 export const CLASS_COLORS: Record<number, [number, number, number]> = {
   [CLASS_WOOD]: [0.55, 0.36, 0.22],
   [CLASS_LEAF]: [0.3, 0.6, 0.36],
   [CLASS_GROUND]: [0.72, 0.64, 0.49],
 };
+
+/**
+ * three.js stores vertex colours in LINEAR space and the canvas outputs sRGB,
+ * so feeding it the sRGB palette above washes browns out to tan. Pre-convert
+ * the palette sRGB → linear once so the rendered colours match the legend.
+ */
+const LINEAR_CLASS_COLORS = Object.fromEntries(
+  Object.entries(CLASS_COLORS).map(([key, [r, g, b]]) => {
+    const c = new Color().setRGB(r, g, b, SRGBColorSpace);
+    return [key, [c.r, c.g, c.b]];
+  }),
+) as Record<number, [number, number, number]>;
 
 export interface PointCloudViewerProps {
   /** flat XYZ (length = n*3), Z-up (as produced by the pipeline) */
@@ -30,7 +43,7 @@ function PointCloud({
   const colors = useMemo(() => {
     const arr = new Float32Array(classes.length * 3);
     for (let i = 0; i < classes.length; i++) {
-      const [r, g, b] = CLASS_COLORS[classes[i]] ?? CLASS_COLORS[CLASS_GROUND];
+      const [r, g, b] = LINEAR_CLASS_COLORS[classes[i]] ?? LINEAR_CLASS_COLORS[CLASS_GROUND];
       arr[i * 3] = r;
       arr[i * 3 + 1] = g;
       arr[i * 3 + 2] = b;

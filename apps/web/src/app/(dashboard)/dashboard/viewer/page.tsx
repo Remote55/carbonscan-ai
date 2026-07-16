@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { analyzePointCloud, ApiError, type AnalyzeResponse } from "@/lib/api";
+import { analyzePointCloud, ApiError, IS_API_CONFIGURED, type AnalyzeResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -93,13 +93,16 @@ export default function ViewerPage() {
     try {
       setAnalysis(await analyzePointCloud(file));
     } catch (err) {
-      const detail =
-        err instanceof ApiError
-          ? `(${err.status}) ${(err.body as { detail?: string })?.detail ?? err.statusText}`
-          : err instanceof Error
-            ? err.message
-            : String(err);
-      setAnalyzeError(`วิเคราะห์ไม่สำเร็จ: ${detail}`);
+      if (err instanceof ApiError) {
+        const detail = `(${err.status}) ${(err.body as { detail?: string })?.detail ?? err.statusText}`;
+        setAnalyzeError(`วิเคราะห์ไม่สำเร็จ: ${detail}`);
+      } else {
+        // Network error — backend unreachable (no API deployed / URL down).
+        // Show a friendly note instead of a raw "Failed to fetch".
+        setAnalyzeError(
+          "ยังเชื่อมต่อ backend ไม่ได้ — การวิเคราะห์คาร์บอนทำงานเมื่อมี API รันอยู่ (สาธิตสดในการนำเสนอ) ส่วนแสดงผล 3D ใช้งานได้เต็มที่",
+        );
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -200,15 +203,32 @@ export default function ViewerPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button type="button" onClick={runAnalysis} disabled={analyzing}>
-                {analyzing ? "กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)" : "วิเคราะห์คาร์บอน"}
-              </Button>
+              {IS_API_CONFIGURED ? (
+                <>
+                  <Button type="button" onClick={runAnalysis} disabled={analyzing}>
+                    {analyzing ? "กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)" : "วิเคราะห์คาร์บอน"}
+                  </Button>
 
-              {analyzeError ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {analyzeError}
-                </p>
-              ) : null}
+                  {analyzeError ? (
+                    <p className="text-sm text-destructive" role="alert">
+                      {analyzeError}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <div className="rounded-lg border border-dashed border-foreground/20 bg-muted/30 p-4">
+                  <p className="text-sm font-medium text-foreground">
+                    การวิเคราะห์คาร์บอนทำงานผ่าน backend (ML pipeline จริง)
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    เวอร์ชันสาธิตออนไลน์นี้แสดงเฉพาะการแยก 3 มิติ (ลำต้น / ใบ / พื้นดิน) —
+                    การคำนวณคาร์บอนสาธิตสดผ่าน API ในการนำเสนอ ตัวอย่างผลจริง: ต้นเดี่ยว DBH 28.3 ซม.
+                    · สูง 13.6 ม. ·{" "}
+                    <span className="font-semibold text-foreground">คาร์บอน 207 กก.</span>{" "}
+                    (CO₂e 760 กก.)
+                  </p>
+                </div>
+              )}
 
               {analysis ? (
                 <div className="space-y-4">
