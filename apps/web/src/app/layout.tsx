@@ -47,13 +47,13 @@ const pacifico = Pacifico({
 // Metadata
 export const metadata: Metadata = {
   title: {
-    default: 'CarbonScan AI — Tree Biomass Carbon Assessment Platform',
-    template: '%s | CarbonScan AI',
+    default: 'TreeQ Carbon Platform — Tree Biomass Carbon Assessment',
+    template: '%s | TreeQ Carbon Platform',
   },
   description:
     'แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้ด้วย LiDAR Point Cloud + AI Wood-Leaf Segmentation + B2B Carbon Offset Matchmaking — NSC 2026',
   keywords: [
-    'CarbonScan AI',
+    'TreeQ Carbon Platform',
     'Carbon Credit',
     'LiDAR',
     'Point Cloud',
@@ -65,8 +65,8 @@ export const metadata: Metadata = {
     'Climate Tech',
     'Sustainable Innovation',
   ],
-  authors: [{ name: 'CarbonScan AI Team' }],
-  creator: 'CarbonScan AI Team',
+  authors: [{ name: 'TreeQ Carbon Platform Team' }],
+  creator: 'TreeQ Carbon Platform Team',
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? 'https://carbonscan-ai.vercel.app',
   ),
@@ -76,10 +76,10 @@ export const metadata: Metadata = {
     apple: '/logo.png',
   },
   openGraph: {
-    title: 'CarbonScan AI — Tree Biomass Carbon Assessment',
+    title: 'TreeQ Carbon Platform — Tree Biomass Carbon Assessment',
     description: 'แปลงต้นไม้เป็น Carbon Credits ด้วย AI ที่โปร่งใส',
     url: '/',
-    siteName: 'CarbonScan AI',
+    siteName: 'TreeQ Carbon Platform',
     locale: 'th_TH',
     type: 'website',
     images: [
@@ -87,13 +87,13 @@ export const metadata: Metadata = {
         url: '/logo.png',
         width: 1024,
         height: 1024,
-        alt: 'CarbonScan AI — แปลงต้นไม้เป็น Carbon Credits',
+        alt: 'TreeQ Carbon Platform — แปลงต้นไม้เป็น Carbon Credits',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CarbonScan AI',
+    title: 'TreeQ Carbon Platform',
     description: 'แปลงต้นไม้เป็น Carbon Credits ด้วย AI ที่โปร่งใส',
     images: ['/logo.png'],
   },

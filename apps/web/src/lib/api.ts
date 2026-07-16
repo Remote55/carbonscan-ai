@@ -1,5 +1,5 @@
 /**
- * API client for CarbonScan AI Backend (FastAPI).
+ * API client for TreeQ Carbon Platform Backend (FastAPI).
  *
  * Uses native fetch with type-safe wrappers.
  * Auth token automatically attached if present in localStorage.

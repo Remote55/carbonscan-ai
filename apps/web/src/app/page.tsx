@@ -118,7 +118,7 @@ export default function HomePage() {
                 <Leaf className="h-5 w-5 text-white" />
               </span>
               <span className="text-lg font-bold tracking-tight text-white">
-                CarbonScan<span className="text-forest-300"> AI</span>
+                TreeQ<span className="text-forest-300"> Carbon</span>
               </span>
             </Link>
             <div className="hidden items-center gap-8 text-sm font-medium text-white/75 md:flex">
@@ -315,10 +315,10 @@ export default function HomePage() {
               <Leaf className="h-4 w-4 text-white" />
             </span>
             <span className="text-sm font-semibold text-white">
-              CarbonScan<span className="text-forest-300"> AI</span>
+              TreeQ<span className="text-forest-300"> Carbon</span>
             </span>
           </div>
-          <span className="text-xs">© 2026 CarbonScan AI · NSC 2026 หมวด 14</span>
+          <span className="text-xs">© 2026 TreeQ Carbon Platform · NSC 2026 หมวด 14</span>
           <Link
             href="https://github.com/Remote55/carbonscan-ai"
             className="inline-flex items-center gap-1.5 text-sm transition hover:text-white"
