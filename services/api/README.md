@@ -1,5 +1,12 @@
 # 🔧 API Service (FastAPI)
 
+> [!CAUTION]
+> **Mixed current/target service notes.** Source code and tests are authoritative.
+> Implemented: health, synchronous analyze, async jobs/list/detail, persistent job state and worker.
+> Current progress transport is GET polling with local/shared filesystem handoff.
+> Tree/spatial/marketplace endpoints and direct LAS/photo storage return 501 or remain Planned;
+> WebSocket and production RunPod dispatch are not current capabilities.
+
 > **Owner:** User
 > **Tech:** Python 3.11 + FastAPI + PostgreSQL/PostGIS + Supabase
 

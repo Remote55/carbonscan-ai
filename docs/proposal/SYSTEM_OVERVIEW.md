@@ -1,5 +1,12 @@
 # CarbonScan AI — ภาพรวมระบบสำหรับ Proposal NSC 2026
 
+> [!CAUTION]
+> **Historical target overview.** WebSocket, production RunPod, GIS/Marketplace และ full TreeQSM
+> ที่กล่าวด้านล่างเป็น target/Planned ไม่ใช่ current implementation. Current default คือ `tlsep`;
+> PointNet++ Experimental/not promoted. Demol 65-tree geometry results ต้องรายงานเต็มว่า DBH MAE
+> `1.1673846154 cm`, Height MAE `0.5446153846 m`, Volume MAPE `18.7650916186%` และไม่ใช่
+> allometric/carbon validation. ดู `docs/evidence/core_demo_manifest.json`.
+
 > **สำหรับ:** Thanapa (เรียบเรียง Proposal)
 > **อัปเดต:** 2026-05-24 (v2 — repositioned ตาม feedback อาจารย์ Wannipa)
 > **เป้าหมาย:** เอกสาร reference ที่ copy-paste เข้า Proposal Word ได้ทันที — ไม่ต้องเดา ไม่ต้องถามต่อ

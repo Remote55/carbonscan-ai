@@ -1,43 +1,85 @@
 # Wood/Leaf Segmentation — Results Log
 
-> เก็บผลทุก variant (ตามคำแนะนำอาจารย์ "เก็บผลไว้ทุกแบบ แม้ผลจะไม่ดี").
-> ทุกตัวเลขเป็น IoU บนชุดทดสอบที่ระบุ (held-out, กันข้อมูลรั่วแบบ spatial สำหรับ Wan).
+> เก็บผลทุก variant ตามที่รันทดลองจริง พร้อมแยก synthetic, zero-shot และ same-environment
+> ตัวเลข Wan ด้านล่างมาจาก spatial held-out loader แต่ loader เดียวกันถูกใช้เลือก best epoch
+> จึงไม่ใช่ independent final test สำหรับ promotion gate
 
-## Synthetic (held-out synthetic test)
-| method | wood IoU | leaf IoU | mean IoU |
-|---|---|---|---|
-| PCA heuristic (`tlsep`) | 0.769 | – | – |
-| PointNet++ (`pointnet`) | 0.978 | – | – |
+<!-- TREEQ_TRUTH_START -->
+### Verified truth snapshot (generated)
 
-## Real TLS — Wan 2021 (held-out, spatial split + buffer)
+- Baseline: `tlsep` — **Implemented**.
+- PointNet++: **Experimental**, not promoted; no verified independent final-test gate.
+- Wan 2021 held-out: Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`, accuracy `0.831`. The held-out loader was also used for best-epoch selection.
+- Demol isolated-tree validation (65 trees): DBH MAE `1.1673846154 cm`; Volume MAPE `18.7650916186%`. This is not an eight-stage or carbon validation.
+- Deterministic core demo: `3` trees, `1320.39 kg C`, `4841.48 kg CO2e`; analyzed commit `b6fe198f3de5` with a clean worktree.
+- Species classification: **Stub**. Carbon stock/CO2e estimates are not certified credits.
+<!-- TREEQ_TRUTH_END -->
 
-### Prior runs (synthetic-trained → real)
-| run | init | augment | class-weight | wood IoU | leaf IoU | mean IoU |
-|---|---|---|---|---|---|---|
-| zero-shot | synthetic-only | – | – | ~0.18 | ~0.62 | ~0.33 |
-| fine-tune | synthetic ckpt | – | none | ~0.19 | ~0.63 | ~0.41 |
-| fine-tune + CW | synthetic ckpt | – | auto | ~0.24 | ~0.07 | ~0.16 |
+## Production decision
 
-### Same-environment matrix (bigger Wan data, from-scratch) — Colab run 2026-06-29
-Held-out = spatial split + buffer (leakage-free); numbers are pooled per-point IoU.
-| # | init | augment-synthetic | class-weight | #train tiles | wood IoU | leaf IoU | mean IoU | accuracy |
-|---|---|---|---|---|---|---|---|---|
+- `tlsep`: **Implemented baseline/default** เพราะไม่ต้องใช้ checkpoint และ core path รันซ้ำได้
+- PointNet++: **Experimental candidate** แม้มีผลดีกว่าบน synthetic และมี Wan training result
+- ยังไม่ promote PointNet++ เพราะไม่มี verified checkpoint + training provenance + independent real final test
+  ที่เปรียบเทียบ Wood IoU และ downstream DBH/height/volume กับ baseline ชุดเดียวกัน
+
+## Synthetic held-out benchmark
+
+| Method | Recorded Mean IoU | Scope |
+|---|---:|---|
+| PCA heuristic (`tlsep`) | 0.7692083333 | Synthetic only |
+| PointNet++ (`pointnet`) | 0.977625 | Synthetic only |
+| Delta | +0.2084166667 | Synthetic only |
+
+ผล synthetic แสดงว่า training setup เรียน fixture distribution ได้ แต่ใช้เป็นหลักฐาน production promotion ไม่ได้
+
+## Real TLS — Wan 2021
+
+### Prior runs: synthetic-trained to real
+
+ค่าชุดนี้เป็น approximate historical runs:
+
+| Run | Init | Augment | Class weight | Wood IoU | Leaf IoU | Mean IoU |
+|---|---|---|---|---:|---:|---:|
+| zero-shot | synthetic-only | — | — | ~0.18 | ~0.62 | ~0.33 |
+| fine-tune | synthetic checkpoint | — | none | ~0.19 | ~0.63 | ~0.41 |
+| fine-tune + CW | synthetic checkpoint | — | auto | ~0.24 | ~0.07 | ~0.16 |
+
+### Same-environment matrix — Colab run 2026-06-29
+
+Split เป็น spatial held-out + buffer และ metrics เป็น pooled per-point IoU
+
+| # | Init | Synthetic augment | Class weight | Train tiles | Wood IoU | Leaf IoU | Mean IoU | Accuracy |
+|---|---|---:|---|---:|---:|---:|---:|---:|
 | 1 | scratch | 0 | none | 339 | 0.285 | 0.803 | 0.544 | 0.817 |
 | 2 | scratch | 0 | auto | 339 | 0.381 | 0.790 | 0.585 | 0.814 |
-| **3** ⭐ | scratch | 200 | none | 539 | **0.418** | **0.808** | **0.613** | **0.831** |
+| **3** | scratch | 200 | none | 539 | **0.418** | **0.808** | **0.613** | **0.831** |
 | 4 | scratch | 200 | auto | 539 | 0.332 | 0.770 | 0.551 | 0.793 |
 
-**Best: variant 3** (from-scratch + synthetic augmentation, no class-weight) — wins on every metric.
+Variant 3 เป็น best recorded run ใน matrix นี้ แต่คำว่า best หมายถึง best บน held-out loader ที่ใช้ระหว่าง
+best-epoch selection ด้วย ไม่ใช่ independent final-test performance
 
-### Findings
-- **Same-environment training works.** Training directly on real Wan (vs synthetic→transfer)
-  lifted mean IoU from ~0.41 to **0.61** and wood IoU from ~0.19 to **0.42** (best variant).
-- **Synthetic augmentation helps** (advisor's suggestion): v1→v3 wood IoU 0.285 → 0.418.
-- **Class-weight helps only without augmentation** (v1→v2: 0.285 → 0.381) but *hurts* once
-  augmentation already balances the classes (v4 auto weights ≈ 1.0/1.0, and mean drops vs v3).
-- Wood IoU (0.42) still below the 0.70 target — the remaining gap needs more labelled real
-  data, especially in-country Thai species (field-data collection, next phase).
+## Findings ที่รายงานได้
 
-### Honest reporting arc (for the report)
-synthetic test **0.978** → real zero-shot **0.33** → train-on-real same-environment + augment
-**mean 0.61 / wood 0.42** → (roadmap) Thai field data to close the rest.
+- Same-environment training ยกระดับ best recorded Mean IoU เป็น `0.613` และ Wood IoU เป็น `0.418`
+- Synthetic augmentation ใน matrix นี้เพิ่ม Wood IoU จาก `0.285` เป็น `0.418`
+- Auto class weighting ช่วย variant ที่ไม่มี augmentation (`0.285 → 0.381`) แต่ลดผลเมื่อใช้ augmentation
+- Wood IoU `0.418` ยังต่ำกว่า research target `0.70`
+- งานถัดไปคือ verify open dataset ที่มี per-point wood/leaf labels, สร้าง independent final split,
+  บันทึก tree IDs/checkpoint hash/training config และวัด downstream non-regression
+
+## สิ่งที่ห้ามสรุปจากผลนี้
+
+- ห้ามเรียก `0.613` ว่า Wood IoU; Wood IoU จริงคือ `0.418`
+- ห้ามกล่าวว่า PointNet++ เป็น default หรือ production-ready
+- ห้ามกล่าวว่า held-out result เป็น independent final test
+- ห้ามใช้ synthetic `0.977625` เป็นความแม่นบนต้นไม้จริง
+- ห้ามอนุมานว่า Wood IoU ที่ดีขึ้นทำให้ DBH, volume หรือ carbon ดีขึ้นจนกว่าจะวัดร่วมกัน
+
+## Honest reporting arc
+
+```text
+synthetic Mean IoU 0.977625
+→ real zero-shot approximate Mean IoU 0.33
+→ Wan same-environment best recorded Mean IoU 0.613 / Wood IoU 0.418
+→ independent real-data + downstream evidence gate: pending
+```

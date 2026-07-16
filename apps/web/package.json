@@ -2,7 +2,7 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
-  "description": "CarbonScan AI — Web Dashboard (Next.js 14)",
+  "description": "TreeQ Carbon Platform — Web Dashboard (Next.js 14)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

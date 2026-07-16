@@ -12,27 +12,75 @@ import {
   Github,
 } from 'lucide-react';
 
+import { CORE_DEMO_EVIDENCE } from '@/generated/core-demo-evidence';
+
 const script = { fontFamily: 'var(--font-pacifico)' } as const;
+const { baseline, candidate } = CORE_DEMO_EVIDENCE;
+const { wanHeldOut, demol65 } = CORE_DEMO_EVIDENCE.validation;
 
 const FEATURES = [
-  { icon: Leaf, title: 'AI Wood–Leaf Segmentation', desc: 'PointNet++ แยกลำต้นออกจากใบก่อนวัดขนาด — Mean IoU 0.61 บนไม้จริง (Wan et al. 2021)' },
-  { icon: ShieldCheck, title: 'Anti-Fraud โดยออกแบบ', desc: 'ยึด GPS ละเอียด 6 ตำแหน่งทศนิยม + ตรวจ EXIF + กันภาพซ้ำฝั่งเซิร์ฟเวอร์' },
-  { icon: Boxes, title: 'ตรวจสอบได้จริงแบบ 3D', desc: 'เปิดดูทุกต้นที่สนับสนุนได้ผ่าน 3D Viewer + หมุดพิกัดบนแผนที่ GPS' },
-  { icon: Scale, title: 'มาตรฐาน TGO', desc: 'คำนวณด้วยสมการแอลโลเมตริกมาตรฐาน แปลงขนาดต้นไม้ → ชีวมวล → คาร์บอน → CO₂e' },
+  {
+    icon: Leaf,
+    title: 'Evidence-gated Wood–Leaf Segmentation',
+    desc: `ใช้ ${baseline.backend} เป็น baseline ที่รันซ้ำได้ ส่วน ${candidate.displayName} ยังเป็น ${candidate.status} (Wan held-out: Wood IoU ${wanHeldOut.woodIoU}, Leaf IoU ${wanHeldOut.leafIoU})`,
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Anti-Fraud — Planned',
+    desc: 'การตรวจ EXIF, GPS และภาพซ้ำเป็น roadmap ยังไม่ใช่ความสามารถที่ผ่านการทดสอบใน prototype นี้',
+  },
+  {
+    icon: Boxes,
+    title: 'ตรวจสอบผลแบบ 3D',
+    desc: '3D Viewer ใช้งานได้แล้ว ส่วน GIS และการผูกหลักฐานเชิงพื้นที่แบบครบวงจรยังเป็น Planned',
+  },
+  {
+    icon: Scale,
+    title: 'Allometric Carbon Estimate',
+    desc: 'คำนวณชีวมวล คาร์บอน และ CO₂e ด้วย species_db.csv หรือ Chave fallback; ไม่ใช่การรับรอง carbon credit',
+  },
 ];
 
 const STEPS = [
-  { icon: Upload, k: '01', title: 'อัปโหลด หรือ ถ่ายภาพ', desc: 'รับไฟล์ LiDAR .las/.laz จากออดิเตอร์ หรือถ่ายภาพมือถือ 30–50 รูปรอบต้น' },
-  { icon: ScanLine, k: '02', title: 'AI แยกลำต้น–ใบ + วัด', desc: 'Segment wood/leaf แล้ววัด DBH (ระดับอก 1.3 ม.) และความสูงด้วย QSM cylinder-fit' },
-  { icon: Calculator, k: '03', title: 'คำนวณคาร์บอน', desc: 'แทนค่าลงสมการแอลโลเมตริก → ชีวมวลเหนือ/ใต้ดิน → คาร์บอน ×0.47 → CO₂e ×44/12' },
-  { icon: BadgeCheck, k: '04', title: 'ตรวจสอบ & จับคู่', desc: 'เปิดผลแบบโปร่งใสใน 3D viewer แล้วจับคู่ B2B carbon offset ให้องค์กร' },
+  {
+    icon: Upload,
+    k: '01',
+    title: 'อัปโหลด Point Cloud',
+    desc: 'รับไฟล์ .las/.laz/.ply; เส้นทางถ่ายภาพมือถือและ photogrammetry ยังเป็น Planned',
+  },
+  {
+    icon: ScanLine,
+    k: '02',
+    title: 'แยกลำต้น–ใบ + วัด',
+    desc: 'tlsep baseline แยก wood/leaf แล้ววัด DBH ด้วย RANSAC, ความสูงจาก max-Z และ volume แบบ taper; PointNet++ ยัง Experimental',
+  },
+  {
+    icon: Calculator,
+    k: '03',
+    title: 'คำนวณคาร์บอน',
+    desc: 'แทนค่าลงสมการแอลโลเมตริก → ชีวมวลเหนือ/ใต้ดิน → คาร์บอน ×0.47 → CO₂e ×44/12',
+  },
+  {
+    icon: BadgeCheck,
+    k: '04',
+    title: 'ตรวจสอบผล',
+    desc: 'ดูผลและ provenance ใน 3D viewer; Marketplace, Payment และ Certificate ยังเป็น Planned',
+  },
 ];
 
 const METRICS = [
-  { n: '0.61', u: '', l: 'Wood/Leaf IoU บนไม้จริง' },
-  { n: '±1.17', u: 'ซม.', l: 'ค่าคลาดเคลื่อน DBH เทียบไม้โค่นจริง' },
-  { n: '100', u: '×', l: 'ลดต้นทุนการประเมิน' },
-  { n: '<10', u: 'นาที', l: 'เวลาประมวลผลต่อแปลง' },
+  {
+    n: String(wanHeldOut.woodIoU),
+    u: '',
+    l: `Wood IoU · ${candidate.status} ${candidate.displayName} · Wan held-out`,
+  },
+  {
+    n: String(wanHeldOut.leafIoU),
+    u: '',
+    l: `Leaf IoU · ${candidate.status} ${candidate.displayName} · Wan held-out`,
+  },
+  { n: String(demol65.dbhMaeCm), u: 'ซม.', l: 'DBH MAE · Demol isolated-tree · 65 ต้น' },
+  { n: String(demol65.volumeMapePct), u: '%', l: 'Volume MAPE · Demol isolated-tree · 65 ต้น' },
 ];
 
 const NAV = [
@@ -79,9 +127,19 @@ export default function HomePage() {
             fill="none"
             aria-hidden="true"
           >
-            <path d="M0,470 C240,435 480,455 720,450 C960,445 1200,462 1440,448 L1440,900 L0,900 Z" fill="#123f2a" fillOpacity=".85" />
-            <path d="M0,528 C260,498 520,518 780,514 C1040,510 1240,528 1440,520 L1440,900 L0,900 Z" fill="#0c3220" />
-            <path d="M0,588 C300,562 560,582 820,578 C1080,574 1280,592 1440,584 L1440,900 L0,900 Z" fill="#071f14" />
+            <path
+              d="M0,470 C240,435 480,455 720,450 C960,445 1200,462 1440,448 L1440,900 L0,900 Z"
+              fill="#123f2a"
+              fillOpacity=".85"
+            />
+            <path
+              d="M0,528 C260,498 520,518 780,514 C1040,510 1240,528 1440,520 L1440,900 L0,900 Z"
+              fill="#0c3220"
+            />
+            <path
+              d="M0,588 C300,562 560,582 820,578 C1080,574 1280,592 1440,584 L1440,900 L0,900 Z"
+              fill="#071f14"
+            />
             {/* pines on the near ridge */}
             <g fill="#05170e">
               <path d="M205,588 l-16,0 l16,-38 l16,38 z" />
@@ -114,7 +172,7 @@ export default function HomePage() {
         <header className="relative z-20">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
             <Link href="/" className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-forest-gradient shadow-lg shadow-black/30 ring-1 ring-white/10">
+              <span className="bg-forest-gradient grid h-9 w-9 place-items-center rounded-xl shadow-lg shadow-black/30 ring-1 ring-white/10">
                 <Leaf className="h-5 w-5 text-white" />
               </span>
               <span className="text-lg font-bold tracking-tight text-white">
@@ -129,7 +187,10 @@ export default function HomePage() {
               ))}
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/login" className="hidden text-sm font-medium text-white/75 transition hover:text-white sm:block">
+              <Link
+                href="/login"
+                className="hidden text-sm font-medium text-white/75 transition hover:text-white sm:block"
+              >
                 เข้าสู่ระบบ
               </Link>
               <Link
@@ -148,16 +209,16 @@ export default function HomePage() {
             <p style={script} className="animate-fade-in text-2xl text-forest-300 sm:text-3xl">
               Nature, measured.
             </p>
-            <h1 className="animate-slide-up mt-3 text-5xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              แปลงต้นไม้เป็น{' '}
+            <h1 className="mt-3 animate-slide-up text-5xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-7xl">
+              ประเมินการกักเก็บ{' '}
               <span className="bg-gradient-to-r from-forest-300 via-emerald-200 to-lime-200 bg-clip-text text-transparent">
-                Carbon Credits
+                คาร์บอนจากต้นไม้
               </span>{' '}
               ด้วย AI ที่โปร่งใส
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/80">
-              แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้จาก 3D point cloud + AI แยกลำต้น–ใบ แล้วคำนวณด้วยสมการมาตรฐาน
-              (TGO · Chave · IPCC) ลดต้นทุนการตรวจสอบ 100 เท่า โปร่งใสตรวจสอบได้ทุกจุด
+              แพลตฟอร์มประเมินชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อม provenance ของ
+              pipeline การรับรองและออก carbon credit อย่างเป็นทางการอยู่นอกขอบเขต prototype นี้
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link
@@ -175,9 +236,9 @@ export default function HomePage() {
             </div>
             <dl className="mt-12 flex flex-wrap gap-x-10 gap-y-5">
               {[
-                { n: '0.61', l: 'Wood/Leaf IoU' },
-                { n: '±1.17 ซม.', l: 'คลาดเคลื่อน DBH' },
-                { n: '100×', l: 'ลดต้นทุน' },
+                { n: String(wanHeldOut.woodIoU), l: `Wood IoU · ${candidate.status} / Wan` },
+                { n: String(wanHeldOut.leafIoU), l: `Leaf IoU · ${candidate.status} / Wan` },
+                { n: `${demol65.dbhMaeCm} ซม.`, l: 'DBH MAE · Demol 65 ต้น' },
               ].map((s) => (
                 <div key={s.l} className="border-l border-white/15 pl-4 first:border-0 first:pl-0">
                   <dt className="font-display text-3xl font-bold tabular-nums text-white">{s.n}</dt>
@@ -193,7 +254,9 @@ export default function HomePage() {
       <section id="tech" className="bg-[#fbfaf6] py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="max-w-2xl">
-            <p style={script} className="text-xl text-forest-500">Our technology</p>
+            <p style={script} className="text-xl text-forest-500">
+              Our technology
+            </p>
             <h2 className="mt-1 text-4xl font-bold tracking-tight text-forest-900 sm:text-5xl">
               เทคโนโลยีที่ขับเคลื่อน
             </h2>
@@ -207,7 +270,7 @@ export default function HomePage() {
                 key={f.title}
                 className="group rounded-3xl border border-forest-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-forest-200 hover:shadow-xl hover:shadow-forest-900/5"
               >
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-forest-50 text-forest-600 transition duration-300 group-hover:bg-forest-gradient group-hover:text-white">
+                <div className="group-hover:bg-forest-gradient grid h-12 w-12 place-items-center rounded-2xl bg-forest-50 text-forest-600 transition duration-300 group-hover:text-white">
                   <f.icon className="h-6 w-6" strokeWidth={1.7} />
                 </div>
                 <h3 className="mt-5 font-semibold text-forest-900">{f.title}</h3>
@@ -222,20 +285,25 @@ export default function HomePage() {
       <section id="how" className="border-y border-forest-100 bg-forest-50/50 py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="max-w-2xl">
-            <p style={script} className="text-xl text-forest-500">How it works</p>
+            <p style={script} className="text-xl text-forest-500">
+              How it works
+            </p>
             <h2 className="mt-1 text-4xl font-bold tracking-tight text-forest-900 sm:text-5xl">
               จากต้นไม้ สู่ตัวเลขที่ตรวจสอบได้
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-forest-900/55">
-              สี่ขั้นตอน โปร่งใสทุกจุด ตั้งแต่ข้อมูลดิบจนถึงคาร์บอนเครดิต
+              สี่ขั้นตอนตั้งแต่ข้อมูลดิบถึงค่าประเมินคาร์บอน โดยแยกสิ่งที่ทำได้แล้วออกจาก roadmap
             </p>
           </div>
           <ol className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((s) => (
-              <li key={s.k} className="relative rounded-3xl bg-white p-7 shadow-sm ring-1 ring-forest-100">
+              <li
+                key={s.k}
+                className="relative rounded-3xl bg-white p-7 shadow-sm ring-1 ring-forest-100"
+              >
                 <div className="flex items-center justify-between">
                   <span className="font-display text-4xl font-bold text-forest-200">{s.k}</span>
-                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-forest-gradient text-white shadow-md shadow-forest-900/20">
+                  <span className="bg-forest-gradient grid h-11 w-11 place-items-center rounded-xl text-white shadow-md shadow-forest-900/20">
                     <s.icon className="h-5 w-5" strokeWidth={1.7} />
                   </span>
                 </div>
@@ -248,15 +316,20 @@ export default function HomePage() {
       </section>
 
       {/* ─────────────── VALIDATION ─────────────── */}
-      <section id="proof" className="relative overflow-hidden bg-forest-gradient py-24 text-white">
+      <section id="proof" className="bg-forest-gradient relative overflow-hidden py-24 text-white">
         <LeafBlob className="pointer-events-none absolute -right-16 -top-10 h-72 w-72 rotate-[200deg] text-white/10" />
         <LeafBlob className="pointer-events-none absolute -left-12 bottom-0 h-56 w-56 text-black/10" />
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="max-w-2xl">
-            <p style={script} className="text-xl text-forest-200">Proven on real wood</p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight sm:text-5xl">พิสูจน์ด้วยไม้จริง</h2>
+            <p style={script} className="text-xl text-forest-200">
+              Evidence with limitations
+            </p>
+            <h2 className="mt-1 text-4xl font-bold tracking-tight sm:text-5xl">
+              หลักฐานบนข้อมูลต้นไม้จริง
+            </h2>
             <p className="mt-4 text-lg leading-relaxed text-white/70">
-              ไม่ใช่แค่เดโม — วัดกับข้อมูลไม้โค่นจริงและชุดข้อมูลงานวิจัยที่เปิดสาธารณะ
+              รายงานผลแยก wood/leaf บน Wan held-out และ geometry บน Demol isolated-tree 65
+              ต้นตามขอบเขตที่ทดสอบจริง
             </p>
           </div>
           <div className="mt-14 grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4">
@@ -271,8 +344,9 @@ export default function HomePage() {
             ))}
           </div>
           <p className="mt-12 max-w-3xl text-sm leading-relaxed text-white/60">
-            รองรับไม้เศรษฐกิจ 5 ชนิด (สัก · ยางนา · ไผ่ · ยางพารา · มะค่าโมง) — ประเมิน biomass ด้วยสมการ
-            Chave et al. (2014) และมาตรฐาน TGO/IPCC
+            ฐานสมการ allometric มีข้อมูล 5 ชนิดและใช้ Chave et al. (2014) เป็น fallback แต่ species
+            classifier ยังเป็น Stub และผล Demol ข้างต้นไม่ใช่การ validate biomass, carbon หรือ
+            carbon credit
           </p>
         </div>
       </section>
@@ -282,12 +356,15 @@ export default function HomePage() {
         <div className="relative mx-auto max-w-4xl overflow-hidden rounded-[2.5rem] bg-forest-900 px-8 py-16 text-center text-white shadow-2xl shadow-forest-900/20">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(60%_120%_at_50%_0%,rgba(124,229,156,.25),transparent_70%)]" />
           <div className="relative">
-            <p style={script} className="text-2xl text-forest-300">Ready when you are</p>
+            <p style={script} className="text-2xl text-forest-300">
+              Ready when you are
+            </p>
             <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-              พร้อมเปลี่ยนต้นไม้ให้เป็นตัวเลขที่เชื่อถือได้?
+              พร้อมเปลี่ยนต้นไม้ให้เป็นตัวเลขที่ตรวจสอบที่มาได้?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-white/70">
-              เริ่มฟรีสำหรับชุมชน ไม่ต้องใช้บัตรเครดิต พร้อมใช้ใน 5 นาที
+              เปิดดู 3D viewer และหลักฐานของ core demo ได้ โดยความสามารถที่ยังเป็น
+              Experimental/Planned จะระบุไว้ตรงไปตรงมา
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
@@ -311,7 +388,7 @@ export default function HomePage() {
       <footer className="bg-[#06180f] py-10 text-white/60">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 sm:flex-row">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-forest-gradient">
+            <span className="bg-forest-gradient grid h-8 w-8 place-items-center rounded-lg">
               <Leaf className="h-4 w-4 text-white" />
             </span>
             <span className="text-sm font-semibold text-white">

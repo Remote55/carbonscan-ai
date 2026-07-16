@@ -1,25 +1,21 @@
-"use client";
+'use client';
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { analyzePointCloud, ApiError, IS_API_CONFIGURED, type AnalyzeResponse } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { PointCloudLegend } from "@/components/viewer/point-cloud-legend";
-import { PointCloudViewer } from "@/components/viewer/point-cloud-viewer";
-import { generateDemoTree, type PointCloud } from "@/lib/demo-pointcloud";
-import { decimate, parsePly } from "@/lib/ply-loader";
+import { analyzePointCloud, ApiError, IS_API_CONFIGURED, type AnalyzeResponse } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PointCloudLegend } from '@/components/viewer/point-cloud-legend';
+import { PointCloudViewer } from '@/components/viewer/point-cloud-viewer';
+import { CORE_DEMO_EVIDENCE } from '@/generated/core-demo-evidence';
+import { generateDemoTree, type PointCloud } from '@/lib/demo-pointcloud';
+import { formatBackendLabel, formatEvidenceStatus } from '@/lib/evidence';
+import { decimate, parsePly } from '@/lib/ply-loader';
 
 const MAX_POINTS = 200_000;
 
 const fmt = (n: number | null | undefined, d = 2) =>
-  n == null ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d });
+  n == null ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: d });
 
 export default function ViewerPage() {
   const demoTree = useMemo(() => generateDemoTree({ seed: 42 }), []);
@@ -41,8 +37,8 @@ export default function ViewerPage() {
   const nPoints = cloud.classes.length;
 
   const loadFile = useCallback(async (f: File) => {
-    if (!f.name.toLowerCase().endsWith(".ply")) {
-      setError("รองรับเฉพาะไฟล์ .ply เท่านั้น");
+    if (!f.name.toLowerCase().endsWith('.ply')) {
+      setError('รองรับเฉพาะไฟล์ .ply เท่านั้น');
       return;
     }
     setIsLoading(true);
@@ -53,7 +49,7 @@ export default function ViewerPage() {
       const buffer = await f.arrayBuffer();
       const parsed = decimate(parsePly(buffer), MAX_POINTS);
       if (parsed.classes.length === 0) {
-        setError("ไฟล์นี้ไม่มีจุด (point) ที่อ่านได้");
+        setError('ไฟล์นี้ไม่มีจุด (point) ที่อ่านได้');
         return;
       }
       setLoaded(parsed);
@@ -83,7 +79,7 @@ export default function ViewerPage() {
     setError(null);
     setAnalysis(null);
     setAnalyzeError(null);
-    if (inputRef.current) inputRef.current.value = "";
+    if (inputRef.current) inputRef.current.value = '';
   }, []);
 
   const runAnalysis = useCallback(async () => {
@@ -100,7 +96,7 @@ export default function ViewerPage() {
         // Network error — backend unreachable (no API deployed / URL down).
         // Show a friendly note instead of a raw "Failed to fetch".
         setAnalyzeError(
-          "ยังเชื่อมต่อ backend ไม่ได้ — การวิเคราะห์คาร์บอนทำงานเมื่อมี API รันอยู่ (สาธิตสดในการนำเสนอ) ส่วนแสดงผล 3D ใช้งานได้เต็มที่",
+          'ยังเชื่อมต่อ backend ไม่ได้ — การวิเคราะห์คาร์บอนทำงานเมื่อมี API รันอยู่ (สาธิตสดในการนำเสนอ) ส่วนแสดงผล 3D ใช้งานได้เต็มที่',
         );
       }
     } finally {
@@ -111,22 +107,18 @@ export default function ViewerPage() {
   return (
     <main className="container mx-auto px-4 py-12">
       <div className="mx-auto max-w-5xl">
-        <h1 className="font-display text-3xl font-bold tracking-tight">
-          3D Point Cloud Viewer
-        </h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">3D Point Cloud Viewer</h1>
         <p className="mt-2 text-muted-foreground">
           ดูต้นไม้แบบ 3 มิติ พร้อมสีแยกลำต้น / ใบ / พื้นดิน — หมุน ซูม เลื่อนได้
         </p>
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>
-              {loaded ? `ไฟล์: ${fileName}` : "ตัวอย่างต้นไม้ (synthetic)"}
-            </CardTitle>
+            <CardTitle>{loaded ? `ไฟล์: ${fileName}` : 'ตัวอย่างต้นไม้ (synthetic)'}</CardTitle>
             <CardDescription>
               {loaded
                 ? `point cloud จาก segmented .ply จริง — ${nPoints.toLocaleString()} จุด`
-                : "ลากไฟล์ .ply ที่ export จาก ML pipeline มาวาง หรือเลือกไฟล์ เพื่อดู point cloud จริง"}
+                : 'ลากไฟล์ .ply ที่ export จาก ML pipeline มาวาง หรือเลือกไฟล์ เพื่อดู point cloud จริง'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -138,13 +130,11 @@ export default function ViewerPage() {
               onDragLeave={() => setIsDragging(false)}
               onDrop={onDrop}
               className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
-                isDragging
-                  ? "border-primary bg-primary/5"
-                  : "border-foreground/15 bg-muted/30"
+                isDragging ? 'border-primary bg-primary/5' : 'border-foreground/15 bg-muted/30'
               }`}
             >
               <p className="text-sm text-muted-foreground">
-                {isLoading ? "กำลังอ่านไฟล์…" : "ลากไฟล์ .ply มาวางที่นี่ หรือ"}
+                {isLoading ? 'กำลังอ่านไฟล์…' : 'ลากไฟล์ .ply มาวางที่นี่ หรือ'}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button
@@ -181,7 +171,7 @@ export default function ViewerPage() {
 
             <p className="text-sm text-muted-foreground">
               กำลังแสดง {nPoints.toLocaleString()} จุด
-              {loaded ? "" : " (ตัวอย่าง synthetic)"}
+              {loaded ? '' : ' (ตัวอย่าง synthetic)'}
             </p>
 
             <PointCloudViewer
@@ -196,17 +186,17 @@ export default function ViewerPage() {
         {loaded ? (
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>ผลวิเคราะห์คาร์บอน (ML pipeline จริง)</CardTitle>
+              <CardTitle>ผลประมาณการคาร์บอน (ML pipeline)</CardTitle>
               <CardDescription>
-                ส่งไฟล์นี้เข้า backend → รัน pipeline (ground → tree → wood/leaf → QSM →
-                allometric) → คืนค่าคาร์บอนจริง
+                ส่งไฟล์นี้เข้า backend → รัน pipeline (ground → tree → wood/leaf → QSM → allometric)
+                → คืนค่าประมาณการคาร์บอนพร้อม provenance
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {IS_API_CONFIGURED ? (
                 <>
                   <Button type="button" onClick={runAnalysis} disabled={analyzing}>
-                    {analyzing ? "กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)" : "วิเคราะห์คาร์บอน"}
+                    {analyzing ? 'กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)' : 'วิเคราะห์คาร์บอน'}
                   </Button>
 
                   {analyzeError ? (
@@ -222,10 +212,11 @@ export default function ViewerPage() {
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     เวอร์ชันสาธิตออนไลน์นี้แสดงเฉพาะการแยก 3 มิติ (ลำต้น / ใบ / พื้นดิน) —
-                    การคำนวณคาร์บอนสาธิตสดผ่าน API ในการนำเสนอ ตัวอย่างผลจริง: ต้นเดี่ยว DBH 28.3 ซม.
-                    · สูง 13.6 ม. ·{" "}
-                    <span className="font-semibold text-foreground">คาร์บอน 207 กก.</span>{" "}
-                    (CO₂e 760 กก.)
+                    การคำนวณคาร์บอนสาธิตสดผ่าน API ในการนำเสนอ Reviewed core demo แบบ synthetic
+                    ที่ใช้ตรวจ reproducibility พบ {CORE_DEMO_EVIDENCE.coreDemo.totalTrees} ต้น ·
+                    คาร์บอน {CORE_DEMO_EVIDENCE.coreDemo.totalCarbonKg} กก. · CO₂e{' '}
+                    {CORE_DEMO_EVIDENCE.coreDemo.totalCo2eqKg} กก. ตัวเลขนี้ไม่ใช่ accuracy
+                    benchmark หรือ carbon-credit certification
                   </p>
                 </div>
               )}
@@ -239,17 +230,66 @@ export default function ViewerPage() {
                     </div>
                     <div className="rounded-lg border border-foreground/10 p-4">
                       <div className="text-2xl font-bold">
-                        {fmt(analysis.summary.total_carbon_kg)} <span className="text-base">kg</span>
+                        {fmt(analysis.summary.total_carbon_kg)}{' '}
+                        <span className="text-base">kg</span>
                       </div>
-                      <div className="text-sm text-muted-foreground">คาร์บอนรวม</div>
+                      <div className="text-sm text-muted-foreground">ค่าประมาณคาร์บอนรวม</div>
                     </div>
                     <div className="rounded-lg border border-foreground/10 p-4">
                       <div className="text-2xl font-bold">
-                        {fmt(analysis.summary.total_co2eq_kg / 1000, 3)}{" "}
+                        {fmt(analysis.summary.total_co2eq_kg / 1000, 3)}{' '}
                         <span className="text-base">tCO₂e</span>
                       </div>
-                      <div className="text-sm text-muted-foreground">CO₂ เทียบเท่า</div>
+                      <div className="text-sm text-muted-foreground">ค่าประมาณ CO₂ เทียบเท่า</div>
                     </div>
+                  </div>
+
+                  <div className="rounded-lg border border-forest-200 bg-forest-50/60 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-forest-700 px-2.5 py-1 text-xs font-semibold text-white">
+                        {formatBackendLabel(analysis.metadata)}
+                      </span>
+                      <span className="text-sm text-forest-900/70">
+                        {formatEvidenceStatus(analysis.metadata)}
+                      </span>
+                    </div>
+                    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-muted-foreground">Pipeline / Git</dt>
+                        <dd className="font-mono text-xs">
+                          v{analysis.metadata.pipeline_version} ·{' '}
+                          {analysis.metadata.git_commit.slice(0, 12)}
+                          {analysis.metadata.git_dirty ? ' · dirty' : ' · clean'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Normalized XYZ input SHA-256</dt>
+                        <dd className="font-mono text-xs">
+                          {analysis.metadata.input_sha256.slice(0, 12)}…
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Checkpoint</dt>
+                        <dd className="font-mono text-xs">
+                          {analysis.metadata.checkpoint_sha256
+                            ? `${analysis.metadata.checkpoint_sha256.slice(0, 12)}…`
+                            : 'ไม่มี checkpoint (tlsep baseline)'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Species algorithm</dt>
+                        <dd className="font-medium">
+                          {analysis.metadata.algorithms.species === 'stub'
+                            ? 'Stub — ยังไม่มีโมเดลจำแนกชนิดไม้'
+                            : analysis.metadata.algorithms.species}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                      Provenance นี้ผูกกับ input ที่ส่งเข้า analysis backend ส่วนภาพ 3D
+                      ด้านบนอ่านจากไฟล์ที่อัปโหลดในเบราว์เซอร์ และยังไม่ได้ตรวจว่า hash
+                      ตรงกันด้วยขั้นตอน normalized XYZ เดียวกัน
+                    </p>
                   </div>
 
                   {analysis.trees.length > 0 ? (

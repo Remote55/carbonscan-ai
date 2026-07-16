@@ -1,5 +1,10 @@
 # 📚 CarbonScan AI — คู่มือเรียนรู้ระบบฉบับสมบูรณ์
 
+> [!NOTE]
+> **Educational/historical material.** บทเรียนอธิบายทั้งทฤษฎี target architecture และผลที่บันทึกในอดีต;
+> ห้ามใช้แทนสถานะ implementation ปัจจุบัน. ให้ยึด `docs/PROJECT_SPEC.md`,
+> `docs/CAPABILITY_MATRIX.md` และ `docs/evidence/core_demo_manifest.json` สำหรับ claims.
+
 > **สำหรับ:** สมาชิกทีม CarbonScan AI (User + Person A + Person B) + ผู้สนใจโปรเจกต์
 > **ระดับความรู้ที่ต้องมีก่อนอ่าน:** เป็นนักศึกษา CS ปี 2-3 (รู้ Python/JS พื้นฐาน, ไม่ต้องรู้ ML/3D/LiDAR มาก่อน)
 > **เวลาในการอ่านทั้งหมด:** ~6-8 ชั่วโมง (ถ้าจริงจัง) หรือ ~2-3 ชั่วโมง (ถ้าอ่านเฉพาะ summary)

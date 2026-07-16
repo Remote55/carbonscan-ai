@@ -1,5 +1,14 @@
 # ข้อเสนอโครงการ — CarbonScan AI
 
+> [!CAUTION]
+> **Historical proposal draft — superseded by the Truth-Reproducible report builder.** ห้ามคัดลอก claims
+> ด้านล่างไปเล่มล่าสุดโดยไม่ตรวจ manifest. ฉบับส่งล่าสุดสร้างเป็นไฟล์ใหม่ด้วย
+> `scripts/build_truth_aligned_report.py` จากต้นฉบับ DOCX โดยไม่ทับต้นฉบับ.
+> Current truth: `tlsep` default; PointNet++ Experimental/not promoted; Wan Wood/Leaf/Mean IoU
+> `0.418/0.808/0.613`; Demol geometry-only DBH MAE `1.1673846154 cm`, Height MAE
+> `0.5446153846 m`, Volume MAPE `18.7650916186%`; Species Stub; WebSocket/GIS/Marketplace/
+> production RunPod Planned; carbon stock/CO2e ไม่ใช่ certified credits.
+
 > **เป้าหมาย:** เอกสาร 10-12 หน้า (ไม่นับ cover + appendix) พร้อมส่ง NSC 2026
 > **Status:** 🟢 Draft v2 — โครงสร้างตรง NSC 2026 Booklet (Section 7.1-7.5) + pivot LiDAR-primary
 > **Format:** วาง content นี้ลง template Word ของสถาบัน → Person B จัดหน้า

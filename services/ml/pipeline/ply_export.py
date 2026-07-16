@@ -17,7 +17,7 @@ _PLY_DTYPE = np.dtype([("x", "<f4"), ("y", "<f4"), ("z", "<f4"), ("class", "u1")
 _HEADER = (
     "ply\n"
     "format binary_little_endian 1.0\n"
-    "comment CarbonScan AI segmented point cloud (class: 0=wood,1=leaf,2=ground)\n"
+    "comment TreeQ Carbon Platform segmented point cloud (class: 0=wood,1=leaf,2=ground)\n"
     "element vertex {n}\n"
     "property float x\n"
     "property float y\n"

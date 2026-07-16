@@ -1,11 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import {
-  Inter,
-  Sarabun,
-  Space_Grotesk,
-  JetBrains_Mono,
-  Pacifico,
-} from 'next/font/google';
+import { Inter, Sarabun, Space_Grotesk, JetBrains_Mono, Pacifico } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { cn } from '@/lib/utils';
@@ -51,10 +45,10 @@ export const metadata: Metadata = {
     template: '%s | TreeQ Carbon Platform',
   },
   description:
-    'แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้ด้วย LiDAR Point Cloud + AI Wood-Leaf Segmentation + B2B Carbon Offset Matchmaking — NSC 2026',
+    'แพลตฟอร์มประเมินชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อมหลักฐานที่ตรวจสอบย้อนกลับได้ — NSC 2026',
   keywords: [
     'TreeQ Carbon Platform',
-    'Carbon Credit',
+    'Carbon Stock Estimate',
     'LiDAR',
     'Point Cloud',
     'Deep Learning',
@@ -67,9 +61,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'TreeQ Carbon Platform Team' }],
   creator: 'TreeQ Carbon Platform Team',
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://carbonscan-ai.vercel.app',
-  ),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://treeqcarbon.vercel.app'),
   icons: {
     icon: '/logo.png',
     shortcut: '/logo.png',
@@ -77,7 +69,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'TreeQ Carbon Platform — Tree Biomass Carbon Assessment',
-    description: 'แปลงต้นไม้เป็น Carbon Credits ด้วย AI ที่โปร่งใส',
+    description: 'ประเมินคาร์บอนจากต้นไม้ด้วย pipeline ที่แสดง provenance และข้อจำกัด',
     url: '/',
     siteName: 'TreeQ Carbon Platform',
     locale: 'th_TH',
@@ -87,14 +79,14 @@ export const metadata: Metadata = {
         url: '/logo.png',
         width: 1024,
         height: 1024,
-        alt: 'TreeQ Carbon Platform — แปลงต้นไม้เป็น Carbon Credits',
+        alt: 'TreeQ Carbon Platform — ประเมินคาร์บอนจากต้นไม้พร้อม provenance',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TreeQ Carbon Platform',
-    description: 'แปลงต้นไม้เป็น Carbon Credits ด้วย AI ที่โปร่งใส',
+    description: 'ประเมินคาร์บอนจากต้นไม้ด้วย pipeline ที่แสดง provenance และข้อจำกัด',
     images: ['/logo.png'],
   },
   robots: {
@@ -112,11 +104,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="th"

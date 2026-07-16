@@ -1,203 +1,193 @@
 <div align="center">
 
-<img src="assets/brand/logo.png" width="132" alt="CarbonScan AI logo" />
+# TreeQ Carbon Platform
 
-# 🌲 CarbonScan AI
+### ประเมินชีวมวล คาร์บอน และ CO₂e ของต้นไม้จาก 3D point cloud พร้อมหลักฐานที่ตรวจสอบย้อนกลับได้
 
-### วัดคาร์บอนต้นไม้ด้วย LiDAR + AI — โปร่งใส ตรวจสอบได้ ต้นทุนถูกลงได้ถึง **100×**
-
-<em>Forest meets Code · ประเมินคาร์บอนเครดิตชีวมวลจาก 3D Point Cloud ด้วย Wood-Leaf Segmentation (Deep Learning) + B2B Carbon Offset Matchmaking</em>
-
-<br/>
+<em>NSC 2026 หมวด 14 · Evidence-gated ML · 3D visual verification</em>
 
 [![NSC 2026](https://img.shields.io/badge/NSC-2026-2D6A4F)](https://www.nstda.or.th/sims)
-[![หมวด 14 อุดมศึกษา](https://img.shields.io/badge/หมวด_14-อุดมศึกษา-1B4332)]()
 [![License: MIT](https://img.shields.io/github/license/Remote55/carbonscan-ai?color=52B788)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/Remote55/carbonscan-ai?color=74C0FC)](https://github.com/Remote55/carbonscan-ai/commits/main)
-
-[![Next.js 14](https://img.shields.io/badge/Next.js-14-000?logo=next.js)](https://nextjs.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.3-EE4C2C?logo=pytorch)](https://pytorch.org)
-[![PostGIS](https://img.shields.io/badge/PostGIS-3.4-336791?logo=postgresql)](https://postgis.net)
-
 [![CI · ML](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-ml.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-ml.yml)
 [![CI · API](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-api.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-api.yml)
 [![CI · Web](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-web.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/ci-web.yml)
-[![CodeQL](https://github.com/Remote55/carbonscan-ai/actions/workflows/codeql.yml/badge.svg)](https://github.com/Remote55/carbonscan-ai/actions/workflows/codeql.yml)
-
-<br/>
-
-<img src="docs/proposal/figures/fig19_pipeline_end2end.png" width="560" alt="End-to-end pipeline: point cloud → ground/wood/leaf → carbon" />
-
-<sub><em>จากกลุ่มจุด 3 มิติ → แยก ground / wood / leaf → คำนวณคาร์บอน (ตัวอย่างผลลัพธ์จาก pipeline จริง)</em></sub>
 
 </div>
 
 ---
 
-## 💡 ปัญหา &nbsp;→&nbsp; ทางออก
+## โปรเจกต์นี้ทำอะไร
 
-|  |  |
-|---|---|
-| 🔴 **ปัญหา** | ประเมินคาร์บอนเครดิตป่าไม้ไทยต้องจ้าง Auditor ราว **฿100,000/แปลง** → ชุมชนเข้าไม่ถึง โรงงาน CSR ตรวจสอบเองไม่ได้ เสี่ยง Greenwashing |
-| 🟢 **ทางออก** | อัปโหลด point cloud (LiDAR หรือ **รูปมือถือ 30–50 ใบ → photogrammetry**) → **AI แยกใบ/ลำต้น** → คำนวณคาร์บอนด้วยสมการ TGO → ตรวจสอบผ่าน **3D Viewer + GPS** |
-| ✨ **ผลลัพธ์** | ต้นทุนลดลงราว **100×** · โปร่งใส ตรวจสอบได้ทุกจุด · เชื่อม B2B Carbon Offset |
+TreeQ Carbon Platform รับ point cloud (`.las/.laz/.ply`) แล้วประมวลผลเป็นรายต้น:
 
----
+1. แยกพื้นด้วย percentile-grid heuristic
+2. normalize ความสูงด้วย KNN-IDW
+3. สร้าง CHM แบบ max-Z + morphology
+4. แยกต้นด้วย watershed
+5. แยก wood/leaf ด้วย `tlsep` baseline
+6. วัด DBH ด้วย RANSAC, ความสูงด้วย max-Z และปริมาตรลำต้นแบบ taper
+7. รับชนิดไม้จากผู้เรียก เพราะ species classifier ยังเป็น Stub
+8. คำนวณ biomass, carbon stock และ CO₂e จาก `species_db.csv` หรือ Chave 2014 fallback
 
-## 🔬 Machine Learning Pipeline (8 ขั้น)
+ผลลัพธ์คือค่าประมาณคาร์บอนที่มี provenance ของ input, Git commit, pipeline version,
+อัลกอริทึม และ checkpoint ไม่ใช่ carbon credit ที่ผ่านการรับรองหรือพร้อมซื้อขาย
 
 ```mermaid
 flowchart LR
-  A([📡 Point Cloud]) --> B[Ground<br/>Classification]
-  B --> C[Tree<br/>Detection]
-  C --> D{{🧠 Wood / Leaf<br/>PointNet++}}
-  D --> E[QSM<br/>Volume]
-  E --> F[Allometric<br/>TGO]
-  F --> G([🌍 Carbon + CO₂e])
-  style D fill:#2D6A4F,color:#ffffff,stroke:#1B4332
-  style G fill:#74C0FC,color:#14140F,stroke:#336791
-  style A fill:#E9F5EE,color:#14140F
+  A["Point cloud"] --> B["Percentile-grid ground"]
+  B --> C["KNN-IDW normalization"]
+  C --> D["Max-Z CHM + watershed"]
+  D --> E["tlsep baseline"]
+  E --> F["RANSAC DBH + max-Z height + taper volume"]
+  F --> G["Species: Stub / caller-supplied"]
+  G --> H["species_db or Chave fallback"]
+  H --> I["Biomass + carbon stock + CO₂e estimate"]
 ```
 
----
+## สถานะที่ยืนยันได้
 
-## 📊 ผลลัพธ์ — validated & honest
-
-**Geometry pipeline · ตรวจสอบกับข้อมูลจริงที่โค่นจริง** (Demol et al. 2021, TLS 65 ต้น, independent test):
-
-<div align="center">
-
-| Metric | ค่าคลาดเคลื่อน (MAE) |
-|:--|:--:|
-| 📏 DBH (เส้นผ่านศูนย์กลางที่อก) | **1.17 cm** |
-| 📐 Tree Height (ความสูง) | **0.54 m** |
-
-</div>
-
-**Wood-Leaf Segmentation (PointNet++)** — รายงานผลบนไม้จริงตรงไปตรงมา ไม่เคลมเฉพาะเลข synthetic:
-
-<div align="center">
-
-| ทดสอบบน | Wood IoU | Mean IoU |
-|:--|:--:|:--:|
-| Synthetic (held-out) | **0.978** | — |
-| ไม้จริง Wan 2021 · zero-shot | 0.18 | 0.33 |
-| ไม้จริง Wan 2021 · **train-on-real + augment** | **0.42** | **0.61** |
-
-<img src="docs/proposal/figures/fig18_realdata_woodleaf_tree.png" width="300" alt="real Wan tree wood/leaf" />
-&nbsp;
-<img src="docs/proposal/figures/fig17_woodleaf_pca_vs_pointnet.png" width="300" alt="PCA vs PointNet++" />
-
-</div>
-
-> การฝึกบนไม้จริงโดยตรง (same-environment) + augment ยก Mean IoU จาก 0.33 → **0.61** — ช่องว่างที่เหลือปิดด้วยการเก็บ field data ไม้ไทยเพิ่ม (Phase ถัดไป)
-
----
-
-## 🧠 Highlights
-
-- 🎯 **End-to-end จริง** — `POST /api/v1/upload/analyze` รับ point cloud → คืน carbon JSON (per-tree DBH / height / volume / carbon)
-- 🌐 **3D Viewer** (React Three Fiber) โหลด segmented `.ply` โชว์สี wood / leaf / ground หมุน–ซูมได้
-- 🧪 **วินัยวิศวกรรม** — TDD · CI (ML/API/Web/Mobile) · CodeQL · ~95 tests สีเขียว
-- 📱 **Dual-input** — รองรับทั้ง LiDAR upload และ photogrammetry (ไม่ต้องมีเครื่อง LiDAR แพง)
-- 🔍 **Open & reproducible** — ใช้ open datasets (Demol 2021, Wan 2021) อ้างอิงชัด สัญญาอนุญาต CC-BY
-
----
-
-## 🛠 Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Web** | Next.js 14 · TypeScript · Tailwind · shadcn/ui · Three.js (R3F) · Leaflet |
-| **Mobile** | Flutter 3.x · Riverpod · TFLite · Dio |
-| **Backend** | FastAPI (Python 3.11) · Pydantic v2 · SQLAlchemy 2.0 async · asyncpg |
-| **Database** | PostgreSQL 16 + PostGIS (Supabase) |
-| **AI / ML** | PyTorch · PointNet++ · Open3D · laspy · COLMAP · OpenMVS |
-| **Cloud** | Vercel (Web) · Railway (API) · RunPod Serverless GPU · Supabase |
-| **DevOps** | pnpm workspaces · Turborepo · Docker · GitHub Actions |
-
----
-
-## 🚀 Quick Start
-
-```bash
-git clone https://github.com/Remote55/carbonscan-ai.git
-cd carbonscan-ai
-
-# ML pipeline → point cloud เป็น carbon (CLI)
-cd services/ml && python -m pipeline.main process --input plot.las --output result.json
-
-# Backend API (analyze endpoint)
-cd services/api && uvicorn app.main:app --reload      # → http://localhost:8000/docs
-
-# Web dashboard + 3D viewer
-cd apps/web && pnpm dev                                # → http://localhost:3000
-```
-
-> คนใหม่ในทีม? เริ่มที่ **[docs/ONBOARDING.md](docs/ONBOARDING.md)** (30 นาที)
-
----
-
-## 📂 Structure
-
-```
-carbonscan-ai/
-├── apps/
-│   ├── web/          Next.js 14 dashboard + 3D viewer
-│   └── mobile/       Flutter app
-├── services/
-│   ├── api/          FastAPI backend
-│   └── ml/           AI/ML pipeline (PyTorch, PointNet++)
-├── packages/         shared ui / types / design-tokens
-└── docs/             architecture · ML · proposal · figures
-```
-
----
-
-## 👥 Team
-
-| Member | Role | Focus |
+| Capability | Status | ข้อเท็จจริง |
 |---|---|---|
-| **Lead** | AI · Mobile · Backend | `services/ml` · `services/api` · `apps/mobile` |
-| **Person A** | Frontend | `apps/web` · 3D viewer · GIS map |
-| **Person B** | UI/UX · Branding | `assets/brand` · design system |
+| ML core path | Implemented | เส้นทาง `tlsep` รันซ้ำได้พร้อม JSON/PLY hashes |
+| PointNet++ | Experimental | มีผลวิจัย แต่ยังไม่ผ่าน independent final-test และ downstream non-regression gate |
+| Species classifier | Stub | ยังไม่มี ResNet ที่เทรนและ integrate จริง |
+| Allometric calculation | Implemented | ใช้ `services/ml/data/species_db.csv` และ Chave fallback; ยังต้อง verify coefficients กับ TGO 2017 |
+| FastAPI sync + async jobs | Implemented | async worker ใช้ polling และ shared filesystem ใน deployment เดียวกัน |
+| Web 3D viewer | Implemented | แสดง segmented PLY และ run provenance |
+| Mobile capture flow | Experimental | มี Flutter screens แต่ Supabase init และ reviewed E2E ยังไม่ครบ |
+| Production API/worker | Planned | demo ปัจจุบันอาศัย local backend/tunnel |
+| GIS, anti-fraud, marketplace, payment, certificate | Planned | เป็น roadmap ไม่ใช่ prototype ที่เสร็จแล้ว |
 
----
+รายละเอียดทั้งหมดสร้างจาก reviewed manifest ที่
+[`docs/evidence/core_demo_manifest.json`](docs/evidence/core_demo_manifest.json) และสรุปใน
+[`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md)
 
-## 🗺 Roadmap
+## ตัวเลขที่ต้องรายงานตรงไปตรงมา
 
-| Phase | Status |
+### Wood/leaf — PointNet++ Experimental
+
+Wan 2021 spatial held-out loader:
+
+| Metric | ค่าที่บันทึก |
+|---|---:|
+| Wood IoU | **0.418** |
+| Leaf IoU | **0.808** |
+| Mean IoU | **0.613** |
+| Accuracy | **0.831** |
+
+ข้อจำกัดสำคัญ: held-out loader เดียวกันถูกใช้เลือก best epoch และไม่มี checkpoint/tree-ID provenance
+ครบพอสำหรับ independent final-test gate จึงห้ามโปรโมต PointNet++ เป็น default จากตัวเลขชุดนี้
+
+### Geometry — Demol 2021 isolated-tree validation, 65 ต้น
+
+| Metric | ค่าที่บันทึก |
+|---|---:|
+| DBH MAE | **1.1673846154 cm** |
+| Height MAE | **0.5446153846 m** |
+| Volume MAPE | **18.7650916186%** |
+
+การทดสอบนี้เริ่มจาก isolated-tree cloud ที่จำกัด 20,000 points, normalize ด้วย min-Z และใช้ `tlsep`
+จึงไม่ใช่ validation ของขั้น 1–4, species classification, allometric biomass, carbon stock หรือ carbon credit
+
+## Evidence gate
+
+`tlsep` เป็น default ที่เสถียร ส่วน PointNet++ จะถูกโปรโมตได้ก็ต่อเมื่อหลักฐานครบทุกข้อ:
+
+- checkpoint มี SHA-256 และ training provenance ครบ
+- เป็น independent real-data test ที่รันซ้ำได้
+- Wood IoU สูงกว่า baseline
+- DBH MAE, Height MAE และ Volume MAPE ไม่แย่ลง
+- จำนวนต้นที่วัดได้ไม่ลดลง
+
+Gate ทำงานแบบ fail-closed ใน `services/ml/pipeline/provenance.py`
+
+## Deterministic core demo
+
+Reviewed run ที่ commit `b6fe198f3de5c227c1adc7f1a481fc809339959f` ใช้ clean worktree,
+synthetic seed 42 และ `tlsep` ได้ 3 ต้น, 1320.39 kg C และ 4841.48 kg CO₂e
+ตัวเลขนี้ใช้ยืนยัน reproducibility เท่านั้น ไม่ใช่ accuracy benchmark
+
+```powershell
+cd services/ml
+python scripts/run_core_demo.py --output-dir ../../temp/core-demo --repo-root ../..
+cd ../..
+python scripts/sync_truth.py --check
+```
+
+## Quick start
+
+### ML
+
+```powershell
+cd services/ml
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+pytest tests/
+python -m pipeline.main process --input plot.las --output result.json --backend tlsep
+```
+
+### API
+
+```powershell
+cd services/api
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e .
+pytest
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# เปิดอีก process เมื่อต้องใช้ async jobs
+python -m app.worker
+```
+
+### Web
+
+```powershell
+cd apps/web
+npm install
+npm run dev
+npm test -- --run
+npm run type-check
+npm run build
+```
+
+## โครงสร้าง repo
+
+```text
+apps/web/        Next.js landing, dashboard และ 3D viewer
+apps/mobile/     Flutter capture/results prototype
+services/api/    FastAPI sync endpoint, async jobs และ worker
+services/ml/     8-stage point-cloud pipeline, training และ evaluation
+docs/            master spec, ML evidence, capability matrix และ decisions
+proposal/        เอกสารข้อเสนอโครงงาน NSC
+scripts/         truth sync และ report builder
+```
+
+## Deployment
+
+| ส่วน | สถานะ |
 |---|---|
-| **Phase 1** — Pipeline + validation (Belgium) + Web/API MVP | ✅ |
-| **Phase 2** — PointNet++ wood-leaf + real-data training | 🟢 กำลังทำ |
-| **Phase 3** — Photogrammetry (smallholder) + Thai field data | 🔜 |
-| **Phase 4** — B2B Carbon Offset marketplace | 🔜 |
+| Web | Vercel: `treeqcarbon.vercel.app` |
+| API + ML worker | ยังไม่มี production deployment; demo ใช้ local backend ผ่าน temporary tunnel |
+| DB/Auth | Supabase |
 
-<details>
-<summary>📚 <b>Documentation map</b></summary>
+## งานถัดไป
 
-| Doc | Purpose |
-|---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design |
-| [docs/ml/PIPELINE.md](docs/ml/PIPELINE.md) | ML pipeline (8 steps) |
-| [docs/ml/FINETUNE_REALDATA.md](docs/ml/FINETUNE_REALDATA.md) | Real-data training runbook |
-| [docs/ml/WOODLEAF_RESULTS.md](docs/ml/WOODLEAF_RESULTS.md) | Wood/leaf results log |
-| [docs/API.md](docs/API.md) · [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | API + DB schema |
-| [docs/decisions/](docs/decisions/) | ADRs |
-| [proposal/](proposal/) | NSC 2026 proposal docs |
+1. สร้าง independent real-data evaluation ที่เปรียบเทียบ `tlsep` กับ PointNet++ ด้วย input และ downstream metrics ชุดเดียวกัน
+2. หาและ verify open wood/leaf dataset เพิ่ม แล้วเก็บ checkpoint/training provenance ให้ครบ
+3. verify allometric coefficients กับเอกสาร TGO 2017 ต้นฉบับ
+4. deploy API + worker บน shared persistent storage หรือเปลี่ยน job input เป็น object storage
+5. ปิด reviewed mobile E2E ก่อนเริ่ม marketplace/GIS/certificate
 
-</details>
+## เอกสารหลัก
 
----
+- [`docs/DOCUMENT_STATUS.md`](docs/DOCUMENT_STATUS.md) — แยก current truth, target และ historical documents
+- [`AGENTS.md`](AGENTS.md) — กติกาและคำสั่งทำงาน
+- [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) — context โครงการฉบับเต็ม
+- [`docs/ml/PIPELINE.md`](docs/ml/PIPELINE.md) — อัลกอริทึม 8 ขั้นตามโค้ด
+- [`docs/ml/WOODLEAF_RESULTS.md`](docs/ml/WOODLEAF_RESULTS.md) — บันทึกผล wood/leaf และข้อจำกัด
+- [`docs/ml/ALLOMETRIC.md`](docs/ml/ALLOMETRIC.md) — สมการและแหล่งข้อมูล
 
-## 🙏 Acknowledgments
+## License
 
-**lidR** (Roussel et al.) · **Demol et al. 2021** & **Wan et al. 2021** (open TLS datasets) · **TGO** (allometric standards) · **NSC 2026 / สวทช.**
-
-## 📜 License
-
-[MIT](LICENSE) © CarbonScan AI Team
-
-<div align="center"><sub>🌲 Built for <b>NSC 2026</b> · Forest meets Code</sub></div>
+[MIT](LICENSE) © TreeQ Carbon Platform Team

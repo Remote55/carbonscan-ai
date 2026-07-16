@@ -5,10 +5,44 @@ on:
     branches: [main]
     paths:
       - "services/ml/**"
+      - "docs/evidence/core_demo_manifest.json"
+      - "docs/CAPABILITY_MATRIX.md"
+      - "docs/PROJECT_SPEC.md"
+      - "docs/ml/PIPELINE.md"
+      - "docs/ml/WOODLEAF_RESULTS.md"
+      - "docs/ml/ALLOMETRIC.md"
+      - "README.md"
+      - "AGENTS.md"
+      - "scripts/sync_truth.py"
+      - "scripts/build_truth_aligned_report.py"
+      - "scripts/tests/**"
+      - "docs/DOCUMENT_STATUS.md"
+      - "proposal/**"
+      - "services/api/README.md"
+      - "apps/web/README.md"
+      - "apps/mobile/README.md"
+      - "apps/web/src/generated/core-demo-evidence.ts"
       - ".github/workflows/ci-ml.yml"
   pull_request:
     paths:
       - "services/ml/**"
+      - "docs/evidence/core_demo_manifest.json"
+      - "docs/CAPABILITY_MATRIX.md"
+      - "docs/PROJECT_SPEC.md"
+      - "docs/ml/PIPELINE.md"
+      - "docs/ml/WOODLEAF_RESULTS.md"
+      - "docs/ml/ALLOMETRIC.md"
+      - "README.md"
+      - "AGENTS.md"
+      - "scripts/sync_truth.py"
+      - "scripts/build_truth_aligned_report.py"
+      - "scripts/tests/**"
+      - "docs/DOCUMENT_STATUS.md"
+      - "proposal/**"
+      - "services/api/README.md"
+      - "apps/web/README.md"
+      - "apps/mobile/README.md"
+      - "apps/web/src/generated/core-demo-evidence.ts"
       - ".github/workflows/ci-ml.yml"
 
 concurrency:
@@ -52,10 +86,11 @@ jobs:
           # Install CPU-only PyTorch first (faster than full GPU image)
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[dev]"
+          pip install python-docx
 
       - name: Ruff lint
         working-directory: services/ml
-        run: ruff check pipeline/ photogrammetry/ tests/
+        run: ruff check pipeline/ photogrammetry/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
 
       - name: Ruff format check (advisory)
         working-directory: services/ml
@@ -68,5 +103,15 @@ jobs:
 
       - name: Run all tests
         working-directory: services/ml
-        # Allow non-allometric stubs to fail with NotImplementedError gracefully
-        run: pytest tests/ -v --tb=short || true
+        run: pytest tests/ -v --tb=short
+
+      - name: Run repository truth and report contract tests
+        run: python -m pytest scripts/tests/ -v --no-cov
+
+      - name: Verify deterministic core demo
+        working-directory: services/ml
+        run: python scripts/run_core_demo.py --output-dir ../../temp/ci-core-demo --repo-root ../..
+
+      - name: Verify evidence and documentation truth
+        working-directory: services/ml
+        run: python ../../scripts/sync_truth.py --check

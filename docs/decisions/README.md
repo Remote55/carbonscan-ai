@@ -1,5 +1,10 @@
 # 📐 Architecture Decision Records (ADR)
 
+> [!NOTE]
+> ADR บันทึก “การตัดสินใจ/เป้าหมาย ณ เวลานั้น” ไม่ได้ยืนยันว่า deployment หรือ integration เสร็จแล้ว.
+> Current implementation status ให้ยึด `docs/CAPABILITY_MATRIX.md`; RunPod/WebSocket/GIS/Marketplace
+> ที่ปรากฏใน ADR ยังเป็น Planned จนกว่าจะมี reviewed evidence ใหม่.
+
 > Documentation ของการตัดสินใจ architectural ที่สำคัญ
 >
 > **Why ADRs?** เพื่อให้คนที่มาทำงานต่อ (รวมถึงตัวเราเอง 6 เดือนถัดมา) เข้าใจว่า "ทำไมเลือกแบบนี้"

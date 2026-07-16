@@ -1,5 +1,11 @@
 # Sprint Plan — Phase 1 (P1) สู่ Final Report
 
+> [!CAUTION]
+> **Historical sprint record.** เครื่องหมายเสร็จและตัวเลขด้านล่างสะท้อนความเข้าใจ ณ เวลานั้น
+> และถูกแทนที่ด้วย evidence gate ปัจจุบัน. Synthetic PointNet++ Mean IoU `0.977625`
+> ไม่ใช่ real-tree accuracy; PointNet++ ยัง Experimental/not promoted. ดู
+> `docs/evidence/core_demo_manifest.json` และ `docs/ml/WOODLEAF_RESULTS.md`.
+
 > **เป้าหมาย:** ยกระดับจาก "proposal ที่ผ่าน" → "ผลงานที่ชนะ" โดยปิดช่องว่างที่ proposal ยังเป็นแค่ target
 > **ช่วงเวลา:** 17 มิ.ย. 2569 → **Final Report deadline 17 ก.ค. 2569** (~4 สัปดาห์)
 > **อัปเดต:** 2026-06-17

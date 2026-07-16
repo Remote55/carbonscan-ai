@@ -13,7 +13,19 @@ USER = {"id": str(uuid4()), "email": "student@uni.ac.th"}
 OTHER = {"id": str(uuid4()), "email": "other@uni.ac.th"}
 
 FAKE_RESULT = {
-    "metadata": {"status": "ok"},
+    "metadata": {
+        "pipeline_version": "0.3.0",
+        "git_commit": "9d7b43c",
+        "git_dirty": False,
+        "wood_leaf_backend": "tlsep",
+        "input_sha256": "a" * 64,
+        "checkpoint_sha256": None,
+        "algorithms": {"wood_leaf": "tlsep", "species": "stub"},
+        "evidence_status": "baseline",
+        "candidate_status": "candidate_not_evaluated",
+        "n_input_points": 1000,
+        "status": "ok",
+    },
     "summary": {"total_trees": 2, "total_carbon_kg": 123.45, "total_co2eq_kg": 452.6},
     "trees": [],
 }
@@ -68,6 +80,7 @@ async def test_get_job_returns_result_after_worker_runs(client, store):
     body = r2.json()
     assert body["status"] == "completed"
     assert body["result"]["summary"]["total_trees"] == 2
+    assert body["result"]["metadata"]["evidence_status"] == "baseline"
 
 
 @pytest.mark.asyncio

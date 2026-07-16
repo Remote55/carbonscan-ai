@@ -11,7 +11,19 @@ def test_job_created_minimal():
 
 def test_job_detail_parses_embedded_result():
     result = {
-        "metadata": {"status": "ok"},
+        "metadata": {
+            "pipeline_version": "0.3.0",
+            "git_commit": "9d7b43c",
+            "git_dirty": False,
+            "wood_leaf_backend": "tlsep",
+            "input_sha256": "a" * 64,
+            "checkpoint_sha256": None,
+            "algorithms": {"wood_leaf": "tlsep", "species": "stub"},
+            "evidence_status": "baseline",
+            "candidate_status": "candidate_not_evaluated",
+            "n_input_points": 1000,
+            "status": "ok",
+        },
         "summary": {"total_trees": 1, "total_carbon_kg": 10.0, "total_co2eq_kg": 36.7},
         "trees": [],
     }
@@ -26,3 +38,4 @@ def test_job_detail_parses_embedded_result():
     )
     assert d.result is not None
     assert d.result.summary.total_trees == 1
+    assert d.result.metadata.evidence_status == "baseline"
