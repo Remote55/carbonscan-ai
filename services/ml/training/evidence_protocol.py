@@ -49,6 +49,7 @@ EXPECTED_SECTIONS: dict[str, dict[str, Any]] = {
         "synthetic_samples": 200,
         "synthetic_seed_start": 50000,
         "class_weight": "none",
+        "optimizer": "Adam",
         "epochs": 60,
         "batch_size": 8,
         "learning_rate": 0.001,
@@ -56,6 +57,7 @@ EXPECTED_SECTIONS: dict[str, dict[str, Any]] = {
         "scheduler_step": 20,
         "scheduler_gamma": 0.5,
         "selection_metric": "macro_tile_wood_iou",
+        "selection_tie_break": "lowest_seed",
     },
     "pointnet_inference": {
         "window_size_m": 2.5,
@@ -63,6 +65,7 @@ EXPECTED_SECTIONS: dict[str, dict[str, Any]] = {
         "model_points": 2048,
         "query_points": 1024,
         "seed": 0,
+        "required_coverage": 1.0,
     },
     "external": {
         "provider": "Zenodo",
@@ -81,6 +84,8 @@ EXPECTED_SECTIONS: dict[str, dict[str, Any]] = {
         "qsm_algorithm": "ransac_dbh_maxz_height_taper_volume",
     },
     "statistics": {
+        "method": "paired_percentile",
+        "resampling_unit": "tree",
         "resamples": 10000,
         "seed": 20260716,
         "confidence": 0.95,
@@ -89,6 +94,23 @@ EXPECTED_SECTIONS: dict[str, dict[str, Any]] = {
 
 
 def _require_equal(actual: Any, expected: Any, label: str) -> None:
+    if type(actual) is not type(expected):
+        raise ValueError(f"{label} must equal {expected!r}, got {actual!r}")
+
+    if isinstance(expected, dict):
+        if set(actual) != set(expected):
+            raise ValueError(f"{label} must equal {expected!r}, got {actual!r}")
+        for key, expected_value in expected.items():
+            _require_equal(actual[key], expected_value, label)
+        return
+
+    if isinstance(expected, list):
+        if len(actual) != len(expected):
+            raise ValueError(f"{label} must equal {expected!r}, got {actual!r}")
+        for actual_value, expected_value in zip(actual, expected):
+            _require_equal(actual_value, expected_value, label)
+        return
+
     if actual != expected:
         raise ValueError(f"{label} must equal {expected!r}, got {actual!r}")
 

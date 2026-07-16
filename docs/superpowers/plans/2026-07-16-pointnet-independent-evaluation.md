@@ -214,8 +214,8 @@ git commit -m "feat(ml): stream evidence hashes"
 - Create: `services/ml/tests/test_evidence_protocol.py`
 
 **Interfaces:**
-- Consumes: `sha256_file()` from Task 1
-- Produces: validated protocol dict with exact keys and values used by every later command
+- Produces: validated protocol dict with exact keys, exact JSON types and values used by every later command
+- Hash handoff: Tasks 5, 7 and 10 hash the validated protocol file with Task 1 `sha256_file()`; `load_protocol()` validates content and must not perform a discarded hash call
 
 - [ ] **Step 1: Write failing protocol tests**
 
@@ -237,6 +237,8 @@ def test_checked_in_protocol_locks_blind_contract():
     p = load_protocol(PROTOCOL)
     assert p["training"]["seeds"] == [20260716, 20260717, 20260718]
     assert p["training"]["synthetic_samples"] == 200
+    assert p["training"]["optimizer"] == "Adam"
+    assert p["training"]["selection_tie_break"] == "lowest_seed"
     assert p["wan"]["n_off"] == 10000
     assert p["wan"]["per"] == 1500
     assert p["pointnet_inference"] == {
@@ -245,16 +247,33 @@ def test_checked_in_protocol_locks_blind_contract():
         "model_points": 2048,
         "query_points": 1024,
         "seed": 0,
+        "required_coverage": 1.0,
     }
     assert p["external"]["record_id"] == 6831378
     assert p["external"]["expected_trees"] == 10
     assert p["demol"]["expected_trees"] == 65
-    assert p["statistics"] == {"resamples": 10000, "seed": 20260716, "confidence": 0.95}
+    assert p["statistics"] == {
+        "method": "paired_percentile",
+        "resampling_unit": "tree",
+        "resamples": 10000,
+        "seed": 20260716,
+        "confidence": 0.95,
+    }
 
 
 def test_protocol_rejects_changed_seed(tmp_path):
     payload = json.loads(PROTOCOL.read_text(encoding="utf-8"))
     payload["training"]["seeds"] = [1, 2, 3]
+    path = tmp_path / "protocol.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="training.seeds"):
+        load_protocol(path)
+
+
+@pytest.mark.parametrize("replacement", [False, 20260716.0])
+def test_protocol_rejects_json_type_aliases(tmp_path, replacement):
+    payload = json.loads(PROTOCOL.read_text(encoding="utf-8"))
+    payload["training"]["seeds"][0] = replacement
     path = tmp_path / "protocol.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="training.seeds"):
@@ -307,20 +326,23 @@ Create `docs/evidence/pointnet_independent_eval/protocol.json` with:
     "synthetic_samples": 200,
     "synthetic_seed_start": 50000,
     "class_weight": "none",
+    "optimizer": "Adam",
     "epochs": 60,
     "batch_size": 8,
     "learning_rate": 0.001,
     "weight_decay": 0.0001,
     "scheduler_step": 20,
     "scheduler_gamma": 0.5,
-    "selection_metric": "macro_tile_wood_iou"
+    "selection_metric": "macro_tile_wood_iou",
+    "selection_tie_break": "lowest_seed"
   },
   "pointnet_inference": {
     "window_size_m": 2.5,
     "stride_m": 1.25,
     "model_points": 2048,
     "query_points": 1024,
-    "seed": 0
+    "seed": 0,
+    "required_coverage": 1.0
   },
   "external": {
     "provider": "Zenodo",
@@ -339,6 +361,8 @@ Create `docs/evidence/pointnet_independent_eval/protocol.json` with:
     "qsm_algorithm": "ransac_dbh_maxz_height_taper_volume"
   },
   "statistics": {
+    "method": "paired_percentile",
+    "resampling_unit": "tree",
     "resamples": 10000,
     "seed": 20260716,
     "confidence": 0.95
@@ -359,7 +383,7 @@ EXPECTED_TOP_LEVEL = {
 
 
 def _require_equal(actual, expected, label: str) -> None:
-    if actual != expected:
+    if type(actual) is not type(expected) or actual != expected:
         raise ValueError(f"{label} must equal {expected!r}, got {actual!r}")
 
 
@@ -372,7 +396,17 @@ def load_protocol(path: str | Path) -> dict[str, Any]:
     _require_equal(payload["external"]["record_id"], 6831378, "external.record_id")
     _require_equal(payload["external"]["expected_trees"], 10, "external.expected_trees")
     _require_equal(payload["demol"]["expected_trees"], 65, "demol.expected_trees")
-    _require_equal(payload["statistics"], {"resamples": 10000, "seed": 20260716, "confidence": 0.95}, "statistics")
+    _require_equal(
+        payload["statistics"],
+        {
+            "method": "paired_percentile",
+            "resampling_unit": "tree",
+            "resamples": 10000,
+            "seed": 20260716,
+            "confidence": 0.95,
+        },
+        "statistics",
+    )
     return payload
 ```
 
