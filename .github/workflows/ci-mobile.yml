@@ -16,7 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FLUTTER_VERSION: "3.24.5"
+  # Keep CI aligned with the stable SDK used for local verification.
+  FLUTTER_VERSION: "3.44.0"
   JAVA_VERSION: "17"
 
 jobs:
