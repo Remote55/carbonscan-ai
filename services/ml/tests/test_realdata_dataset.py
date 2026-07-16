@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import PurePosixPath, PureWindowsPath
 
 import numpy as np
 import pytest
@@ -44,6 +45,30 @@ def _write_tiny_wan_plots(tmp_path):
         path.write_text("".join(lines), encoding="utf-8")
         paths.append(path)
     return list(reversed(paths))
+
+
+def _replace_first_wan_row(path, row):
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    lines[0] = f"{row}\n"
+    path.write_text("".join(lines), encoding="utf-8")
+
+
+def _assert_path_private(value, forbidden_root):
+    if isinstance(value, dict):
+        for child in value.values():
+            _assert_path_private(child, forbidden_root)
+        return
+    if isinstance(value, list):
+        for child in value:
+            _assert_path_private(child, forbidden_root)
+        return
+    if not isinstance(value, str):
+        return
+
+    normalized = value.replace("\\", "/")
+    assert not PurePosixPath(normalized).is_absolute()
+    assert not PureWindowsPath(value).is_absolute()
+    assert forbidden_root.resolve().as_posix().casefold() not in normalized.casefold()
 
 
 def _build_tiny_evidence(tmp_path, sources, protocol=None):
@@ -166,7 +191,21 @@ def test_build_evidence_dataset_records_every_tile_without_absolute_paths(tmp_pa
         }
         for row in a["tiles"]
     )
-    assert str(tmp_path) not in json.dumps(a)
+    expected_selected = np.arange(6, dtype=np.int64)[
+        np.random.default_rng(7).choice(6, size=4, replace=False)
+    ]
+    first_tile = next(
+        row
+        for row in a["tiles"]
+        if row["source_id"] == "plot_a"
+        and row["grid_x"] == 0
+        and row["grid_y"] == 0
+    )
+    assert first_tile["selected_indices_sha256"] == sha256_ndarray(
+        expected_selected,
+        "<i8",
+    )
+    _assert_path_private(a, tmp_path)
 
     for split_name in ("train", "dev"):
         output = first / f"{split_name}.npz"
@@ -194,6 +233,20 @@ def test_build_evidence_dataset_rejects_source_config_mismatch(tmp_path):
         _build_tiny_evidence(tmp_path, sources[:-1])
 
 
+@pytest.mark.parametrize("source_record", ["/private/wan.txt", r"C:\private\wan.txt"])
+def test_build_evidence_dataset_rejects_absolute_source_record(
+    tmp_path, source_record
+):
+    sources = _write_tiny_wan_plots(tmp_path)
+    protocol = _tiny_protocol()
+    protocol["wan"]["source_record"] = source_record
+
+    with pytest.raises(ValueError, match="absolute.*source_record"):
+        _build_tiny_evidence(tmp_path, sources, protocol)
+
+    assert list((tmp_path / "output").iterdir()) == []
+
+
 @pytest.mark.parametrize("invalid_label", ["2", "1.5", "256"])
 def test_build_evidence_dataset_rejects_non_binary_labels(tmp_path, invalid_label):
     sources = _write_tiny_wan_plots(tmp_path)
@@ -208,11 +261,48 @@ def test_build_evidence_dataset_rejects_non_binary_labels(tmp_path, invalid_labe
         _build_tiny_evidence(tmp_path, sources)
 
 
+@pytest.mark.parametrize(
+    ("row", "reason"),
+    [
+        ("0 0 0", "columns"),
+        ("0 0 0 0 0 0 leaf", "numeric XYZ and label"),
+        ("nan 0 0 0 0 0 0", "finite XYZ and label"),
+    ],
+)
+def test_build_evidence_dataset_rejects_malformed_rows_with_context(
+    tmp_path, row, reason
+):
+    sources = _write_tiny_wan_plots(tmp_path)
+    _replace_first_wan_row(tmp_path / "plot_a.txt", row)
+
+    with pytest.raises(
+        ValueError,
+        match=rf"plot_a\.txt.*line 1.*{reason}",
+    ):
+        _build_tiny_evidence(tmp_path, sources)
+
+
 def test_build_evidence_dataset_rejects_empty_split(tmp_path):
     sources = _write_tiny_wan_plots(tmp_path)
     protocol = _tiny_protocol()
     protocol["wan"]["buffer_m"] = 100.0
     with pytest.raises(ValueError, match="empty train/dev split"):
+        _build_tiny_evidence(tmp_path, sources, protocol)
+
+
+def test_build_evidence_dataset_requires_train_and_dev_from_every_source(tmp_path):
+    sources = _write_tiny_wan_plots(tmp_path)
+    path = tmp_path / "plot_a.txt"
+    kept_rows = [
+        row
+        for row in path.read_text(encoding="utf-8").splitlines()
+        if float(row.split()[0]) < 2.0
+    ]
+    path.write_text("\n".join(kept_rows) + "\n", encoding="utf-8")
+    protocol = _tiny_protocol()
+    protocol["wan"]["train_fraction"] = 0.7
+
+    with pytest.raises(ValueError, match=r"plot_a.*train and dev"):
         _build_tiny_evidence(tmp_path, sources, protocol)
 
 
@@ -227,3 +317,27 @@ def test_build_evidence_dataset_rejects_duplicate_tile_ids(tmp_path):
 
     with pytest.raises(ValueError, match="duplicate tile IDs"):
         _build_tiny_evidence(tmp_path, sources, protocol)
+
+
+def test_build_evidence_dataset_rejects_resolved_output_alias_before_write(tmp_path):
+    sources = _write_tiny_wan_plots(tmp_path)
+    output = tmp_path / "output"
+    nested = output / "nested"
+    nested.mkdir(parents=True)
+    shared = output / "shared.npz"
+    shared.write_bytes(b"do-not-overwrite")
+    alias = nested / ".." / "shared.npz"
+    manifest = output / "manifest.json"
+
+    with pytest.raises(ValueError, match="distinct output paths"):
+        realdata_dataset.build_evidence_dataset(
+            sources,
+            shared,
+            alias,
+            manifest,
+            protocol=_tiny_protocol(),
+            repo_root=tmp_path,
+        )
+
+    assert shared.read_bytes() == b"do-not-overwrite"
+    assert not manifest.exists()

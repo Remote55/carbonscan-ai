@@ -8,13 +8,39 @@ separation proxy; it does not prove that biological tree crowns are independent.
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Sequence
 
 import numpy as np
 
 from pipeline.provenance import sha256_file, sha256_ndarray, write_canonical_json
 from training.woodleaf_dataset import _resample_indices, normalize_points
+
+
+def _is_cross_platform_absolute(value: str) -> bool:
+    normalized = value.replace("\\", "/")
+    return PurePosixPath(normalized).is_absolute() or PureWindowsPath(
+        value
+    ).is_absolute()
+
+
+def _validate_manifest_path_privacy(value: Any, *, repo_root: Path) -> None:
+    if isinstance(value, dict):
+        for child in value.values():
+            _validate_manifest_path_privacy(child, repo_root=repo_root)
+        return
+    if isinstance(value, list):
+        for child in value:
+            _validate_manifest_path_privacy(child, repo_root=repo_root)
+        return
+    if not isinstance(value, str):
+        return
+
+    normalized = value.replace("\\", "/")
+    if _is_cross_platform_absolute(value):
+        raise ValueError(f"manifest cannot contain absolute path {value!r}")
+    if repo_root.as_posix().casefold() in normalized.casefold():
+        raise ValueError("manifest cannot contain repo_root")
 
 
 def _tile_samples_with_records(
@@ -161,21 +187,33 @@ def load_wan_plot(
             stream.seek(int(size * offset_index / n_off))
             if offset_index > 0:
                 stream.readline()
-            for _ in range(per):
+            for line_number in range(1, per + 1):
                 line = stream.readline()
                 if not line:
                     break
+                if not line.strip():
+                    continue
+                context = (
+                    f"{path.name}: offset {offset_index + 1}, line {line_number}"
+                )
                 parts = line.split()
                 if len(parts) < label_col + 1:
-                    continue
+                    raise ValueError(
+                        f"{context}: expected at least {label_col + 1} columns, "
+                        f"got {len(parts)}"
+                    )
                 try:
                     point = (float(parts[0]), float(parts[1]), float(parts[2]))
                     label = float(parts[label_col])
-                except ValueError:
-                    continue
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        f"{context}: expected numeric XYZ and label"
+                    ) from exc
+                if not np.isfinite((*point, label)).all():
+                    raise ValueError(f"{context}: expected finite XYZ and label")
                 if label not in (0.0, 1.0):
                     raise ValueError(
-                        f"{path.name} must contain only binary labels 0 and 1; "
+                        f"{context}: must contain only binary labels 0 and 1; "
                         f"got {label!r}"
                     )
                 xyz.append(point)
@@ -193,8 +231,34 @@ def build_evidence_dataset(
     repo_root: str | Path,
 ) -> dict[str, Any]:
     """Build deterministic Wan train/dev artifacts and a canonical manifest."""
+    out_train = Path(out_train).resolve()
+    out_dev = Path(out_dev).resolve()
+    manifest_path = Path(manifest_path).resolve()
+    if len({out_train, out_dev, manifest_path}) != 3:
+        raise ValueError("train, dev, and manifest must use distinct output paths")
+
+    repo_root = Path(repo_root).resolve()
     wan = protocol["wan"]
+    source_record = wan["source_record"]
+    if _is_cross_platform_absolute(source_record):
+        raise ValueError("absolute paths are forbidden in wan.source_record")
+
     expected_names = list(wan["files"])
+    if any(
+        _is_cross_platform_absolute(name)
+        or "/" in name.replace("\\", "/")
+        for name in expected_names
+    ):
+        raise ValueError("protocol source filenames must be logical basenames")
+
+    resolved_sources = [Path(path).resolve() for path in plot_paths]
+    for source in resolved_sources:
+        try:
+            source.relative_to(repo_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"source path must be within repo_root: {source.name}"
+            ) from exc
     supplied_names = [Path(path).name for path in plot_paths]
     if len(supplied_names) != len(set(supplied_names)) or sorted(
         supplied_names
@@ -203,9 +267,7 @@ def build_evidence_dataset(
             "source filenames do not match protocol: "
             f"expected {expected_names!r}, got {supplied_names!r}"
         )
-    source_by_name = {
-        Path(path).name: Path(path) for path in plot_paths
-    }
+    source_by_name = {path.name: path for path in resolved_sources}
     ordered_sources = [(name, source_by_name[name]) for name in expected_names]
     config = {
         "n_off": wan["n_off"],
@@ -217,8 +279,6 @@ def build_evidence_dataset(
         "buffer_m": wan["buffer_m"],
         "resampling_seed": wan["resampling_seed"],
     }
-    _ = Path(repo_root)
-
     train_x, train_y, dev_x, dev_y = [], [], [], []
     sources = []
     tiles: list[dict[str, Any]] = []
@@ -246,6 +306,11 @@ def build_evidence_dataset(
         assignments = np.asarray([record["split"] for record in records])
         train_mask = assignments == "train"
         dev_mask = assignments == "dev"
+        if not train_mask.any() or not dev_mask.any():
+            raise ValueError(
+                f"empty train/dev split for source {filename}; "
+                "every source must contribute at least one train and dev tile"
+            )
         train_x.append(x[train_mask])
         train_y.append(y[train_mask])
         dev_x.append(x[dev_mask])
@@ -263,13 +328,11 @@ def build_evidence_dataset(
     if len(x_train) == 0 or len(x_dev) == 0:
         raise ValueError("empty train/dev split after spatial assignment")
 
-    out_train = Path(out_train)
-    out_dev = Path(out_dev)
     np.savez_compressed(out_train, x=x_train, y=y_train)
     np.savez_compressed(out_dev, x=x_dev, y=y_dev)
     manifest = {
         "schema_version": "1",
-        "source_record": wan["source_record"],
+        "source_record": source_record,
         "config": config,
         "sources": sources,
         "outputs": {
@@ -290,6 +353,7 @@ def build_evidence_dataset(
         },
         "tiles": tiles,
     }
+    _validate_manifest_path_privacy(manifest, repo_root=repo_root)
     write_canonical_json(manifest_path, manifest)
     return manifest
 
