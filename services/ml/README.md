@@ -1,5 +1,12 @@
 # 🧠 ML Pipeline (Python + PyTorch)
 
+> [!CAUTION]
+> **Mixed current/target service notes.** Current default wood/leaf backend is `tlsep`.
+> PointNet++ is Experimental/not promoted (Wan Wood/Leaf/Mean IoU `0.418/0.808/0.613` with
+> selection/provenance caveat). Species classification is Stub. COLMAP/OpenMVS require external
+> binaries and are not a verified photo-to-carbon production path; RunPod is a Planned deployment target.
+> Use `docs/evidence/core_demo_manifest.json` and `docs/ml/PIPELINE.md` as truth.
+
 > **Owner:** User
 > **Tech:** Python 3.11 + PyTorch + Open3D + PointNet++ + COLMAP
 

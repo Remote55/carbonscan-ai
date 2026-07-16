@@ -14,7 +14,13 @@ on:
       - "README.md"
       - "AGENTS.md"
       - "scripts/sync_truth.py"
-      - "scripts/tests/test_sync_truth.py"
+      - "scripts/build_truth_aligned_report.py"
+      - "scripts/tests/**"
+      - "docs/DOCUMENT_STATUS.md"
+      - "proposal/**"
+      - "services/api/README.md"
+      - "apps/web/README.md"
+      - "apps/mobile/README.md"
       - "apps/web/src/generated/core-demo-evidence.ts"
       - ".github/workflows/ci-ml.yml"
   pull_request:
@@ -29,7 +35,13 @@ on:
       - "README.md"
       - "AGENTS.md"
       - "scripts/sync_truth.py"
-      - "scripts/tests/test_sync_truth.py"
+      - "scripts/build_truth_aligned_report.py"
+      - "scripts/tests/**"
+      - "docs/DOCUMENT_STATUS.md"
+      - "proposal/**"
+      - "services/api/README.md"
+      - "apps/web/README.md"
+      - "apps/mobile/README.md"
       - "apps/web/src/generated/core-demo-evidence.ts"
       - ".github/workflows/ci-ml.yml"
 
@@ -74,10 +86,11 @@ jobs:
           # Install CPU-only PyTorch first (faster than full GPU image)
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[dev]"
+          pip install python-docx
 
       - name: Ruff lint
         working-directory: services/ml
-        run: ruff check pipeline/ photogrammetry/ scripts/ tests/ ../../scripts/sync_truth.py ../../scripts/tests/
+        run: ruff check pipeline/ photogrammetry/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
 
       - name: Ruff format check (advisory)
         working-directory: services/ml
@@ -92,8 +105,8 @@ jobs:
         working-directory: services/ml
         run: pytest tests/ -v --tb=short
 
-      - name: Run truth contract tests
-        run: python -m pytest scripts/tests/test_sync_truth.py -v --no-cov
+      - name: Run repository truth and report contract tests
+        run: python -m pytest scripts/tests/ -v --no-cov
 
       - name: Verify deterministic core demo
         working-directory: services/ml

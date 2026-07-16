@@ -6,12 +6,42 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts.sync_truth import (
     load_manifest,
     render_capability_matrix,
     render_typescript,
     replace_truth_block,
+)
+
+CURRENT_CLAIM_DOCS = (
+    Path("README.md"),
+    Path("AGENTS.md"),
+    Path("docs/PROJECT_SPEC.md"),
+    Path("docs/CAPABILITY_MATRIX.md"),
+    Path("docs/ml/PIPELINE.md"),
+    Path("docs/ml/WOODLEAF_RESULTS.md"),
+)
+
+STATUS_BANNER_DOCS = (
+    Path("docs/AI_AGENT_CONTEXT.md"),
+    Path("docs/SESSION_HANDOFF.md"),
+    Path("docs/ARCHITECTURE.md"),
+    Path("docs/API.md"),
+    Path("docs/DEPLOYMENT.md"),
+    Path("docs/DEVELOPMENT_PLAN.md"),
+    Path("docs/P1_SPRINT_PLAN.md"),
+    Path("docs/DATASET_REQUEST.md"),
+    Path("docs/ROADMAP.md"),
+    Path("docs/learning/README.md"),
+    Path("docs/decisions/README.md"),
+    Path("proposal/outline.md"),
+    Path("docs/proposal/DATASET_SECTION.md"),
+    Path("docs/proposal/SYSTEM_OVERVIEW.md"),
+    Path("proposal/5-questions-answers.md"),
+    Path("services/api/README.md"),
+    Path("services/ml/README.md"),
+    Path("apps/web/README.md"),
+    Path("apps/mobile/README.md"),
 )
 
 
@@ -143,3 +173,35 @@ def test_ml_ci_does_not_swallow_test_failures():
     assert "pytest tests/ -v --tb=short || true" not in workflow
     assert "scripts/run_core_demo.py" in workflow
     assert "scripts/sync_truth.py --check" in workflow
+    assert "python-docx" in workflow
+    assert "python -m pytest scripts/tests/" in workflow
+
+
+def test_current_claim_documents_share_exact_evidence():
+    texts = {path: path.read_text(encoding="utf-8") for path in CURRENT_CLAIM_DOCS}
+    combined = "\n".join(texts.values())
+
+    for path, text in texts.items():
+        assert "tlsep" in text, path
+        assert "PointNet++" in text, path
+    for exact in (
+        "0.418",
+        "0.808",
+        "0.613",
+        "0.831",
+        "1.1673846154",
+        "0.5446153846",
+        "18.7650916186",
+    ):
+        assert exact in combined
+
+    assert "wood IoU = 0.42" not in combined
+    assert "PointNet++ เป็น production default" not in combined
+
+
+@pytest.mark.parametrize("path", STATUS_BANNER_DOCS)
+def test_mixed_or_historical_documents_have_status_banner(path: Path):
+    opening = "\n".join(path.read_text(encoding="utf-8").splitlines()[:15])
+    assert "[!CAUTION]" in opening or "[!NOTE]" in opening
+    status_words = ("current", "historical", "target", "superseded", "archived")
+    assert "ปัจจุบัน" in opening or any(word in opening.lower() for word in status_words)

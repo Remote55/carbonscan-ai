@@ -89,7 +89,7 @@ flutter pub get
    (pipe/stdin ได้ค่าว่างเมื่อ agent รัน CLI)
 3. **ห้าม emoji ใน `print()` ของ Python บน Windows** (cp874 → uvicorn crash) — ใช้ ASCII
 4. **3D viewer:** vertex color ต้องแปลง sRGB→linear ด้วย `THREE.Color` (ไม่งั้นสีเพี้ยน)
-5. **Honesty ethos:** รายงานตัวเลขจริง + ข้อจำกัด ห้าม oversell (เช่น wood IoU = 0.42 พูดตามจริง)
+5. **Honesty ethos:** รายงานตัวเลขจริง + ข้อจำกัด ห้าม oversell (Wood IoU = `0.418`; ห้ามปัดเป็น marketing claim)
 6. **species_db.csv** = source of truth ค่า allometric · **โค้ดคือความจริง** เอกสารเป็น target
 7. อย่าทับไฟล์ report ต้นฉบับ — เซฟเป็นไฟล์ใหม่เสมอ
 

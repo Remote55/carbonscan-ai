@@ -181,6 +181,7 @@ scripts/         truth sync และ report builder
 
 ## เอกสารหลัก
 
+- [`docs/DOCUMENT_STATUS.md`](docs/DOCUMENT_STATUS.md) — แยก current truth, target และ historical documents
 - [`AGENTS.md`](AGENTS.md) — กติกาและคำสั่งทำงาน
 - [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) — context โครงการฉบับเต็ม
 - [`docs/ml/PIPELINE.md`](docs/ml/PIPELINE.md) — อัลกอริทึม 8 ขั้นตามโค้ด

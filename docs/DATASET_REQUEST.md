@@ -1,5 +1,12 @@
 # รายละเอียด Dataset ที่ต้องการ (สำหรับขอคำปรึกษาอาจารย์)
 
+> [!CAUTION]
+> **Superseded dataset request.** อาจารย์ให้ pivot ไปใช้ open datasets แทนการเก็บไม้ไทยเอง.
+> ตัวเลขปัจจุบันบน Wan held-out คือ Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`,
+> accuracy `0.831` โดย held-out loader เดียวกันถูกใช้เลือก best epoch; ยังไม่ใช่ independent final test.
+> งานถัดไปคือ verify open datasets, สร้าง independent split และเก็บ dataset/checkpoint/tree-ID provenance.
+> ดู `docs/ml/WOODLEAF_RESULTS.md`.
+
 > ใช้เป็นเอกสารตั้งต้นคุยกับอาจารย์ — ระบุว่าเราต้องการข้อมูลอะไร เพื่ออะไร และขั้นต่ำที่ยอมรับได้
 
 ## 1. ทำไมถึงต้องการ (ปัญหาที่จะแก้)

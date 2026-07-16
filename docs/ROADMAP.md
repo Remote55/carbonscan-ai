@@ -1,5 +1,10 @@
 # 🗺 Roadmap
 
+> [!NOTE]
+> **Roadmap/target document.** Checkbox ด้านล่างไม่ใช่ source of truth ของ implementation.
+> สถานะปัจจุบันให้ยึด `docs/evidence/core_demo_manifest.json` และ `docs/CAPABILITY_MATRIX.md`;
+> โดย WebSocket, production RunPod, GIS และ Marketplace ยัง Planned และ Species classifier ยัง Stub.
+
 > Phased plan from now (20 พ.ค. 2569) to NSC 2026 Final (24 ส.ค. 2569)
 >
 > **Status:** 🟡 Phase 0 — Proposal Sprint

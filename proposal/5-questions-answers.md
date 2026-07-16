@@ -1,5 +1,11 @@
 # 5 คำถามที่อาจารย์ขอให้ตอบ
 
+> [!CAUTION]
+> **Historical/target Q&A.** RunPod Serverless, WebSocket notification, GIS และ Marketplace
+> ที่กล่าวด้านล่างยังเป็น Planned. Demo ที่ตรวจสอบแล้วใช้ local API/worker, GET polling และ
+> local/shared filesystem. Current ML default คือ `tlsep`; PointNet++ Experimental/not promoted;
+> Species classifier = Stub. ตรวจตัวเลข/ราคาปัจจุบันอีกครั้งก่อนตอบกรรมการ.
+
 > เอามาวาง Proposal section ที่เกี่ยวข้องได้เลย
 
 ---

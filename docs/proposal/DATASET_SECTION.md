@@ -1,5 +1,13 @@
 # ชุดข้อมูลและการแบ่งข้อมูล (Dataset & Split) — สำหรับรายงานรอบ 2 (ส่ง 17 ก.ค.)
 
+> [!CAUTION]
+> **Historical report section — superseded 2026-07-16.** Synthetic PointNet++ Mean IoU คือ
+> `0.977625` และใช้ promote ไม่ได้. Wan best recorded คือ Wood `0.418`, Leaf `0.808`, Mean `0.613`,
+> accuracy `0.831`; held-out loader ใช้เลือก best epoch และไม่มี independent final gate.
+> แผนเก็บข้อมูลไม้ไทยถูกแทนด้วย open-dataset pivot ตามคำแนะนำอาจารย์. Demol 65 ต้นตรวจเฉพาะ
+> geometry: DBH MAE `1.1673846154 cm`, Height MAE `0.5446153846 m`, Volume MAPE
+> `18.7650916186%`; ไม่ได้ validate carbon.
+
 > ตอบ comment กรรมการ #1 (อ้าง dataset ให้ชัด) + คำขออาจารย์ (จำนวน + split train/valid/test)
 > **ก็อปย่อหน้าด้านล่างลงรายงานได้เลย** (ปรับสำนวนตามเล่ม)
 

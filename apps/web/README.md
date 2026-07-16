@@ -1,5 +1,11 @@
 # 🌐 Web Dashboard (Next.js)
 
+> [!CAUTION]
+> **Mixed current/target UI notes.** Current reviewed UI includes landing, Supabase auth paths,
+> async job polling and the 3D point-cloud viewer with evidence labels. Leaflet/GIS, public marketplace,
+> payment/certificate flows and WebSocket progress are Planned even if dependencies, routes or examples
+> appear below. Use `docs/CAPABILITY_MATRIX.md` for current capability status.
+
 > **Owner:** Person A
 > **Tech:** Next.js 14 + TypeScript + Tailwind + shadcn/ui + Three.js + Leaflet
 

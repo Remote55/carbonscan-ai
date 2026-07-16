@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from docx import Document
-
 from scripts.build_truth_aligned_report import (
     ANCHORS,
     FORBIDDEN_CLAIMS,

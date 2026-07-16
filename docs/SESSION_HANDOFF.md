@@ -1,5 +1,12 @@
 # Session Handoff — CarbonScan AI / NSC 2026
 
+> [!CAUTION]
+> **Archived session handoff — superseded 2026-07-16.** เนื้อหาด้านล่างเป็นบันทึกตามเวลาและอาจมีชื่อเดิม
+> ตัวเลขปัด หรือ target architecture; ไม่ใช่ implementation truth ปัจจุบัน ให้ยึด
+> `docs/evidence/core_demo_manifest.json`, `docs/PROJECT_SPEC.md` และ `docs/CAPABILITY_MATRIX.md`.
+> Current gate: `tlsep` default; PointNet++ Experimental/not promoted; Species = Stub;
+> async progress = polling; production RunPod, WebSocket, GIS และ Marketplace = Planned.
+
 > **อัปเดต:** 2026-05-25 (4 วันก่อน Deadline Proposal)
 > **เอกสารนี้ใช้เพื่อ:** ส่งต่อ context ให้ Chat Session ใหม่ (Claude / AI assistant อื่น) ให้รับงานต่อได้ทันทีโดยไม่ต้องอ่าน transcript เก่าทั้งหมด
 > **ผู้อ่านเป้าหมาย:** AI assistant ที่จะมาช่วยทำงานต่อ + User ที่กลับมาดูเอง

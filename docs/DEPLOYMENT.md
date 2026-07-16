@@ -1,5 +1,11 @@
 # 🚀 Deployment Guide
 
+> [!CAUTION]
+> **Deployment plan, not proof of production deployment.** Web อยู่บน Vercel แต่ API/ML worker
+> ที่ตรวจสอบล่าสุดเป็น local service ผ่าน temporary tunnel; RunPod/Railway production worker
+> และ object-storage handoff ยัง Planned. ค่าใช้จ่ายและขั้นตอนด้านล่างเป็นประมาณการ/target
+> และต้องตรวจราคาปัจจุบันก่อนตัดสินใจ. ดู `docs/PROJECT_SPEC.md`.
+
 > Production deployment for CarbonScan AI
 
 ---

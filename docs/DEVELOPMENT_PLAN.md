@@ -1,5 +1,11 @@
 # 🚀 CarbonScan AI — แผนพัฒนาแอปฉบับละเอียด (Development Blueprint)
 
+> [!NOTE]
+> **Historical development blueprint.** รายการและ code snippets ด้านล่างเป็นแผน ไม่ใช่หลักฐานว่า implement แล้ว.
+> สถานะปัจจุบัน: async jobs ใช้ polling; WebSocket/GIS/Marketplace/production RunPod = Planned;
+> PointNet++ = Experimental/not promoted; Species classifier = Stub. ให้ยึด
+> `docs/evidence/core_demo_manifest.json` และ `docs/CAPABILITY_MATRIX.md`.
+
 > **เวอร์ชัน:** 1.0 (2026-05-23)
 > **สถานะ:** Phase 0 (Proposal Sprint), Phase 1 จะเริ่ม 30 พ.ค.
 > **เป้าหมายของเอกสารนี้:** Blueprint สำหรับทีม 3 คน ที่อ่านแล้วเริ่มลงมือทำงาน **โดยไม่ต้องเดา**

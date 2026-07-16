@@ -1,5 +1,10 @@
 # 📱 Mobile App (Flutter)
 
+> [!CAUTION]
+> **Experimental mobile prototype.** Screens/capture flow exist, but `main.dart` does not initialize
+> Supabase and the scan/photo-to-carbon end-to-end path is not verified. Do not present this README's
+> target flow as production capability. See `docs/CAPABILITY_MATRIX.md`.
+
 > **Owner:** User
 > **Tech:** Flutter 3.x + Dart + Riverpod + TFLite
 
