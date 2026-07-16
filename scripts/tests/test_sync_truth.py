@@ -205,3 +205,9 @@ def test_mixed_or_historical_documents_have_status_banner(path: Path):
     assert "[!CAUTION]" in opening or "[!NOTE]" in opening
     status_words = ("current", "historical", "target", "superseded", "archived")
     assert "ปัจจุบัน" in opening or any(word in opening.lower() for word in status_words)
+
+
+def test_active_web_package_uses_current_product_name():
+    package = json.loads(Path("apps/web/package.json").read_text(encoding="utf-8"))
+
+    assert package["description"] == "TreeQ Carbon Platform — Web Dashboard (Next.js 14)"
