@@ -7,6 +7,17 @@
 
 ---
 
+<!-- TREEQ_TRUTH_START -->
+### Verified truth snapshot (generated)
+
+- Baseline: `tlsep` — **Implemented**.
+- PointNet++: **Experimental**, not promoted; no verified independent final-test gate.
+- Wan 2021 held-out: Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`, accuracy `0.831`. The held-out loader was also used for best-epoch selection.
+- Demol isolated-tree validation (65 trees): DBH MAE `1.1673846154 cm`; Volume MAPE `18.7650916186%`. This is not an eight-stage or carbon validation.
+- Deterministic core demo: `3` trees, `1320.39 kg C`, `4841.48 kg CO2e`; analyzed commit `9d7b43c3a29a` with a clean worktree.
+- Species classification: **Stub**. Carbon stock/CO2e estimates are not certified credits.
+<!-- TREEQ_TRUTH_END -->
+
 ## 0. วิธีใช้เอกสารนี้ (สำหรับ session ใหม่)
 
 1. อ่าน §1 (TL;DR) + §17 (สถานะ) ก่อน จะเห็นภาพรวมเร็วสุด

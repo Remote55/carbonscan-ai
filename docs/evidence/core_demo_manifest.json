@@ -1,0 +1,207 @@
+{
+  "schema_version": "1",
+  "project": "TreeQ Carbon Platform",
+  "baseline": {
+    "backend": "tlsep",
+    "status": "Implemented"
+  },
+  "candidate": {
+    "backend": "pointnet",
+    "display_name": "PointNet++",
+    "status": "Experimental",
+    "promoted": false,
+    "promotion_evidence": {
+      "all_passed": false,
+      "failed_criteria": [
+        "independent_real_test_not_recorded",
+        "verified_checkpoint_not_available",
+        "dbh_non_regression_not_tested",
+        "volume_non_regression_not_tested"
+      ],
+      "policy": "Promote only when Wood IoU improves on an independent real test while DBH and volume do not regress."
+    }
+  },
+  "validation": {
+    "wan_held_out": {
+      "dataset": "Wan et al. 2021 real TLS spatial held-out split",
+      "model": "PointNet++ variant 3",
+      "wood_iou": 0.418,
+      "leaf_iou": 0.808,
+      "mean_iou": 0.613,
+      "accuracy": 0.831,
+      "scope": "Pooled per-point metrics on the recorded held-out loader.",
+      "limitation": "The same held-out loader was used for best-epoch selection, and the final checkpoint/tree-ID provenance needed for an independent promotion gate is not available."
+    },
+    "synthetic_held_out": {
+      "dataset": "Synthetic point-cloud held-out test",
+      "tlsep_mean_iou": 0.7692083333,
+      "pointnet_mean_iou": 0.977625,
+      "delta_mean_iou": 0.2084166667,
+      "scope": "Synthetic evidence only; it cannot promote the production default."
+    },
+    "demol_65": {
+      "dataset": "Demol et al. 2021 isolated-tree TLS validation",
+      "trees": 65,
+      "dbh_mae_cm": 1.1673846154,
+      "dbh_rmse_cm": 2.0749561627,
+      "dbh_bias_cm": -0.5166153846,
+      "dbh_mape_pct": 3.7936383616,
+      "dbh_within_10_pct": "64/65",
+      "dbh_worst_pct": 34.02865,
+      "dbh_worst_abs_cm": 13.54,
+      "height_mae_m": 0.5446153846,
+      "height_rmse_m": 0.7580541893,
+      "height_bias_m": -0.052,
+      "height_mape_pct": 2.6025892131,
+      "height_within_10_pct": "63/65",
+      "volume_mae_m3": 0.2005569231,
+      "volume_mape_pct": 18.7650916186,
+      "volume_bias_m3": -0.1710246154,
+      "volume_within_10_pct": "18/65",
+      "volume_worst_pct": 58.113609,
+      "scope": "Isolated-tree inputs capped at 20,000 points, min-Z normalization, tlsep wood/leaf separation, and QSM-derived geometry only.",
+      "excludes": "This does not validate full-pipeline stages 1-4, species classification, allometric biomass, carbon stock, CO2e, or certified credits."
+    }
+  },
+  "capabilities": [
+    {
+      "name": "1. Ground segmentation",
+      "status": "Implemented",
+      "implementation": "Percentile-grid ground heuristic",
+      "evidence": "services/ml/pipeline/ground_classification.py",
+      "claim": "Operational heuristic; not Cloth Simulation Filter (CSF)."
+    },
+    {
+      "name": "2. Height normalization",
+      "status": "Implemented",
+      "implementation": "K-nearest-neighbor inverse-distance interpolation of ground height",
+      "evidence": "services/ml/pipeline/height_normalization.py",
+      "claim": "Implemented as KNN-IDW terrain normalization."
+    },
+    {
+      "name": "3. Canopy height model",
+      "status": "Implemented",
+      "implementation": "Grid maximum Z with morphological filling/smoothing",
+      "evidence": "services/ml/pipeline/canopy_height_model.py",
+      "claim": "Operational CHM; not the full multi-threshold pit-free algorithm."
+    },
+    {
+      "name": "4. Individual-tree segmentation",
+      "status": "Implemented",
+      "implementation": "Local-maxima markers plus watershed segmentation",
+      "evidence": "services/ml/pipeline/tree_segmentation.py",
+      "claim": "Implemented watershed tree segmentation."
+    },
+    {
+      "name": "5a. Wood/leaf baseline",
+      "status": "Implemented",
+      "implementation": "tlsep/PCA geometric classifier selected as the stable default",
+      "evidence": "services/ml/pipeline/wood_leaf_separation.py; services/ml/pipeline/main.py",
+      "claim": "Reproducible baseline/fallback; no real-data accuracy claim is assigned to tlsep here."
+    },
+    {
+      "name": "5b. PointNet++ wood/leaf candidate",
+      "status": "Experimental",
+      "implementation": "PointNet++ backend exists but is not the promoted default",
+      "evidence": "services/ml/pipeline/pointnet_inference.py; docs/ml/WOODLEAF_RESULTS.md",
+      "claim": "Wan held-out Wood IoU 0.418 and Mean IoU 0.613, with selection/provenance limitations; not production-promoted."
+    },
+    {
+      "name": "6. QSM-derived geometry",
+      "status": "Implemented",
+      "implementation": "RANSAC circle DBH, maximum-Z height, and taper/stacked-cylinder stem volume; branch volume is zero",
+      "evidence": "services/ml/pipeline/qsm.py",
+      "claim": "Operational geometry estimate with known volume limitations; not full TreeQSM branch-axis modelling."
+    },
+    {
+      "name": "7. Species classification",
+      "status": "Stub",
+      "implementation": "Interface placeholder; pipeline uses a caller-supplied default species or no species",
+      "evidence": "services/ml/pipeline/species_classifier.py; services/ml/pipeline/main.py",
+      "claim": "No trained ResNet species classifier is integrated."
+    },
+    {
+      "name": "8. Allometric carbon calculation",
+      "status": "Implemented",
+      "implementation": "species_db.csv species-specific equations with Chave 2014 pantropical fallback",
+      "evidence": "services/ml/pipeline/allometric.py; services/ml/data/species_db.csv",
+      "claim": "Produces biomass, carbon stock, and CO2e estimates; coefficient verification against TGO 2017 remains required."
+    },
+    {
+      "name": "Deterministic core demo",
+      "status": "Implemented",
+      "implementation": "Seeded synthetic fixture is executed twice and normalized JSON/PLY hashes must match",
+      "evidence": "services/ml/scripts/run_core_demo.py; docs/evidence/core_demo_manifest.json",
+      "claim": "Reproducibility evidence for one core path, not an accuracy benchmark."
+    },
+    {
+      "name": "Async analysis jobs",
+      "status": "Implemented",
+      "implementation": "FastAPI jobs endpoints, persistent job state, and a separate worker process",
+      "evidence": "services/api/app/api/v1/jobs.py; services/api/app/worker.py",
+      "claim": "Implemented and covered by API tests; production hosting is separate."
+    },
+    {
+      "name": "Web 3D result viewer",
+      "status": "Implemented",
+      "implementation": "Next.js dashboard viewer renders segmented PLY results and tree summaries",
+      "evidence": "apps/web/src/components/viewer/point-cloud-viewer.tsx; apps/web/src/app/(dashboard)/dashboard/viewer/page.tsx",
+      "claim": "Implemented web visualization; generated evidence labels must accompany demo claims."
+    },
+    {
+      "name": "Mobile capture flow",
+      "status": "Experimental",
+      "implementation": "Flutter capture and result screens exist, but Supabase initialization and the reviewed end-to-end path are incomplete",
+      "evidence": "apps/mobile/lib/main.dart; apps/mobile/lib/features/tree_scan/presentation/tree_scan_screen.dart",
+      "claim": "Prototype UI only; not a verified production scan-to-carbon flow."
+    },
+    {
+      "name": "Production API/worker deployment",
+      "status": "Planned",
+      "implementation": "Current verified demo uses a local backend exposed through a temporary tunnel",
+      "evidence": "AGENTS.md; docs/PROJECT_SPEC.md",
+      "claim": "Not continuously deployed as a production ML service."
+    },
+    {
+      "name": "Carbon marketplace and payments",
+      "status": "Planned",
+      "implementation": "Product concept only; no complete transaction/payment path",
+      "evidence": "docs/PROJECT_SPEC.md",
+      "claim": "Roadmap item, not an implemented B2B marketplace."
+    },
+    {
+      "name": "Certified carbon credits",
+      "status": "Planned",
+      "implementation": "No MRV registry verification, project certification, issuance, or retirement workflow",
+      "evidence": "docs/PROJECT_SPEC.md",
+      "claim": "Carbon stock and CO2e estimates must not be described as certified or tradable credits."
+    }
+  ],
+  "core_demo": {
+    "reproducible": true,
+    "analyzed_commit": "9d7b43c3a29a3e6b9efece694e176e22fc88fbee",
+    "git_dirty": false,
+    "pipeline_version": "0.3.0",
+    "dataset": "deterministic_synthetic_plot_seed_42",
+    "scope": "Core reproducibility fixture; not an accuracy, field, allometric, or credit-certification benchmark.",
+    "input_sha256": "5ca1abb989153e3aad5963b5b18197640467070cf1fc952e75dbec813806fa7b",
+    "normalized_result_sha256": "d86e261184d62c80e56906be749f0bb50f900833b92f5fe8bec8532acb223bb6",
+    "segmented_ply_sha256": "7a1059eedfe63bbe90ef51f6e3da4c349c4b991c71ea409421fb4363b932ba21",
+    "input_points": 145123,
+    "total_trees": 3,
+    "total_carbon_kg": 1320.39,
+    "total_co2eq_kg": 4841.48,
+    "wood_leaf_backend": "tlsep",
+    "checkpoint_sha256": null,
+    "algorithms": {
+      "ground_segmentation": "percentile_grid",
+      "height_normalization": "knn_idw",
+      "chm": "max_z_morphology",
+      "tree_segmentation": "watershed",
+      "wood_leaf": "tlsep",
+      "qsm": "ransac_dbh_maxz_height_taper_volume",
+      "species": "stub",
+      "allometric": "species_db_or_chave_fallback"
+    }
+  }
+}
