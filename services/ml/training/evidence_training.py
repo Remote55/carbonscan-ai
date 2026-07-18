@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import platform
 import random
@@ -15,6 +16,8 @@ import numpy as np
 import torch
 
 _HASH_DOMAIN = b"treeq-state-dict-v1"
+_LOCKED_TRAINING_SEEDS = (20260716, 20260717, 20260718)
+_LOWER_HEX = frozenset("0123456789abcdef")
 _REPRODUCIBILITY_KEYS = (
     "best_epoch",
     "best_macro_tile_wood_iou",
@@ -46,17 +49,40 @@ def _update_length_prefixed(hasher: Any, value: bytes) -> None:
     hasher.update(value)
 
 
+def _normalize_little_endian_bytes(
+    raw: bytes,
+    *,
+    element_size: int,
+    component_size: int,
+    source_byteorder: str,
+) -> bytes:
+    """Normalize raw tensor bytes without changing complex component order."""
+
+    if source_byteorder not in {"little", "big"}:
+        raise ValueError(f"unsupported byte order: {source_byteorder!r}")
+    if element_size <= 0 or component_size <= 0 or element_size % component_size:
+        raise ValueError("invalid tensor element/component size")
+    if len(raw) % element_size:
+        raise ValueError("raw tensor byte length is not element aligned")
+    if source_byteorder == "little" or component_size == 1:
+        return raw
+
+    components = np.frombuffer(raw, dtype=np.uint8).reshape(-1, component_size)
+    return components[:, ::-1].copy(order="C").tobytes(order="C")
+
+
 def _little_endian_contiguous_bytes(tensor: torch.Tensor) -> bytes:
     cpu_tensor = tensor.detach().cpu().contiguous()
     byte_view = cpu_tensor.reshape(-1).view(torch.uint8)
     raw = byte_view.numpy().tobytes(order="C")
-
-    if sys.byteorder == "little" or cpu_tensor.element_size() == 1:
-        return raw
-
     element_size = cpu_tensor.element_size()
-    elements = np.frombuffer(raw, dtype=np.uint8).reshape(-1, element_size)
-    return elements[:, ::-1].copy(order="C").tobytes(order="C")
+    component_size = element_size // 2 if cpu_tensor.is_complex() else element_size
+    return _normalize_little_endian_bytes(
+        raw,
+        element_size=element_size,
+        component_size=component_size,
+        source_byteorder=sys.byteorder,
+    )
 
 
 def canonical_state_dict_sha256(state_dict: Mapping[str, torch.Tensor]) -> str:
@@ -89,18 +115,61 @@ def select_winning_run(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     if not records:
         raise ValueError("training records are empty")
+    seeds: list[int] = []
+    for record in records:
+        seed = record.get("seed")
+        if type(seed) is not int:
+            raise ValueError("training record seed must be an exact integer")
+        metric = record.get("best_macro_tile_wood_iou")
+        if type(metric) is not float or not math.isfinite(metric) or not 0.0 <= metric <= 1.0:
+            raise ValueError(
+                "training record best_macro_tile_wood_iou must be a finite "
+                "Python float in [0, 1]"
+            )
+        seeds.append(seed)
+
+    if sorted(seeds) != list(_LOCKED_TRAINING_SEEDS):
+        raise ValueError(
+            "training record seeds must contain exactly one each of "
+            f"{list(_LOCKED_TRAINING_SEEDS)}"
+        )
     return max(
         records,
         key=lambda record: (
-            float(record["best_macro_tile_wood_iou"]),
-            -int(record["seed"]),
+            record["best_macro_tile_wood_iou"],
+            -record["seed"],
         ),
     )
+
+
+def _validate_reproducibility_record(record: dict[str, Any]) -> None:
+    epoch = record.get("best_epoch")
+    if type(epoch) is not int or epoch < 0:
+        raise ValueError("reproducibility best_epoch must be a non-negative integer")
+
+    metric = record.get("best_macro_tile_wood_iou")
+    if type(metric) is not float or not math.isfinite(metric) or not 0.0 <= metric <= 1.0:
+        raise ValueError(
+            "reproducibility best_macro_tile_wood_iou must be a finite "
+            "Python float in [0, 1]"
+        )
+
+    state_hash = record.get("state_dict_sha256")
+    if (
+        type(state_hash) is not str
+        or len(state_hash) != 64
+        or any(character not in _LOWER_HEX for character in state_hash)
+    ):
+        raise ValueError(
+            "reproducibility state_dict_sha256 must be 64 lowercase hex characters"
+        )
 
 
 def validate_reproducibility(first: dict[str, Any], rerun: dict[str, Any]) -> None:
     """Require exact agreement for the three locked reproducibility fields."""
 
+    _validate_reproducibility_record(first)
+    _validate_reproducibility_record(rerun)
     mismatch = [
         key
         for key in _REPRODUCIBILITY_KEYS
