@@ -125,7 +125,7 @@ class WoodLeafSegmenter:
         device = self.device
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
-        ckpt = torch.load(self.model_path, map_location=device)
+        ckpt = torch.load(self.model_path, map_location=device, weights_only=True)
         num_classes = ckpt.get("num_classes", 2)
         model = PointNet2SegSSG(num_classes=num_classes)
         model.load_state_dict(ckpt["state_dict"])
@@ -144,6 +144,48 @@ class WoodLeafSegmenter:
 
     def _segment_tlsep(self, points: np.ndarray) -> np.ndarray:
         return segment_wood_leaf(points)
+
+    def pointnet_logits(self, normalized_points: np.ndarray) -> np.ndarray:
+        """Return strict PointNet logits for points normalized by the caller.
+
+        This evidence-only interface never normalizes its input and never falls
+        back to the production ``tlsep`` segmenter.
+        """
+        if self.backend != "pointnet":
+            raise ValueError("pointnet_logits requires backend='pointnet'")
+        try:
+            points = np.asarray(normalized_points, dtype=np.float32)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("normalized_points must be a finite (N, 3) array") from exc
+        if points.ndim != 2 or points.shape[1] != 3:
+            raise ValueError(
+                f"normalized_points must be a finite (N, 3) array, got {points.shape}"
+            )
+        if not np.all(np.isfinite(points)):
+            raise ValueError("normalized_points must be a finite (N, 3) array")
+        if len(points) < _POINTNET_MIN_POINTS:
+            raise ValueError(
+                f"pointnet_logits requires at least {_POINTNET_MIN_POINTS} points"
+            )
+        if self._model is None:
+            self.load()
+
+        torch = self._torch
+        model_input = torch.from_numpy(points).unsqueeze(0).to(self._device)
+        with torch.no_grad():
+            raw_logits = self._model(model_input)
+        if hasattr(raw_logits, "detach"):
+            raw_logits = raw_logits.detach().cpu().numpy()
+        logits = np.asarray(raw_logits, dtype=np.float32)
+        if logits.shape == (1, len(points), 2):
+            logits = logits[0]
+        expected_shape = (len(points), 2)
+        if logits.shape != expected_shape or not np.all(np.isfinite(logits)):
+            raise ValueError(
+                "PointNet model must return finite "
+                f"{expected_shape} logits, got shape {logits.shape}"
+            )
+        return logits
 
     def _segment_pointnet(self, points: np.ndarray) -> np.ndarray:
         """Classify each point as wood (0) / leaf (1) with the PointNet++ model.
