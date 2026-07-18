@@ -17,6 +17,15 @@ from pipeline.provenance import sha256_file, write_canonical_json
 
 _METADATA_URL = "https://zenodo.org/api/records/6831378"
 _LOWER_HEX = frozenset("0123456789abcdef")
+_WINDOWS_INVALID_FILENAME_CHARS = frozenset('<>:"/\\|?*')
+_WINDOWS_RESERVED_BASENAMES = {
+    "con",
+    "prn",
+    "aux",
+    "nul",
+    *(f"com{index}" for index in range(1, 10)),
+    *(f"lpt{index}" for index in range(1, 10)),
+}
 _EXPECTED_EXTERNAL = {
     "provider": "Zenodo",
     "record_id": 6831378,
@@ -262,6 +271,16 @@ def _validate_output_paths(
         raise ValueError("destination must be a directory")
     if manifest_out.exists() or manifest_out.with_name(f"{manifest_out.name}.part").exists():
         raise ValueError("manifest output already exists")
+    if destination.is_dir():
+        output_suffixes = (
+            "_wood.pcd",
+            "_leaf.pcd",
+            "_wood.pcd.part",
+            "_leaf.pcd.part",
+        )
+        for child in destination.iterdir():
+            if child.name.casefold().endswith(output_suffixes):
+                raise ValueError(f"raw output already exists: {child.name}")
     if manifest_out in {freeze_path, checkpoint_path}:
         raise ValueError("manifest output cannot alias frozen inputs")
     if destination == repo_root or _is_within(repo_root, destination):
@@ -270,18 +289,34 @@ def _validate_output_paths(
         raise ValueError("manifest output and frozen inputs cannot alias raw destination")
 
 
-def _simple_filename(value: Any) -> str:
+def _is_reserved_device_basename(value: str) -> bool:
+    basename = value.split(".", 1)[0].rstrip(" .").casefold()
+    return basename in _WINDOWS_RESERVED_BASENAMES
+
+
+def _logical_pcd_filename(value: Any) -> str:
     if type(value) is not str or not value:
-        raise ValueError("publisher filename must be a non-empty string")
+        raise ValueError("portable logical PCD filename must be a non-empty string")
+    pair_suffix = next(
+        (suffix for suffix in ("_wood.pcd", "_leaf.pcd") if value.endswith(suffix)),
+        None,
+    )
+    tree_id = value[: -len(pair_suffix)] if pair_suffix else None
     if (
         PurePosixPath(value).is_absolute()
         or PureWindowsPath(value).is_absolute()
         or Path(value).name != value
-        or "/" in value
-        or "\\" in value
+        or any(character in _WINDOWS_INVALID_FILENAME_CHARS for character in value)
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+        or value.endswith((" ", "."))
         or value in {".", ".."}
+        or _is_reserved_device_basename(value)
+        or (
+            tree_id is not None
+            and (tree_id.endswith((" ", ".")) or _is_reserved_device_basename(tree_id))
+        )
     ):
-        raise ValueError(f"publisher filename is not path-safe: {value!r}")
+        raise ValueError(f"not a portable logical PCD filename (path-safe requirement): {value!r}")
     return value
 
 
@@ -312,18 +347,33 @@ def _publisher_files(metadata: Any) -> tuple[list[dict[str, Any]], list[str]]:
         raise ValueError("Zenodo metadata files must be a list")
     selected = []
     seen_filenames: set[str] = set()
+    seen_filename_keys: set[str] = set()
+    tree_spellings: dict[str, str] = {}
+    seen_pair_keys: set[tuple[str, str]] = set()
     pairs: dict[str, dict[str, str]] = {}
     for index, entry in enumerate(entries):
         if type(entry) is not dict:
             raise ValueError(f"Zenodo file {index} must be an object")
         key = entry.get("key")
-        if type(key) is not str or not key.endswith(("_wood.pcd", "_leaf.pcd")):
+        if type(key) is not str or not key.rstrip(" .").endswith(("_wood.pcd", "_leaf.pcd")):
             continue
-        filename = _simple_filename(key)
+        filename = _logical_pcd_filename(key)
         if filename in seen_filenames:
             raise ValueError(f"duplicate filename in Zenodo metadata: {filename}")
         seen_filenames.add(filename)
+        filename_key = filename.casefold()
+        if filename_key in seen_filename_keys:
+            raise ValueError(f"case-insensitive filename alias in Zenodo metadata: {filename}")
+        seen_filename_keys.add(filename_key)
         tree_id, part = _pair_identity(filename)
+        tree_key = tree_id.casefold()
+        prior_spelling = tree_spellings.setdefault(tree_key, tree_id)
+        if prior_spelling != tree_id:
+            raise ValueError(f"case-insensitive tree ID alias in Zenodo metadata: {tree_id}")
+        pair_key = (tree_key, part.casefold())
+        if pair_key in seen_pair_keys:
+            raise ValueError(f"case-insensitive tree ID/part alias: {tree_id}/{part}")
+        seen_pair_keys.add(pair_key)
         tree_parts = pairs.setdefault(tree_id, {})
         if part in tree_parts:
             raise ValueError(f"duplicate tree ID/part in Zenodo metadata: {tree_id}/{part}")
@@ -484,30 +534,40 @@ def fetch_external_cohort(
         if final_path.exists() or part_path.exists():
             raise ValueError(f"raw output already exists for {record['filename']}")
 
-    destination_path.mkdir(parents=True, exist_ok=True)
-    files = [_download_one(client, destination_path, record) for record in publisher_files]
-    manifest = {
-        "schema_version": "1",
-        "experiment_id": freeze["experiment_id"],
-        "protocol_sha256": protocol_sha256,
-        "freeze_manifest_sha256": sha256_file(freeze_path),
-        "checkpoint_sha256": checkpoint_sha256,
-        "record": {
-            "provider": external["provider"],
-            "record_id": external["record_id"],
-            "doi": external["doi"],
-            "license": external["license"],
-        },
-        "tree_ids": tree_ids,
-        "files": files,
-    }
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_part = manifest_path.with_name(f"{manifest_path.name}.part")
+    created_finals: list[Path] = []
     try:
+        destination_path.mkdir(parents=True, exist_ok=True)
+        files = []
+        for record in publisher_files:
+            files.append(_download_one(client, destination_path, record))
+            created_finals.append(destination_path / record["filename"])
+        manifest = {
+            "schema_version": "1",
+            "experiment_id": freeze["experiment_id"],
+            "protocol_sha256": protocol_sha256,
+            "freeze_manifest_sha256": sha256_file(freeze_path),
+            "checkpoint_sha256": checkpoint_sha256,
+            "record": {
+                "provider": external["provider"],
+                "record_id": external["record_id"],
+                "doi": external["doi"],
+                "license": external["license"],
+            },
+            "tree_ids": tree_ids,
+            "files": files,
+        }
+        _validate_manifest(manifest)
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
         write_canonical_json(manifest_part, manifest)
         manifest_part.replace(manifest_path)
     except Exception:
+        for path in created_finals:
+            path.unlink(missing_ok=True)
+        for record in publisher_files:
+            (destination_path / f"{record['filename']}.part").unlink(missing_ok=True)
         manifest_part.unlink(missing_ok=True)
+        manifest_path.unlink(missing_ok=True)
         raise
     return manifest
 
@@ -536,6 +596,11 @@ def _validate_manifest(manifest: Any) -> tuple[list[dict[str, Any]], list[str]]:
         or len(set(tree_ids)) != 10
     ):
         raise ValueError("external dataset manifest has duplicate tree IDs or wrong count")
+    tree_id_keys = [tree_id.casefold() for tree_id in tree_ids]
+    if len(set(tree_id_keys)) != len(tree_id_keys):
+        raise ValueError("external dataset manifest has case-insensitive tree ID aliases")
+    for tree_id in tree_ids:
+        _logical_pcd_filename(f"{tree_id}_wood.pcd")
     if tree_ids != sorted(tree_ids):
         raise ValueError("external dataset manifest tree IDs are not deterministic")
     entries = payload["files"]
@@ -543,16 +608,35 @@ def _validate_manifest(manifest: Any) -> tuple[list[dict[str, Any]], list[str]]:
         raise ValueError("external dataset manifest must contain exactly 20 files")
     pairs: dict[str, set[str]] = {}
     filenames: set[str] = set()
+    filename_keys: set[str] = set()
+    tree_spellings: dict[str, str] = {}
+    pair_keys: set[tuple[str, str]] = set()
     validated = []
     for index, entry in enumerate(entries):
         record = _require_exact_keys(entry, _FILE_KEYS, f"external file {index}")
-        filename = _simple_filename(record["filename"])
+        filename = _logical_pcd_filename(record["filename"])
         if filename in filenames:
             raise ValueError(f"external dataset manifest duplicate filename: {filename}")
         filenames.add(filename)
+        filename_key = filename.casefold()
+        if filename_key in filename_keys:
+            raise ValueError(
+                f"external dataset manifest case-insensitive filename alias: {filename}"
+            )
+        filename_keys.add(filename_key)
         tree_id, part = _pair_identity(filename)
         if record["tree_id"] != tree_id or record["part"] != part:
             raise ValueError(f"external file identity mismatch for {filename}")
+        tree_key = tree_id.casefold()
+        prior_spelling = tree_spellings.setdefault(tree_key, tree_id)
+        if prior_spelling != tree_id:
+            raise ValueError(f"external dataset manifest case-insensitive tree ID alias: {tree_id}")
+        pair_key = (tree_key, part.casefold())
+        if pair_key in pair_keys:
+            raise ValueError(
+                f"external dataset manifest case-insensitive tree ID/part alias: {tree_id}/{part}"
+            )
+        pair_keys.add(pair_key)
         parts = pairs.setdefault(tree_id, set())
         if part in parts:
             raise ValueError(f"external dataset manifest duplicate tree part: {tree_id}/{part}")

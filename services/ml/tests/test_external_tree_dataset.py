@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from pipeline import external_tree_dataset
 from pipeline.external_tree_dataset import fetch_external_cohort, load_external_trees
 from pipeline.provenance import sha256_file, write_canonical_json
 
@@ -146,6 +147,35 @@ def _metadata(files):
         "metadata": {"license": {"id": "cc-by-4.0"}},
         "files": files,
     }
+
+
+def _rename_tree_pair(files, bodies, old_tree_id, new_tree_id):
+    for entry in files:
+        filename = entry["key"]
+        if not filename.startswith(f"{old_tree_id}_"):
+            continue
+        part = filename.removeprefix(f"{old_tree_id}_").removesuffix(".pcd")
+        renamed = f"{new_tree_id}_{part}.pcd"
+        old_url = entry["links"]["content"]
+        body = f"{renamed}\n".encode()
+        url = f"https://zenodo.org/api/files/test/{renamed}"
+        bodies.pop(old_url)
+        bodies[url] = body
+        entry.update(
+            {
+                "key": renamed,
+                "checksum": f"md5:{hashlib.md5(body).hexdigest()}",
+                "size": len(body),
+                "links": {"content": url, "self": url},
+            }
+        )
+
+
+def _assert_no_fetch_outputs(fixture):
+    if fixture["destination"].exists():
+        assert list(fixture["destination"].iterdir()) == []
+    assert not fixture["manifest_out"].exists()
+    assert not fixture["manifest_out"].with_name(f"{fixture['manifest_out'].name}.part").exists()
 
 
 class _Response:
@@ -303,6 +333,28 @@ def test_fetch_rejects_manifest_inside_raw_destination_before_http(tmp_path: Pat
     assert client.calls == []
 
 
+@pytest.mark.parametrize("output_kind", ["final", "part", "manifest"])
+def test_fetch_rejects_preexisting_output_before_http_without_deleting_it(
+    tmp_path: Path, output_kind: str
+):
+    fixture = _guard_fixture(tmp_path)
+    if output_kind == "manifest":
+        output = fixture["manifest_out"]
+    else:
+        fixture["destination"].mkdir()
+        suffix = "" if output_kind == "final" else ".part"
+        output = fixture["destination"] / f"tree-00_wood.pcd{suffix}"
+    output.write_bytes(b"belongs to user")
+    files, bodies = _pcd_files()
+    client = _Client(_metadata(files), bodies)
+
+    with pytest.raises(ValueError, match="output already exists"):
+        _fetch(fixture, client)
+
+    assert client.calls == []
+    assert output.read_bytes() == b"belongs to user"
+
+
 def test_fetch_rejects_wrong_expected_pair_count_before_download(tmp_path: Path):
     fixture = _guard_fixture(tmp_path)
     files, bodies = _pcd_files()
@@ -340,6 +392,42 @@ def test_fetch_rejects_publisher_path_traversal_before_download(tmp_path: Path):
     assert not (fixture["repo"] / "escape_wood.pcd").exists()
 
 
+@pytest.mark.parametrize(
+    "tree_id",
+    [
+        "tree-00:alternate-stream",
+        "CON",
+        "tree-00 ",
+        "tree-00.",
+        "tree-\x1f00",
+    ],
+)
+def test_fetch_rejects_nonportable_publisher_filename_before_download(tmp_path: Path, tree_id: str):
+    fixture = _guard_fixture(tmp_path)
+    files, bodies = _pcd_files()
+    _rename_tree_pair(files, bodies, "tree-00", tree_id)
+    client = _Client(_metadata(files), bodies)
+
+    with pytest.raises(ValueError, match="portable logical PCD filename"):
+        _fetch(fixture, client)
+
+    assert client.calls == [METADATA_URL]
+    assert not fixture["destination"].exists()
+
+
+def test_fetch_rejects_case_only_publisher_pair_alias_before_download(tmp_path: Path):
+    fixture = _guard_fixture(tmp_path)
+    files, bodies = _pcd_files()
+    _rename_tree_pair(files, bodies, "tree-01", "TREE-00")
+    client = _Client(_metadata(files), bodies)
+
+    with pytest.raises(ValueError, match="case-insensitive"):
+        _fetch(fixture, client)
+
+    assert client.calls == [METADATA_URL]
+    assert not fixture["destination"].exists()
+
+
 def test_fetch_rejects_wrong_zenodo_record_before_download(tmp_path: Path):
     fixture = _guard_fixture(tmp_path)
     files, bodies = _pcd_files()
@@ -366,6 +454,49 @@ def test_fetch_removes_part_and_manifest_on_md5_mismatch(tmp_path: Path):
     assert not fixture["manifest_out"].exists()
 
 
+def test_fetch_rolls_back_late_md5_failure_and_reruns_same_destination(tmp_path: Path):
+    fixture = _guard_fixture(tmp_path)
+    files, bodies = _pcd_files()
+    late = next(entry for entry in files if entry["key"] == "tree-09_wood.pcd")
+    late["checksum"] = "md5:" + "0" * 32
+
+    with pytest.raises(ValueError, match="MD5"):
+        _fetch(fixture, _Client(_metadata(files), bodies))
+
+    _assert_no_fetch_outputs(fixture)
+    retry_files, retry_bodies = _pcd_files()
+    manifest = _fetch(fixture, _Client(_metadata(retry_files), retry_bodies))
+    assert len(manifest["files"]) == 20
+    assert fixture["manifest_out"].is_file()
+
+
+def test_fetch_rolls_back_manifest_write_failure_and_reruns_same_destination(
+    tmp_path: Path, monkeypatch
+):
+    fixture = _guard_fixture(tmp_path)
+    files, bodies = _pcd_files()
+    real_write = external_tree_dataset.write_canonical_json
+
+    def injected_write_failure(path, payload):
+        real_write(path, payload)
+        raise OSError("injected manifest write failure")
+
+    monkeypatch.setattr(
+        external_tree_dataset,
+        "write_canonical_json",
+        injected_write_failure,
+    )
+    with pytest.raises(OSError, match="injected manifest write failure"):
+        _fetch(fixture, _Client(_metadata(files), bodies))
+
+    _assert_no_fetch_outputs(fixture)
+    monkeypatch.setattr(external_tree_dataset, "write_canonical_json", real_write)
+    retry_files, retry_bodies = _pcd_files()
+    manifest = _fetch(fixture, _Client(_metadata(retry_files), retry_bodies))
+    assert len(manifest["files"]) == 20
+    assert fixture["manifest_out"].is_file()
+
+
 def test_fetch_writes_canonical_path_private_manifest_with_local_sha256(tmp_path: Path):
     fixture = _guard_fixture(tmp_path)
     files, bodies = _pcd_files()
@@ -389,6 +520,18 @@ def test_fetch_writes_canonical_path_private_manifest_with_local_sha256(tmp_path
         assert record["size_bytes"] == local_path.stat().st_size
     assert str(tmp_path) not in repr(manifest)
     assert not list(fixture["destination"].glob("*.part"))
+
+
+def test_fetch_allows_authorized_destination_outside_repo_without_path_leak(tmp_path: Path):
+    fixture = _guard_fixture(tmp_path)
+    fixture["destination"] = tmp_path / "authorized-external-raw"
+    files, bodies = _pcd_files()
+
+    manifest = _fetch(fixture, _Client(_metadata(files), bodies))
+
+    assert len(list(fixture["destination"].glob("*.pcd"))) == 20
+    assert str(fixture["destination"]) not in repr(manifest)
+    assert str(fixture["repo"]) not in repr(manifest)
 
 
 def test_load_external_trees_concatenates_wood_before_leaf(tmp_path: Path):
@@ -422,6 +565,23 @@ def test_load_external_trees_rejects_duplicate_tree_ids(tmp_path: Path):
     manifest["tree_ids"][-1] = manifest["tree_ids"][0]
 
     with pytest.raises(ValueError, match="duplicate tree"):
+        load_external_trees(fixture["destination"], manifest, lambda path: np.ones((1, 3)))
+
+
+def test_load_external_trees_rejects_casefold_manifest_filename_alias(tmp_path: Path):
+    fixture = _guard_fixture(tmp_path)
+    files, bodies = _pcd_files()
+    manifest = _fetch(fixture, _Client(_metadata(files), bodies))
+    for record in manifest["files"]:
+        if record["tree_id"] == "tree-01":
+            record["filename"] = record["filename"].replace("tree-01", "TREE-00")
+            record["tree_id"] = "TREE-00"
+    manifest["tree_ids"] = sorted(
+        "TREE-00" if tree_id == "tree-01" else tree_id for tree_id in manifest["tree_ids"]
+    )
+    manifest["files"].sort(key=lambda record: record["filename"])
+
+    with pytest.raises(ValueError, match="case-insensitive"):
         load_external_trees(fixture["destination"], manifest, lambda path: np.ones((1, 3)))
 
 
