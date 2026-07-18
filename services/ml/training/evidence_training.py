@@ -607,7 +607,7 @@ def build_freeze_manifest(
         "working_tree_clean": True,
         "training_command": training_command,
         "environment": environment,
-        "architecture": "PointNet2WoodLeafSeg",
+        "architecture": "PointNet2SegSSG",
         "training_configuration": protocol["training"],
         "wan_evidence": wan_evidence,
         "winner": {

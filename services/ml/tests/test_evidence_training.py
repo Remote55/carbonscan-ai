@@ -748,7 +748,7 @@ def test_build_freeze_manifest_writes_sanitized_canonical_evidence(tmp_path, mon
     }
     assert tracked_freeze["training_runs_sha256"] == sha256_file(tracked_runs_path)
     assert tracked_freeze["working_tree_clean"] is True
-    assert tracked_freeze["architecture"] == "PointNet2WoodLeafSeg"
+    assert tracked_freeze["architecture"] == "PointNet2SegSSG"
     assert tracked_freeze["winner"]["checkpoint_file"] == "winner.pt"
     assert "checkpoint_path" not in repr(tracked_runs)
     assert str(fixture["repo"]) not in repr(tracked_runs)
