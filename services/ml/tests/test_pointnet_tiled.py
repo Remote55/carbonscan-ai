@@ -111,6 +111,26 @@ def test_predict_tiled_averages_logits_after_all_overlapping_windows():
     assert np.array_equal(prediction.logits[:, 1], np.zeros(3))
 
 
+def test_predict_tiled_rejects_nonfinite_overlap_accumulation():
+    points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.1, 0.0, 0.0]])
+    finite_max = np.finfo(np.float64).max
+
+    def fake_logits(batch: np.ndarray) -> np.ndarray:
+        return np.full((4, 2), finite_max)
+
+    with np.errstate(over="ignore", invalid="ignore"):
+        with pytest.raises(ValueError, match="non-finite aggregated logits"):
+            predict_tiled(
+                points,
+                fake_logits,
+                window_size_m=2.0,
+                stride_m=1.0,
+                model_points=4,
+                query_points=2,
+                seed=0,
+            )
+
+
 def test_predict_tiled_handles_sparse_boundary_windows_deterministically():
     points = np.array([[0.0, 0.0, 4.0], [1.0, 0.0, 5.0], [2.0, 0.0, 6.0]])
     calls: list[np.ndarray] = []
@@ -145,6 +165,54 @@ def test_predict_tiled_handles_sparse_boundary_windows_deterministically():
     assert np.array_equal(first.logits, second.logits)
     assert all(batch.shape == (8, 3) for batch in calls)
     assert all(np.array_equal(left, right) for left, right in zip(first_calls, calls, strict=True))
+
+
+def test_predict_tiled_rejects_nonfinite_axis_span():
+    points = np.array([[-1e308, 0.0, 0.0], [1e308, 0.0, 1.0]])
+
+    with pytest.raises(ValueError, match="axis span must be finite"):
+        predict_tiled(
+            points,
+            lambda batch: np.zeros((4, 2)),
+            window_size_m=2.5,
+            stride_m=1.25,
+            model_points=4,
+            query_points=2,
+            seed=0,
+        )
+
+
+def test_predict_tiled_rejects_more_than_4096_windows_per_axis():
+    over_cap_span = 2.5 + 1.25 * 4096
+    points = np.array([[0.0, 0.0, 0.0], [over_cap_span, 0.0, 1.0]])
+
+    with pytest.raises(ValueError, match="per-axis safety cap of 4,096 windows"):
+        predict_tiled(
+            points,
+            lambda batch: np.zeros((4, 2)),
+            window_size_m=2.5,
+            stride_m=1.25,
+            model_points=4,
+            query_points=2,
+            seed=0,
+        )
+
+
+def test_predict_tiled_rejects_cartesian_grid_above_65536_windows():
+    # 257 starts on each axis gives 66,049 windows while each axis is below its cap.
+    over_grid_span = 2.5 + 1.25 * 256
+    points = np.array([[0.0, 0.0, 0.0], [over_grid_span, over_grid_span, 1.0]])
+
+    with pytest.raises(ValueError, match="Cartesian grid safety cap of 65,536 windows"):
+        predict_tiled(
+            points,
+            lambda batch: np.zeros((4, 2)),
+            window_size_m=2.5,
+            stride_m=1.25,
+            model_points=4,
+            query_points=2,
+            seed=0,
+        )
 
 
 @pytest.mark.parametrize(
@@ -233,6 +301,34 @@ def test_pointnet_logits_preserves_normalized_point_order_and_never_calls_tlsep(
     assert np.array_equal(seen[0], points)
     assert np.array_equal(logits[:, 0], np.arange(512, dtype=np.float32))
     assert np.array_equal(logits[:, 1], -np.arange(512, dtype=np.float32))
+
+
+def test_pointnet_logits_preserves_negative_stride_point_order(monkeypatch):
+    torch = pytest.importorskip("torch")
+    base = np.linspace(-0.9, 0.9, 512 * 3, dtype=np.float32).reshape(512, 3)
+    points = base[::-1]
+    assert points.strides[0] < 0
+    seen: list[np.ndarray] = []
+
+    class FakeModel:
+        def __call__(self, batch):
+            seen.append(batch.squeeze(0).cpu().numpy().copy())
+            return batch[:, :, :2]
+
+    segmenter = WoodLeafSegmenter(backend="pointnet")
+    segmenter._model = FakeModel()
+    segmenter._device = "cpu"
+    segmenter._torch = torch
+    monkeypatch.setattr(
+        segmenter,
+        "_segment_tlsep",
+        lambda unused: pytest.fail("pointnet_logits must never call tlsep"),
+    )
+
+    logits = segmenter.pointnet_logits(points)
+
+    assert np.array_equal(seen[0], points)
+    assert np.array_equal(logits, points[:, :2])
 
 
 def test_pointnet_logits_requires_pointnet_backend_and_minimum_size(monkeypatch):

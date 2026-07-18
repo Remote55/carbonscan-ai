@@ -9,6 +9,12 @@ import numpy as np
 
 from training.woodleaf_dataset import normalize_points
 
+# Deterministic safety limits for malformed/extreme evaluation grids. These
+# comfortably exceed protocol-sized isolated-tree windows while bounding both
+# per-axis allocation and Cartesian window iteration.
+_MAX_WINDOWS_PER_AXIS = 4_096
+_MAX_CARTESIAN_WINDOWS = 65_536
+
 
 @dataclass(frozen=True)
 class TiledPrediction:
@@ -70,9 +76,21 @@ def _validate_parameters(
 
 def _axis_starts(axis: np.ndarray, window_size_m: float, stride_m: float) -> np.ndarray:
     axis_min = float(axis.min())
-    span = float(axis.max()) - axis_min
-    extra_steps = int(np.ceil(max(0.0, span - window_size_m) / stride_m))
-    return axis_min + np.arange(extra_steps + 1, dtype=np.float64) * stride_m
+    with np.errstate(over="ignore", invalid="ignore"):
+        span = np.float64(axis.max()) - np.float64(axis_min)
+    if not np.isfinite(span):
+        raise ValueError("PointNet tiled axis span must be finite")
+
+    uncovered_span = max(0.0, float(span) - window_size_m)
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        extra_steps_float = np.ceil(uncovered_span / stride_m)
+    if not np.isfinite(extra_steps_float) or extra_steps_float >= _MAX_WINDOWS_PER_AXIS:
+        raise ValueError(
+            "PointNet tiled inference exceeds the per-axis safety cap of "
+            f"{_MAX_WINDOWS_PER_AXIS:,} windows"
+        )
+    window_count = int(extra_steps_float) + 1
+    return axis_min + np.arange(window_count, dtype=np.float64) * stride_m
 
 
 def _context_indices(
@@ -132,6 +150,12 @@ def predict_tiled(
     coverage = np.zeros(n_points, dtype=np.int64)
     x_starts = _axis_starts(validated[:, 0], window_size_m, stride_m)
     y_starts = _axis_starts(validated[:, 1], window_size_m, stride_m)
+    grid_windows = len(x_starts) * len(y_starts)
+    if grid_windows > _MAX_CARTESIAN_WINDOWS:
+        raise ValueError(
+            "PointNet tiled inference exceeds the Cartesian grid safety cap of "
+            f"{_MAX_CARTESIAN_WINDOWS:,} windows"
+        )
 
     for x_number, x_start in enumerate(x_starts):
         x_inside = (validated[:, 0] >= x_start) & (
@@ -183,12 +207,20 @@ def predict_tiled(
                         f"{expected_shape} logits, got shape {batch_logits.shape}"
                     )
                 query_count = len(query_indices)
-                logits_sum[query_indices] += batch_logits[:query_count]
+                with np.errstate(over="ignore", invalid="ignore"):
+                    logits_sum[query_indices] += batch_logits[:query_count]
+                if not np.all(np.isfinite(logits_sum[query_indices])):
+                    raise ValueError("PointNet tiled inference produced non-finite aggregated logits")
                 coverage[query_indices] += 1
 
     if np.any(coverage == 0):
         missing = int(np.count_nonzero(coverage == 0))
         raise ValueError(f"PointNet tiled inference left {missing} points uncovered")
-    mean_logits = logits_sum / coverage[:, None]
+    if not np.all(np.isfinite(logits_sum)):
+        raise ValueError("PointNet tiled inference produced non-finite aggregated logits")
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        mean_logits = logits_sum / coverage[:, None]
+    if not np.all(np.isfinite(mean_logits)):
+        raise ValueError("PointNet tiled inference produced non-finite aggregated logits")
     labels = mean_logits.argmax(axis=1).astype(np.int8)
     return TiledPrediction(labels=labels, logits=mean_logits, coverage=coverage)

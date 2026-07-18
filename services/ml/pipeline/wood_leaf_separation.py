@@ -171,6 +171,7 @@ class WoodLeafSegmenter:
             self.load()
 
         torch = self._torch
+        points = np.ascontiguousarray(points)
         model_input = torch.from_numpy(points).unsqueeze(0).to(self._device)
         with torch.no_grad():
             raw_logits = self._model(model_input)
