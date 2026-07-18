@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from pipeline.external_tree_dataset import fetch_external_cohort
 from pipeline.provenance import (
     git_worktree_dirty,
     resolve_git_commit,
@@ -233,6 +234,27 @@ def _freeze(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _fetch_external(args: argparse.Namespace) -> dict[str, Any]:
+    protocol_path = Path(args.protocol).resolve()
+    protocol = load_protocol(protocol_path)
+    manifest = fetch_external_cohort(
+        protocol=protocol,
+        freeze_manifest=args.freeze_manifest,
+        checkpoint=args.checkpoint,
+        destination=args.destination,
+        manifest_out=args.manifest_out,
+        repo_root=args.repo_root,
+        protocol_sha256=sha256_file(protocol_path),
+    )
+    return {
+        "command": "fetch-external",
+        "files": len(manifest["files"]),
+        "record_id": manifest["record"]["record_id"],
+        "status": "ok",
+        "trees": len(manifest["tree_ids"]),
+    }
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -259,6 +281,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--evidence-dir", required=True)
     freeze.add_argument("--repo-root", required=True)
     freeze.set_defaults(handler=_freeze)
+
+    fetch_external = subparsers.add_parser("fetch-external")
+    fetch_external.add_argument("--protocol", required=True)
+    fetch_external.add_argument("--freeze-manifest", required=True)
+    fetch_external.add_argument("--checkpoint", required=True)
+    fetch_external.add_argument("--destination", required=True)
+    fetch_external.add_argument("--manifest-out", required=True)
+    fetch_external.add_argument("--repo-root", required=True)
+    fetch_external.set_defaults(handler=_fetch_external)
     return parser
 
 
