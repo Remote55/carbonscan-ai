@@ -2,6 +2,9 @@
 
 from dataclasses import replace
 
+import pytest
+
+from pipeline.evidence_metrics import decide_independent_verdict
 from pipeline.provenance import (
     EvaluationMetrics,
     PromotionEvidence,
@@ -76,3 +79,92 @@ def test_every_gate_is_mandatory():
         assert decision.promote is False
         assert decision.status == "rejected"
         assert criterion in decision.failed_criteria
+
+
+def _intervals(*, wood_lower=0.01, downstream_upper=0.0):
+    return {
+        "wood_iou_delta": {"estimate": 0.05, "lower": wood_lower, "upper": 0.1},
+        "dbh_abs_error_delta": {
+            "estimate": -0.05,
+            "lower": -0.1,
+            "upper": downstream_upper,
+        },
+        "height_abs_error_delta": {
+            "estimate": -0.05,
+            "lower": -0.1,
+            "upper": downstream_upper,
+        },
+        "volume_ape_delta": {
+            "estimate": -0.05,
+            "lower": -0.1,
+            "upper": downstream_upper,
+        },
+    }
+
+
+def test_invalid_evidence_maps_to_invalid_verdict():
+    result = decide_independent_verdict(
+        evidence_valid=False,
+        formal_decision=evaluate_promotion(VALID),
+        intervals=_intervals(),
+    )
+    assert result == {"verdict": "INVALID_EVIDENCE", "promote": False}
+
+
+def test_failed_formal_metric_maps_to_fail_metrics_verdict():
+    rejected = evaluate_promotion(replace(VALID, candidate=replace(CANDIDATE, wood_iou=0.42)))
+    result = decide_independent_verdict(
+        evidence_valid=True,
+        formal_decision=rejected,
+        intervals=_intervals(),
+    )
+    assert result == {"verdict": "FAIL_METRICS", "promote": False}
+
+
+def test_weak_interval_maps_to_point_estimate_only_verdict():
+    result = decide_independent_verdict(
+        evidence_valid=True,
+        formal_decision=evaluate_promotion(VALID),
+        intervals=_intervals(wood_lower=0.0),
+    )
+    assert result == {"verdict": "POINT_ESTIMATE_PASS_ONLY", "promote": False}
+
+
+def test_strong_intervals_map_to_pointnet_promotion_verdict():
+    result = decide_independent_verdict(
+        evidence_valid=True,
+        formal_decision=evaluate_promotion(VALID),
+        intervals=_intervals(),
+    )
+    assert result == {"verdict": "PROMOTE_POINTNET", "promote": True}
+
+
+def test_verdict_rejects_non_boolean_evidence_flag():
+    with pytest.raises(TypeError):
+        decide_independent_verdict(
+            evidence_valid=1,
+            formal_decision=evaluate_promotion(VALID),
+            intervals=_intervals(),
+        )
+
+
+@pytest.mark.parametrize(
+    "intervals",
+    [
+        {},
+        {**_intervals(), "unexpected": {"estimate": 0.0, "lower": 0.0, "upper": 0.0}},
+        {**_intervals(), "wood_iou_delta": {"estimate": 0.05, "lower": 0.01}},
+        {
+            **_intervals(),
+            "wood_iou_delta": {"estimate": 0.05, "lower": float("nan"), "upper": 0.1},
+        },
+        {**_intervals(), "wood_iou_delta": {"estimate": 0.05, "lower": 0.1, "upper": 0.0}},
+    ],
+)
+def test_verdict_never_promotes_malformed_intervals(intervals):
+    with pytest.raises((TypeError, ValueError)):
+        decide_independent_verdict(
+            evidence_valid=True,
+            formal_decision=evaluate_promotion(VALID),
+            intervals=intervals,
+        )
