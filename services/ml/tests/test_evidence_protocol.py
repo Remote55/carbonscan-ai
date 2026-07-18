@@ -1,3 +1,4 @@
+import csv
 import json
 from pathlib import Path
 
@@ -5,8 +6,22 @@ import pytest
 
 from training.evidence_protocol import load_protocol
 
+PROTOCOL = (
+    Path(__file__).resolve().parents[3] / "docs/evidence/pointnet_independent_eval/protocol.json"
+)
+BELGIUM_VALIDATION = (
+    Path(__file__).resolve().parents[3] / "docs/proposal/figures/belgium_validation.csv"
+)
 
-PROTOCOL = Path(__file__).resolve().parents[3] / "docs/evidence/pointnet_independent_eval/protocol.json"
+
+def _committed_demol_tree_ids() -> list[str]:
+    with BELGIUM_VALIDATION.open(encoding="utf-8", newline="") as handle:
+        ids = [row["tree"] for row in csv.DictReader(handle)]
+    assert len(ids) == 65
+    assert len(set(ids)) == 65
+    assert len({tree_id.casefold() for tree_id in ids}) == 65
+    assert ids == sorted(ids)
+    return ids
 
 
 def test_checked_in_protocol_locks_blind_contract():
@@ -28,6 +43,12 @@ def test_checked_in_protocol_locks_blind_contract():
     assert p["external"]["record_id"] == 6831378
     assert p["external"]["expected_trees"] == 10
     assert p["demol"]["expected_trees"] == 65
+    demol_tree_ids = p["demol"]["tree_ids"]
+    assert len(demol_tree_ids) == 65
+    assert len(set(demol_tree_ids)) == 65
+    assert len({tree_id.casefold() for tree_id in demol_tree_ids}) == 65
+    assert demol_tree_ids == sorted(demol_tree_ids)
+    assert demol_tree_ids == _committed_demol_tree_ids()
     assert p["statistics"] == {
         "method": "paired_percentile",
         "resampling_unit": "tree",
@@ -42,7 +63,7 @@ def test_protocol_rejects_changed_seed(tmp_path):
     payload["training"]["seeds"] = [1, 2, 3]
     path = tmp_path / "protocol.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(ValueError, match="training.seeds"):
+    with pytest.raises(ValueError, match=r"training\.seeds"):
         load_protocol(path)
 
 
@@ -52,7 +73,7 @@ def test_protocol_rejects_json_type_aliases(tmp_path, replacement):
     payload["training"]["seeds"][0] = replacement
     path = tmp_path / "protocol.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(ValueError, match="training.seeds"):
+    with pytest.raises(ValueError, match=r"training\.seeds"):
         load_protocol(path)
 
 
@@ -61,5 +82,35 @@ def test_protocol_rejects_nested_bool_int_alias(tmp_path):
     payload["pointnet_inference"]["seed"] = False
     path = tmp_path / "protocol.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(ValueError, match="pointnet_inference.seed"):
+    with pytest.raises(ValueError, match=r"pointnet_inference\.seed"):
+        load_protocol(path)
+
+
+def test_protocol_rejects_missing_demol_tree_ids(tmp_path):
+    payload = json.loads(PROTOCOL.read_text(encoding="utf-8"))
+    payload["demol"].pop("tree_ids", None)
+    path = tmp_path / "protocol.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="demol"):
+        load_protocol(path)
+
+
+@pytest.mark.parametrize("tamper", ["replace", "reverse", "duplicate", "case-collide"])
+def test_protocol_rejects_tampered_demol_tree_ids(tmp_path, tamper):
+    payload = json.loads(PROTOCOL.read_text(encoding="utf-8"))
+    ids = _committed_demol_tree_ids()
+    if tamper == "replace":
+        ids[-1] = "OTHER-01"
+    elif tamper == "reverse":
+        ids.reverse()
+    elif tamper == "duplicate":
+        ids[-1] = ids[0]
+    else:
+        ids[-1] = ids[0].lower()
+    payload["demol"]["tree_ids"] = ids
+    path = tmp_path / "protocol.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"demol\.tree_ids"):
         load_protocol(path)

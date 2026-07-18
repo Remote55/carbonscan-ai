@@ -183,7 +183,7 @@ def _load_xyz(path: Path, *, max_points: int, sample_seed: int) -> np.ndarray:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            loaded = np.loadtxt(path, dtype=np.float64)
+            loaded = np.loadtxt(path, dtype=np.float64, usecols=(0, 1, 2))
     except (OSError, TypeError, ValueError, UserWarning) as exc:
         raise ValueError(f"malformed point cloud: {path.name}") from exc
 
@@ -239,6 +239,8 @@ def load_demol_cohort(
     matched_ids = sorted(set(ground_truth).intersection(point_files))
     if not matched_ids:
         raise ValueError("Demol CSV and point files have no exact ID matches")
+    if formal and expected_ids is None:
+        raise ValueError("formal Demol evaluation requires frozen expected_tree_ids")
     if formal and len(matched_ids) != 65:
         raise ValueError(
             f"formal Demol cohort requires exactly 65 matched trees, got {len(matched_ids)}"
@@ -284,7 +286,10 @@ def _validated_cohort(cohort: object) -> list[tuple[DemolTree, np.ndarray, float
             raise TypeError(f"{tree_id}.points must have a real numeric dtype")
         if not np.all(np.isfinite(points)):
             raise ValueError(f"{tree_id}.points must contain only finite XYZ")
-        paired_points = np.array(points, dtype=np.float64, order="C", copy=True)
+        with np.errstate(over="ignore", invalid="ignore"):
+            paired_points = np.array(points, dtype=np.float64, order="C", copy=True)
+        if not np.all(np.isfinite(paired_points)):
+            raise ValueError(f"{tree_id}.points must remain finite after float64 conversion")
 
         dbh_cm = _positive_finite_real(tree.gt_dbh_cm, name=f"{tree_id}.gt_dbh_cm")
         height_m = _positive_finite_real(tree.gt_height_m, name=f"{tree_id}.gt_height_m")
@@ -328,6 +333,7 @@ def _assert_paired_input(
     original_shape: tuple[int, ...],
     original_strides: tuple[int, ...],
     backend: str,
+    stage: str,
 ) -> None:
     unchanged = (
         points.shape == original_shape
@@ -338,7 +344,7 @@ def _assert_paired_input(
         and points.tobytes(order="C") == original_bytes
     )
     if not unchanged:
-        raise ValueError(f"paired input contract violated by {backend} predictor")
+        raise ValueError(f"paired input contract violated during {backend} {stage}")
 
 
 def _run_backend(
@@ -355,35 +361,38 @@ def _run_backend(
     gt_height_m: float,
     gt_volume_m3: float,
 ) -> dict[str, Any]:
-    try:
-        output = predictor(points)
-    except Exception as exc:
+    def assert_paired_input(stage: str) -> None:
         _assert_paired_input(
             points,
             original_bytes=original_bytes,
             original_shape=original_shape,
             original_strides=original_strides,
             backend=backend,
+            stage=stage,
         )
+
+    assert_paired_input("before predictor")
+    try:
+        output = predictor(points)
+    except Exception as exc:
+        assert_paired_input("predictor exception")
         return _empty_backend(backend, failure=_failure_reason("predictor", exc))
 
-    _assert_paired_input(
-        points,
-        original_bytes=original_bytes,
-        original_shape=original_shape,
-        original_strides=original_strides,
-        backend=backend,
-    )
+    assert_paired_input("after predictor")
     try:
         labels = _labels(output, n_points=len(points), backend=backend)
     except Exception as exc:
+        assert_paired_input("label conversion exception")
         return _empty_backend(backend, failure=_failure_reason("labels", exc))
+    assert_paired_input("after label conversion")
 
     wood_points = np.ascontiguousarray(points[labels == 0], dtype=np.float64)
     try:
         measurement = qsm_func(wood_points, seed=qsm_seed)
     except Exception as exc:
+        assert_paired_input("qsm exception")
         return _empty_backend(backend, failure=_failure_reason("qsm", exc))
+    assert_paired_input("after qsm")
 
     try:
         dbh_cm = _positive_finite_real(measurement.dbh_cm, name=f"{backend}.dbh_cm")
@@ -399,7 +408,9 @@ def _run_backend(
         ):
             raise ValueError(f"{backend} derived errors must be finite")
     except Exception as exc:
+        assert_paired_input("measurement validation exception")
         return _empty_backend(backend, failure=_failure_reason("qsm_validation", exc))
+    assert_paired_input("after measurement validation")
 
     result = _empty_backend(backend, failure=None)
     result.update(

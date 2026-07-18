@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+import pipeline.demol_eval as demol_eval
 from pipeline.demol_eval import DemolTree, evaluate_demol_pair, load_demol_cohort
 
 CSV_FIELDS = (
@@ -149,14 +150,18 @@ def test_predictors_share_one_read_only_object_and_every_backend_is_called_once(
     cohort = [_tree("TREE-B", 2.0), _tree("TREE-A", 1.0)]
     baseline_seen: list[np.ndarray] = []
     candidate_seen: list[np.ndarray] = []
+    baseline_snapshots: list[bytes] = []
+    candidate_snapshots: list[bytes] = []
     qsm_calls: list[tuple[float, int, int]] = []
 
     def baseline(points: np.ndarray) -> np.ndarray:
         baseline_seen.append(points)
+        baseline_snapshots.append(points.tobytes())
         return np.array([0, 0, 0, 1], dtype=np.int8)
 
     def candidate(points: np.ndarray) -> np.ndarray:
         candidate_seen.append(points)
+        candidate_snapshots.append(points.tobytes())
         return np.array([0, 0, 1, 1], dtype=np.int8)
 
     def fake_qsm(wood: np.ndarray, *, seed: int):
@@ -177,6 +182,8 @@ def test_predictors_share_one_read_only_object_and_every_backend_is_called_once(
         assert not baseline_points.flags.writeable
         assert baseline_points.tobytes() == candidate_points.tobytes()
     assert [float(points[0, 0]) for points in baseline_seen] == [1.0, 2.0]
+    assert baseline_snapshots == candidate_snapshots
+    assert baseline_snapshots == [cohort[1].points.tobytes(), cohort[0].points.tobytes()]
     assert Counter(qsm_calls) == Counter([(1.0, 3, 0), (1.0, 2, 0), (2.0, 3, 0), (2.0, 2, 0)])
 
 
@@ -229,6 +236,106 @@ def test_force_mutation_is_a_whole_call_contract_error_and_never_reaches_candida
 
     assert candidate_calls == 0
     assert np.array_equal(tree.points, original)
+
+
+@pytest.mark.parametrize("raise_during_conversion", [False, True])
+def test_label_array_conversion_mutation_aborts_before_candidate(raise_during_conversion):
+    tree = _tree("TREE-A")
+    candidate_snapshots: list[bytes] = []
+
+    class MutatingLabels:
+        def __init__(self, paired_points: np.ndarray):
+            self.paired_points = paired_points
+
+        def __array__(self, dtype=None, copy=None):
+            self.paired_points.flags.writeable = True
+            self.paired_points[0, 0] = 99.0
+            if raise_during_conversion:
+                raise RuntimeError("conversion failed after mutation")
+            return np.zeros(len(self.paired_points), dtype=np.int8)
+
+    def baseline(points: np.ndarray):
+        return MutatingLabels(points)
+
+    def candidate(points: np.ndarray) -> np.ndarray:
+        candidate_snapshots.append(points.tobytes())
+        return _all_wood(points)
+
+    with pytest.raises(ValueError, match="paired input"):
+        evaluate_demol_pair(
+            [tree],
+            baseline_predictor=baseline,
+            candidate_predictor=candidate,
+            qsm_func=lambda wood, *, seed: _qsm(),
+        )
+
+    assert candidate_snapshots == []
+
+
+@pytest.mark.parametrize("raise_after_mutation", [False, True])
+def test_qsm_closure_mutation_aborts_before_candidate(raise_after_mutation):
+    tree = _tree("TREE-A")
+    shared: dict[str, np.ndarray] = {}
+    candidate_snapshots: list[bytes] = []
+
+    def baseline(points: np.ndarray) -> np.ndarray:
+        shared["points"] = points
+        return _all_wood(points)
+
+    def mutating_qsm(wood: np.ndarray, *, seed: int):
+        shared["points"].flags.writeable = True
+        shared["points"][0, 0] = 99.0
+        if raise_after_mutation:
+            raise RuntimeError("qsm failed after mutation")
+        return _qsm()
+
+    def candidate(points: np.ndarray) -> np.ndarray:
+        candidate_snapshots.append(points.tobytes())
+        return _all_wood(points)
+
+    with pytest.raises(ValueError, match="paired input"):
+        evaluate_demol_pair(
+            [tree],
+            baseline_predictor=baseline,
+            candidate_predictor=candidate,
+            qsm_func=mutating_qsm,
+        )
+
+    assert candidate_snapshots == []
+
+
+def test_measurement_validation_mutation_aborts_before_candidate():
+    tree = _tree("TREE-A")
+    shared: dict[str, np.ndarray] = {}
+    candidate_snapshots: list[bytes] = []
+
+    class MutatingMeasurement:
+        @property
+        def dbh_cm(self):
+            shared["points"].flags.writeable = True
+            shared["points"][0, 0] = 99.0
+            return 10.0
+
+        height_m = 5.0
+        total_volume_m3 = 2.0
+
+    def baseline(points: np.ndarray) -> np.ndarray:
+        shared["points"] = points
+        return _all_wood(points)
+
+    def candidate(points: np.ndarray) -> np.ndarray:
+        candidate_snapshots.append(points.tobytes())
+        return _all_wood(points)
+
+    with pytest.raises(ValueError, match="paired input"):
+        evaluate_demol_pair(
+            [tree],
+            baseline_predictor=baseline,
+            candidate_predictor=candidate,
+            qsm_func=lambda wood, *, seed: MutatingMeasurement(),
+        )
+
+    assert candidate_snapshots == []
 
 
 def test_candidate_failures_retain_every_row_and_zero_count_uses_none_metrics():
@@ -431,6 +538,26 @@ def test_evaluator_rejects_malformed_cohorts_and_records(cohort):
         )
 
 
+def test_evaluator_revalidates_finite_points_after_float64_cast(monkeypatch):
+    tree = _tree("TREE-A")
+    real_array = demol_eval.np.array
+
+    def cast_with_nonfinite(*args, **kwargs):
+        converted = real_array(*args, **kwargs)
+        converted[0, 0] = float("inf")
+        return converted
+
+    monkeypatch.setattr(demol_eval.np, "array", cast_with_nonfinite)
+
+    with pytest.raises(ValueError, match="float64"):
+        evaluate_demol_pair(
+            [tree],
+            baseline_predictor=_all_wood,
+            candidate_predictor=_all_wood,
+            qsm_func=lambda wood, *, seed: _qsm(),
+        )
+
+
 @pytest.mark.parametrize(
     ("baseline", "candidate", "qsm_func", "qsm_seed"),
     [
@@ -600,12 +727,43 @@ def test_loader_rejects_nonfinite_xyz_created_by_z_normalization_overflow(tmp_pa
         load_demol_cohort(data_root, formal=False)
 
 
+def test_loader_ignores_extra_nonnumeric_columns_after_xyz(tmp_path):
+    data_root = tmp_path / "demol"
+    contents = "0 0 5 ignored\n1 1 7 metadata\n"
+    _write_fixture(data_root, [_row("FEXC-01")], {"FEXC1.txt": contents})
+
+    cohort = load_demol_cohort(data_root, formal=False)
+
+    assert np.array_equal(
+        cohort[0].points,
+        np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 2.0]], dtype=np.float64),
+    )
+
+
 def test_loader_requires_65_matches_in_formal_mode(tmp_path):
     data_root = tmp_path / "demol"
     _write_fixture(data_root, [_row("FEXC-01")], {"FEXC1.txt": np.ones((3, 3))})
 
     with pytest.raises(ValueError, match="65"):
-        load_demol_cohort(data_root)
+        load_demol_cohort(data_root, expected_tree_ids=["FEXC-01"])
+
+
+def test_formal_loader_requires_frozen_expected_ids_and_exact_match_passes(tmp_path):
+    data_root = tmp_path / "demol"
+    tree_ids = [f"TREE-{index:03d}" for index in range(65)]
+    rows = [_row(tree_id) for tree_id in tree_ids]
+    clouds = {f"{tree_id}.txt": np.ones((3, 3)) for tree_id in tree_ids}
+    _write_fixture(data_root, rows, clouds)
+
+    with pytest.raises(ValueError, match="expected_tree_ids"):
+        load_demol_cohort(data_root, formal=True)
+
+    cohort = load_demol_cohort(
+        data_root,
+        formal=True,
+        expected_tree_ids=tree_ids,
+    )
+    assert [tree.tree_id for tree in cohort] == tree_ids
 
 
 def test_loader_requires_exact_expected_id_list_and_never_subsets(tmp_path):
