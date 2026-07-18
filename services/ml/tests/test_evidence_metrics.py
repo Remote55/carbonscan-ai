@@ -91,6 +91,98 @@ def test_aggregation_retains_trees_and_separates_macro_from_pooled_metrics():
     }
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("wood_iou", 0.99),
+        ("leaf_iou", float("nan")),
+        ("mean_iou", True),
+        ("accuracy", float("inf")),
+    ],
+)
+def test_aggregation_rejects_scalar_metrics_inconsistent_with_confusion(field, value):
+    metrics = segmentation_metrics(
+        np.array([0, 0, 1, 1], dtype=np.int8),
+        np.array([0, 1, 0, 1], dtype=np.int8),
+    )
+    metrics[field] = value
+
+    with pytest.raises((TypeError, ValueError)):
+        aggregate_segmentation_metrics({"tree": metrics})
+
+
+def test_aggregation_requires_exact_per_tree_record_schema():
+    metrics = segmentation_metrics(
+        np.array([0, 1], dtype=np.int8),
+        np.array([0, 1], dtype=np.int8),
+    )
+    metrics["unexpected"] = "not canonical"
+
+    with pytest.raises(ValueError):
+        aggregate_segmentation_metrics({"tree": metrics})
+
+    del metrics["unexpected"]
+    del metrics["accuracy"]
+    with pytest.raises(ValueError):
+        aggregate_segmentation_metrics({"tree": metrics})
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error_type"),
+    [
+        ("wood_as_wood", np.int64(1), TypeError),
+        ("wood_as_leaf", True, TypeError),
+        ("leaf_as_wood", -1, ValueError),
+    ],
+)
+def test_aggregation_rejects_noncanonical_confusion_counts(field, value, error_type):
+    metrics = segmentation_metrics(
+        np.array([0, 1], dtype=np.int8),
+        np.array([0, 1], dtype=np.int8),
+    )
+    metrics["confusion"][field] = value
+
+    with pytest.raises(error_type):
+        aggregate_segmentation_metrics({"tree": metrics})
+
+
+def test_aggregation_rejects_zero_point_confusion():
+    metrics = {
+        "wood_iou": 1.0,
+        "leaf_iou": 1.0,
+        "mean_iou": 1.0,
+        "accuracy": 1.0,
+        "confusion": {
+            "wood_as_wood": 0,
+            "wood_as_leaf": 0,
+            "leaf_as_wood": 0,
+            "leaf_as_leaf": 0,
+        },
+    }
+
+    with pytest.raises(ValueError):
+        aggregate_segmentation_metrics({"tree": metrics})
+
+
+def test_aggregation_returns_canonical_deep_copy_without_input_aliases():
+    metrics = segmentation_metrics(
+        np.array([0, 0, 1, 1], dtype=np.int8),
+        np.array([0, 1, 0, 1], dtype=np.int8),
+    )
+    expected = segmentation_metrics(
+        np.array([0, 0, 1, 1], dtype=np.int8),
+        np.array([0, 1, 0, 1], dtype=np.int8),
+    )
+
+    result = aggregate_segmentation_metrics({"tree": metrics})
+    metrics["wood_iou"] = 0.0
+    metrics["confusion"]["wood_as_wood"] = 999
+
+    assert result["per_tree"] == {"tree": expected}
+    assert result["per_tree"]["tree"] is not metrics
+    assert result["per_tree"]["tree"]["confusion"] is not metrics["confusion"]
+
+
 def test_paired_percentile_ci_is_seeded_and_order_independent():
     baseline = {"a": 0.2, "b": 0.3, "c": 0.4}
     candidate = {"a": 0.4, "b": 0.5, "c": 0.6}
