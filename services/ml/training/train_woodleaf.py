@@ -13,6 +13,7 @@ Goal (Sprint P1 / G2): val wood IoU >= 0.70, compared against the PCA baseline.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -20,28 +21,46 @@ import torch
 import torch.nn.functional as F  # noqa: N812 (standard PyTorch alias)
 from torch.utils.data import DataLoader, TensorDataset
 
+from pipeline.provenance import sha256_file
+from training.evidence_training import canonical_state_dict_sha256, set_global_determinism
 from training.metrics import iou_score
 from training.pointnet2_seg import PointNet2SegSSG
 from training.woodleaf_dataset import LEAF, WOOD, build_woodleaf_dataset
 
 
-def _make_loader(n_samples, n_points, seed0, batch_size, shuffle):
+def _make_loader(n_samples, n_points, seed0, batch_size, shuffle, *, generator=None):
     x, y = build_woodleaf_dataset(n_samples=n_samples, n_points=n_points, seed0=seed0)
     ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+    return DataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        generator=generator,
+        num_workers=0,
+    )
 
 
-def _loader_from_arrays(x, y, batch_size, shuffle):
+def _loader_from_arrays(x, y, batch_size, shuffle, *, generator=None):
     """Wrap numpy arrays in a DataLoader (expects float32 x, int64 y)."""
     ds = TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+    return DataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        generator=generator,
+        num_workers=0,
+    )
 
 
-def _npz_loader(path, batch_size, shuffle):
+def _npz_loader(path, batch_size, shuffle, *, generator=None):
     """Loader from a converter .npz holding x:(N,P,3) float32 + y:(N,P) int64."""
     data = np.load(path)
     return _loader_from_arrays(
-        data["x"].astype(np.float32), data["y"].astype(np.int64), batch_size, shuffle
+        data["x"].astype(np.float32),
+        data["y"].astype(np.int64),
+        batch_size,
+        shuffle,
+        generator=generator,
     )
 
 
@@ -105,18 +124,20 @@ def evaluate_full(model, loader, device) -> dict:
     gf = np.concatenate(gts)
     wood, leaf, mean = _iou_triple(pf, gf)
     return {
-        "wood_iou": round(wood, 4),
-        "leaf_iou": round(leaf, 4),
-        "mean_iou": round(mean, 4),
-        "accuracy": round(float((pf == gf).mean()), 4),
+        "wood_iou": float(wood),
+        "leaf_iou": float(leaf),
+        "mean_iou": float(mean),
+        "accuracy": float((pf == gf).mean()),
     }
 
 
-def train(args) -> float:
+def train(args) -> dict:
+    set_global_determinism(args.seed)
+    train_generator = torch.Generator().manual_seed(args.seed)
+    dev_generator = torch.Generator().manual_seed(args.seed)
     device = args.device
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"[train] device={device}")
 
     if args.train_npz:
         if not args.val_npz:
@@ -125,37 +146,72 @@ def train(args) -> float:
         x = data["x"].astype(np.float32)
         y = data["y"].astype(np.int64)
         if args.augment_synthetic > 0:
-            x, y = _augment_with_synthetic(x, y, args.augment_synthetic)
-            print(f"[train] augmented with {args.augment_synthetic} synthetic samples")
-        print(f"[train] real data: train={args.train_npz} ({len(x)} samples)  "
-              f"val/held-out={args.val_npz}")
-        train_loader = _loader_from_arrays(x, y, args.batch_size, True)
-        val_loader = _npz_loader(args.val_npz, args.batch_size, False)
+            x, y = _augment_with_synthetic(
+                x,
+                y,
+                args.augment_synthetic,
+                seed=args.synthetic_seed_start,
+            )
+        train_loader = _loader_from_arrays(
+            x,
+            y,
+            args.batch_size,
+            True,
+            generator=train_generator,
+        )
+        val_loader = _npz_loader(
+            args.val_npz,
+            args.batch_size,
+            False,
+            generator=dev_generator,
+        )
     else:
-        train_loader = _make_loader(args.n_train, args.n_points, 0, args.batch_size, True)
-        val_loader = _make_loader(args.n_val, args.n_points, 10_000, args.batch_size, False)
+        train_loader = _make_loader(
+            args.n_train,
+            args.n_points,
+            0,
+            args.batch_size,
+            True,
+            generator=train_generator,
+        )
+        val_loader = _make_loader(
+            args.n_val,
+            args.n_points,
+            10_000,
+            args.batch_size,
+            False,
+            generator=dev_generator,
+        )
 
     model = PointNet2SegSSG(num_classes=2).to(device)
     if args.init_checkpoint:
-        ckpt = torch.load(args.init_checkpoint, map_location=device)
+        ckpt = torch.load(
+            args.init_checkpoint,
+            map_location=device,
+            weights_only=True,
+        )
         model.load_state_dict(ckpt["state_dict"])
-        print(f"[train] fine-tuning from {args.init_checkpoint} "
-              f"(prior val_iou={ckpt.get('val_iou')})")
     weight = None
     if args.class_weight == "auto":
         w = _class_weights(train_loader.dataset.tensors[1].numpy(), num_classes=2)
         weight = torch.tensor(w, device=device)
-        print(f"[train] class-weighted loss (auto, on training set): "
-              f"wood={w[WOOD]:.3f} leaf={w[LEAF]:.3f}")
 
-    opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
-    sched = torch.optim.lr_scheduler.StepLR(opt, step_size=20, gamma=0.5)
+    opt = torch.optim.Adam(
+        model.parameters(),
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+    )
+    sched = torch.optim.lr_scheduler.StepLR(
+        opt,
+        step_size=args.scheduler_step,
+        gamma=args.scheduler_gamma,
+    )
 
     best_iou = -1.0  # ensure a checkpoint is always saved (even if early IoU is 0)
     out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     for epoch in range(1, args.epochs + 1):
         model.train()
-        running = 0.0
         for x, y in train_loader:
             x, y = x.to(device), y.to(device)
             logits = model(x).reshape(-1, 2)
@@ -163,27 +219,54 @@ def train(args) -> float:
             opt.zero_grad()
             loss.backward()
             opt.step()
-            running += loss.item()
         sched.step()
+        final_metrics = evaluate_full(model, val_loader, device)
         val_iou = evaluate(model, val_loader, device)
-        print(f"[epoch {epoch:3d}] loss={running/len(train_loader):.4f}  val_wood_IoU={val_iou:.4f}")
         if val_iou > best_iou:
             best_iou = val_iou
+            checkpoint = {
+                "schema_version": "2",
+                "state_dict": model.state_dict(),
+                "num_classes": 2,
+                "seed": args.seed,
+                "selected_epoch": epoch,
+                "dev_metrics": final_metrics,
+                "protocol_sha256": args.protocol_sha256,
+                "wan_manifest_sha256": args.wan_manifest_sha256,
+                "training_git_commit": args.training_git_commit,
+            }
             torch.save(
-                {"state_dict": model.state_dict(), "num_classes": 2, "val_iou": best_iou},
+                checkpoint,
                 out_path,
             )
-            print(f"  + saved checkpoint (IoU {best_iou:.4f}) -> {out_path}")
 
-    print(f"[done] best val wood IoU = {best_iou:.4f}  (target >= 0.70)")
-    best_ckpt = torch.load(out_path, map_location=device)
+    best_ckpt = torch.load(
+        out_path,
+        map_location=device,
+        weights_only=True,
+    )
     model.load_state_dict(best_ckpt["state_dict"])
-    final = evaluate_full(model, val_loader, device)
-    print(f"[held-out] wood_iou={final['wood_iou']} leaf_iou={final['leaf_iou']} "
-          f"mean_iou={final['mean_iou']} accuracy={final['accuracy']}")
-    print("  (note: held-out split is spatially disjoint from train; "
-          "also used for best-epoch selection)")
-    return best_iou
+    return {
+        "seed": args.seed,
+        "best_epoch": best_ckpt["selected_epoch"],
+        "best_macro_tile_wood_iou": float(best_iou),
+        "dev_metrics": best_ckpt["dev_metrics"],
+        "state_dict_sha256": canonical_state_dict_sha256(best_ckpt["state_dict"]),
+        "checkpoint_sha256": sha256_file(out_path),
+        "checkpoint_path": str(out_path),
+        "protocol_sha256": args.protocol_sha256,
+        "wan_manifest_sha256": args.wan_manifest_sha256,
+        "training_git_commit": args.training_git_commit,
+    }
+
+
+def _presentation_summary(record: dict) -> dict:
+    return {
+        "seed": record["seed"],
+        "best_epoch": record["best_epoch"],
+        "best_macro_tile_wood_iou": round(record["best_macro_tile_wood_iou"], 4),
+        "checkpoint_file": Path(record["checkpoint_path"]).name,
+    }
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -194,8 +277,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--epochs", type=int, default=60)
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--weight-decay", type=float, default=1e-4)
+    p.add_argument("--scheduler-step", type=int, default=20)
+    p.add_argument("--scheduler-gamma", type=float, default=0.5)
     p.add_argument("--device", type=str, default="auto")
     p.add_argument("--out", type=str, default="woodleaf_pn2.pt")
+    p.add_argument("--seed", type=int, default=20260716)
+    p.add_argument("--protocol-sha256", required=True)
+    p.add_argument("--wan-manifest-sha256", required=True)
+    p.add_argument("--training-git-commit", required=True)
     # Real-data fine-tuning (overrides the synthetic generator when given)
     p.add_argument("--train-npz", type=str, default=None,
                    help="real training samples .npz (x,y); overrides synthetic")
@@ -207,8 +297,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="auto = inverse-frequency weighted loss (lifts the minority wood class)")
     p.add_argument("--augment-synthetic", type=int, default=0,
                    help="add N synthetic samples to the (npz) training set as augmentation")
+    p.add_argument("--synthetic-seed-start", type=int, default=50_000)
     return p
 
 
 if __name__ == "__main__":
-    train(build_arg_parser().parse_args())
+    result = train(build_arg_parser().parse_args())
+    print(json.dumps(_presentation_summary(result), ensure_ascii=True, separators=(",", ":")))
