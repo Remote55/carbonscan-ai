@@ -175,6 +175,8 @@ def test_ml_ci_does_not_swallow_test_failures():
     assert "scripts/sync_truth.py --check" in workflow
     assert "python-docx" in workflow
     assert "python -m pytest scripts/tests/" in workflow
+    assert workflow.count('"docs/evidence/pointnet_independent_eval/**"') == 2
+    assert "ruff check pipeline/ photogrammetry/ training/" in workflow
 
 
 def test_current_claim_documents_share_exact_evidence():

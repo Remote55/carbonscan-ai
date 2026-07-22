@@ -6,6 +6,7 @@ on:
     paths:
       - "services/ml/**"
       - "docs/evidence/core_demo_manifest.json"
+      - "docs/evidence/pointnet_independent_eval/**"
       - "docs/CAPABILITY_MATRIX.md"
       - "docs/PROJECT_SPEC.md"
       - "docs/ml/PIPELINE.md"
@@ -27,6 +28,7 @@ on:
     paths:
       - "services/ml/**"
       - "docs/evidence/core_demo_manifest.json"
+      - "docs/evidence/pointnet_independent_eval/**"
       - "docs/CAPABILITY_MATRIX.md"
       - "docs/PROJECT_SPEC.md"
       - "docs/ml/PIPELINE.md"
@@ -90,12 +92,12 @@ jobs:
 
       - name: Ruff lint
         working-directory: services/ml
-        run: ruff check pipeline/ photogrammetry/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
+        run: ruff check pipeline/ photogrammetry/ training/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
 
       - name: Ruff format check (advisory)
         working-directory: services/ml
         # Phase 1: re-enable strict after running `ruff format .` locally.
-        run: ruff format --check --diff pipeline/ photogrammetry/ tests/ || echo "::warning::Ruff format drift"
+        run: ruff format --check --diff pipeline/ photogrammetry/ training/ tests/ || echo "::warning::Ruff format drift"
 
       - name: Run allometric tests
         working-directory: services/ml
