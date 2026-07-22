@@ -10,15 +10,14 @@ from types import SimpleNamespace
 from typing import Any
 
 from pipeline.external_tree_dataset import fetch_external_cohort
+from pipeline.independent_eval import run_independent_evaluation
 from pipeline.provenance import (
     git_worktree_dirty,
     resolve_git_commit,
     sha256_file,
     write_canonical_json,
 )
-from training import evidence_training, train_woodleaf
 from training.evidence_protocol import load_protocol
-from training.evidence_training import build_freeze_manifest, run_training_matrix
 from training.realdata_dataset import build_evidence_dataset
 
 
@@ -105,6 +104,9 @@ def _training_command(
 
 
 def _train(args: argparse.Namespace) -> dict[str, Any]:
+    from training import evidence_training, train_woodleaf
+    from training.evidence_training import run_training_matrix
+
     protocol_path = Path(args.protocol).resolve()
     wan_manifest_path = Path(args.wan_manifest).resolve()
     artifact_dir = Path(args.artifact_dir).resolve()
@@ -217,6 +219,8 @@ def _train(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _freeze(args: argparse.Namespace) -> dict[str, Any]:
+    from training.evidence_training import build_freeze_manifest
+
     artifact_dir = Path(args.artifact_dir).resolve()
     manifest = build_freeze_manifest(
         args.protocol,
@@ -255,6 +259,38 @@ def _fetch_external(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _evaluate(args: argparse.Namespace) -> dict[str, Any]:
+    result = run_independent_evaluation(
+        protocol=args.protocol,
+        freeze_manifest=args.freeze_manifest,
+        checkpoint=args.checkpoint,
+        external_root=args.external_root,
+        external_manifest=args.external_manifest,
+        demol_root=args.demol_root,
+        evidence_dir=args.evidence_dir,
+        repo_root=args.repo_root,
+    )
+    baseline = result["baseline"]
+    candidate = result["candidate"]
+    return {
+        "baseline_dbh_mae_cm": baseline["downstream"]["dbh_mae_cm"],
+        "baseline_height_mae_m": baseline["downstream"]["height_mae_m"],
+        "baseline_measurable_trees": baseline["downstream"]["measurable_trees"],
+        "baseline_volume_mape_pct": baseline["downstream"]["volume_mape_pct"],
+        "baseline_wood_iou": baseline["external_segmentation"]["macro"]["wood_iou"],
+        "candidate_dbh_mae_cm": candidate["downstream"]["dbh_mae_cm"],
+        "candidate_height_mae_m": candidate["downstream"]["height_mae_m"],
+        "candidate_measurable_trees": candidate["downstream"]["measurable_trees"],
+        "candidate_volume_mape_pct": candidate["downstream"]["volume_mape_pct"],
+        "candidate_wood_iou": candidate["external_segmentation"]["macro"]["wood_iou"],
+        "checkpoint_sha256": result["checkpoint_sha256"],
+        "command": "evaluate",
+        "promote": result["verdict"]["promote"],
+        "status": "ok",
+        "verdict": result["verdict"]["verdict"],
+    }
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -290,6 +326,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
     fetch_external.add_argument("--manifest-out", required=True)
     fetch_external.add_argument("--repo-root", required=True)
     fetch_external.set_defaults(handler=_fetch_external)
+
+    evaluate = subparsers.add_parser("evaluate")
+    evaluate.add_argument("--protocol", required=True)
+    evaluate.add_argument("--freeze-manifest", required=True)
+    evaluate.add_argument("--checkpoint", required=True)
+    evaluate.add_argument("--external-root", required=True)
+    evaluate.add_argument("--external-manifest", required=True)
+    evaluate.add_argument("--demol-root", required=True)
+    evaluate.add_argument("--evidence-dir", required=True)
+    evaluate.add_argument("--repo-root", required=True)
+    evaluate.set_defaults(handler=_evaluate)
     return parser
 
 
@@ -298,14 +345,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         summary = args.handler(args)
     except Exception as exc:
-        _summary_line(
-            {
-                "command": args.command,
-                "error": str(exc),
-                "error_type": type(exc).__name__,
-                "status": "error",
-            }
-        )
+        failure = {
+            "command": args.command,
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+            "status": "error",
+        }
+        if args.command == "evaluate":
+            failure["verdict"] = "INVALID_EVIDENCE"
+        _summary_line(failure)
         return 1
     _summary_line(summary)
     return 0
