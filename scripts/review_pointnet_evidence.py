@@ -63,9 +63,23 @@ def _fail_constant(value: str) -> None:
 
 
 def _load_json(path: Path, *, label: str) -> dict[str, Any]:
+    def no_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in payload:
+                raise ValueError(f"{label} contains duplicate JSON key {key!r}")
+            payload[key] = item
+        return payload
+
     try:
-        value = json.loads(path.read_text(encoding="utf-8"), parse_constant=_fail_constant)
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=_fail_constant,
+            object_pairs_hook=no_duplicate_keys,
+        )
+    except ValueError as exc:
+        raise ValueError(f"{label} is invalid: {exc}") from exc
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"{label} cannot be parsed as finite JSON") from exc
     if type(value) is not dict:
         raise ValueError(f"{label} must be a JSON object")
@@ -175,6 +189,58 @@ def _commit_bytes(path: Path, commit: str, *, repo: Path, label: str) -> None:
         raise ValueError(f"{label} bytes differ from evaluation_git_commit")
 
 
+def _introduced_commit(path: Path, *, through: str, repo: Path, label: str) -> str:
+    """Find the first ancestor that introduced exactly the current file bytes."""
+    logical = path.relative_to(repo).as_posix()
+    commits = _git(repo, "rev-list", "--reverse", through).decode("ascii").splitlines()
+    current = path.read_bytes()
+    for commit in commits:
+        try:
+            blob = _git(repo, "show", f"{commit}:{logical}")
+        except ValueError:
+            continue
+        if blob != current:
+            continue
+        parents = _git(repo, "rev-list", "--parents", "-n", "1", commit).decode("ascii").split()
+        if len(parents) == 1:
+            return commit
+        parent = parents[1]
+        try:
+            parent_blob = _git(repo, "show", f"{parent}:{logical}")
+        except ValueError:
+            return commit
+        if parent_blob != current:
+            return commit
+    raise ValueError(f"{label} canonical bytes were not introduced before evaluation")
+
+
+def _strict_ancestor(earlier: str, later: str, *, repo: Path, label: str) -> None:
+    if earlier == later:
+        raise ValueError(f"{label} must be a strict ancestor")
+    try:
+        _commit_exists_and_is_ancestor(earlier, later, repo=repo, label=label)
+    except ValueError as exc:
+        raise ValueError(f"{label} must be a strict ancestor") from exc
+
+
+def _validate_freeze_reproducibility(freeze: dict[str, Any], protocol: dict[str, Any], checkpoint: str) -> None:
+    winner = freeze["winner"]
+    rerun = freeze["rerun_evidence"]
+    seeds = protocol["training"]["seeds"]
+    if winner["seed"] not in seeds:
+        raise ValueError("freeze winner seed is not one of the locked protocol seeds")
+    if rerun["seed"] != winner["seed"]:
+        raise ValueError("freeze rerun seed does not match winner")
+    if rerun["best_epoch"] != winner["selected_epoch"]:
+        raise ValueError("freeze rerun best epoch does not match winner")
+    if rerun["best_macro_tile_wood_iou"] != winner["dev_metrics"]["wood_iou"]:
+        raise ValueError("freeze rerun Wood IoU does not match winner")
+    if rerun["state_dict_sha256"] != winner["state_dict_sha256"]:
+        raise ValueError("freeze rerun state identity does not match winner")
+    if winner["checkpoint_sha256"] != checkpoint or rerun["checkpoint_sha256"] != winner["checkpoint_sha256"]:
+        raise ValueError("freeze checkpoint identity does not match winner/rerun/result")
+
+
 def _from_confusion(confusion: dict[str, int]) -> dict[str, Any]:
     wood, wood_leaf, leaf_wood, leaf = (confusion[key] for key in _CONFUSION)
     total = wood + wood_leaf + leaf_wood + leaf
@@ -220,19 +286,31 @@ def _segmentation(value: Any, label: str) -> dict[str, Any]:
             raise ValueError(f"result.{label}.external macro is inconsistent with per-tree records")
     if _segmentation_record(record["pooled"], f"result.{label}.external pooled") != _from_confusion(totals):
         raise ValueError(f"result.{label}.external pooled metrics are inconsistent")
-    return {"wood_iou": macro["wood_iou"]}
+    return {"wood_iou": macro["wood_iou"], "tree_ids": frozenset(per_tree)}
 
 
-def _metrics(value: Any, label: str) -> dict[str, Any]:
+def _metrics(
+    value: Any,
+    label: str,
+    *,
+    external_tree_ids: frozenset[str] | None = None,
+    max_measurable_trees: int | None = None,
+) -> dict[str, Any]:
     record = _exact(value, {"external_segmentation", "downstream"}, f"result.{label}")
     result = _segmentation(record["external_segmentation"], label)
+    if external_tree_ids is not None and result["tree_ids"] != external_tree_ids:
+        raise ValueError(f"result.{label} external per-tree IDs do not match canonical cohort")
     downstream = _exact(record["downstream"], {*_METRICS, "measurable_trees"}, f"result.{label}.downstream")
     for key in _METRICS:
         _number(downstream[key], f"result.{label}.downstream.{key}", minimum=0.0)
         result[key] = downstream[key]
-    if type(downstream["measurable_trees"]) is not int or downstream["measurable_trees"] <= 0:
+    count = downstream["measurable_trees"]
+    if type(count) is not int or count <= 0:
         raise ValueError(f"result.{label}.downstream.measurable_trees must be a positive integer")
-    result["measurable_trees"] = downstream["measurable_trees"]
+    if max_measurable_trees is not None and count > max_measurable_trees:
+        raise ValueError(f"result.{label}.downstream.measurable_trees exceeds protocol Demol count")
+    result["measurable_trees"] = count
+    result.pop("tree_ids")
     return result
 
 
@@ -259,8 +337,6 @@ def _intervals(value: Any) -> dict[str, dict[str, Any]]:
 
 def _validate_deltas(value: Any, intervals: dict[str, dict[str, Any]], baseline: dict[str, Any], candidate: dict[str, Any]) -> None:
     deltas = _exact(value, set(_DELTAS), "result paired_deltas")
-    if baseline["measurable_trees"] != candidate["measurable_trees"]:
-        raise ValueError("result measurable-tree counts must match for paired deltas")
     for key, (name, unit, metric) in _DELTAS.items():
         delta = _exact(deltas[key], {"name", "unit", "estimate"}, f"result paired_deltas.{key}")
         if delta["name"] != name or delta["unit"] != unit:
@@ -268,7 +344,7 @@ def _validate_deltas(value: Any, intervals: dict[str, dict[str, Any]], baseline:
         _number(delta["estimate"], f"result paired_deltas.{key}.estimate")
         if delta["estimate"] != intervals[key]["estimate"]:
             raise ValueError(f"result paired_deltas.{key} estimate does not match confidence interval")
-        if delta["estimate"] != candidate[metric] - baseline[metric]:
+        if key == "wood_iou_delta" and delta["estimate"] != candidate[metric] - baseline[metric]:
             raise ValueError(f"result paired_deltas.{key} estimate is inconsistent with aggregate metrics")
 
 
@@ -287,7 +363,12 @@ def _formal_failures(baseline: dict[str, Any], candidate: dict[str, Any]) -> lis
     return [criterion for criterion, passed in checks.items() if not passed]
 
 
-def _validate_result(result: dict[str, Any]) -> dict[str, Any]:
+def _validate_result(
+    result: dict[str, Any],
+    *,
+    external_tree_ids: frozenset[str] | None = None,
+    max_measurable_trees: int | None = None,
+) -> dict[str, Any]:
     _exact(result, RESULT_KEYS, "result")
     if result["schema_version"] != "1" or type(result["experiment_id"]) is not str or not result["experiment_id"]:
         raise ValueError("result identity is malformed")
@@ -296,7 +377,10 @@ def _validate_result(result: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"result {key} must be lowercase SHA-256")
     if not _is_sha(result["evaluation_git_commit"], 40):
         raise ValueError("result evaluation_git_commit must be lowercase Git SHA")
-    baseline, candidate = _metrics(result["baseline"], "baseline"), _metrics(result["candidate"], "candidate")
+    if result["verdict"].get("verdict") == "INVALID_EVIDENCE":
+        raise ValueError("INVALID_EVIDENCE cannot be imported because Task 10 publishes no invalid artifacts")
+    baseline = _metrics(result["baseline"], "baseline", external_tree_ids=external_tree_ids, max_measurable_trees=max_measurable_trees)
+    candidate = _metrics(result["candidate"], "candidate", external_tree_ids=external_tree_ids, max_measurable_trees=max_measurable_trees)
     intervals = _intervals(result["confidence_intervals"])
     _validate_deltas(result["paired_deltas"], intervals, baseline, candidate)
     formal = _exact(result["formal_gate"], {"promote", "status", "failed_criteria", "baseline", "candidate"}, "result.formal_gate")
@@ -319,19 +403,14 @@ def _validate_result(result: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("result verdict is malformed")
     strong = intervals["wood_iou_delta"]["lower"] > 0 and all(intervals[name]["upper"] <= 0 for name in ("dbh_abs_error_delta", "height_abs_error_delta", "volume_ape_delta"))
     expected = "PROMOTE_POINTNET" if not failures and strong else "POINT_ESTIMATE_PASS_ONLY" if not failures else "FAIL_METRICS"
-    # INVALID_EVIDENCE remains a review record for a formally rejected run.  A
-    # verified importer never lets it grant promotion or erase formal failures.
-    if verdict["verdict"] == "INVALID_EVIDENCE":
-        if not failures or verdict["promote"] is not False:
-            raise ValueError("INVALID_EVIDENCE requires a rejected formal gate")
-    elif verdict["verdict"] != expected or verdict["promote"] != (expected == "PROMOTE_POINTNET"):
+    if verdict["verdict"] != expected or verdict["promote"] != (expected == "PROMOTE_POINTNET"):
         raise ValueError("result verdict is inconsistent with formal gate and confidence intervals")
     if type(result["limitations"]) is not list or not result["limitations"] or any(type(item) is not str or not item for item in result["limitations"]):
         raise ValueError("result limitations must be non-empty strings")
     return {"baseline": baseline, "candidate": candidate, "failed_criteria": failures, "verdict": verdict["verdict"]}
 
 
-def _validate_cross_links(result: dict[str, Any], *, result_path: Path, repo: Path) -> None:
+def _validate_cross_links(result: dict[str, Any], *, result_path: Path, repo: Path) -> tuple[frozenset[str], int, str]:
     siblings = {
         "protocol_sha256": result_path.parent / "protocol.json",
         "freeze_manifest_sha256": result_path.parent / "freeze_manifest.json",
@@ -356,6 +435,18 @@ def _validate_cross_links(result: dict[str, Any], *, result_path: Path, repo: Pa
         raise ValueError(f"production evidence schema is invalid: {exc}") from exc
     training = production_freeze["training_git_commit"]
     _commit_exists_and_is_ancestor(training, evaluation, repo=repo, label="training_git_commit")
+    freeze_introduced = _introduced_commit(
+        siblings["freeze_manifest_sha256"], through=evaluation, repo=repo, label="freeze manifest"
+    )
+    external_introduced = _introduced_commit(
+        siblings["external_manifest_sha256"], through=evaluation, repo=repo, label="external manifest"
+    )
+    _strict_ancestor(
+        freeze_introduced, external_introduced, repo=repo, label="external_opened_after_commit"
+    )
+    _commit_exists_and_is_ancestor(
+        external_introduced, evaluation, repo=repo, label="external manifest introduction/evaluation"
+    )
     checks = {
         "protocol experiment": production_protocol["experiment_id"] == result["experiment_id"],
         "freeze experiment": freeze["experiment_id"] == result["experiment_id"],
@@ -370,9 +461,11 @@ def _validate_cross_links(result: dict[str, Any], *, result_path: Path, repo: Pa
     failed = [name for name, matched in checks.items() if not matched]
     if failed:
         raise ValueError(f"evidence cross-links do not bind result: {', '.join(failed)}")
+    _validate_freeze_reproducibility(production_freeze, production_protocol, result["checkpoint_sha256"])
+    return frozenset(external["tree_ids"]), production_protocol["demol"]["expected_trees"], freeze_introduced
 
 
-def _independent_block(result: dict[str, Any], validated: dict[str, Any], path: Path, repo: Path) -> dict[str, Any]:
+def _independent_block(result: dict[str, Any], validated: dict[str, Any], path: Path, repo: Path, *, freeze_introduced: str) -> dict[str, Any]:
     def truth_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
         return {
             "external_macro_wood_iou": metrics["wood_iou"],
@@ -383,7 +476,10 @@ def _independent_block(result: dict[str, Any], validated: dict[str, Any], path: 
     return {
         "result_path": path.relative_to(repo).as_posix(), "result_sha256": _sha256(path), "verdict": validated["verdict"],
         "baseline": truth_metrics(validated["baseline"]), "candidate": truth_metrics(validated["candidate"]),
-        "provenance": {key: result[key] for key in ("experiment_id", "protocol_sha256", "freeze_manifest_sha256", "external_manifest_sha256", "checkpoint_sha256", "evaluation_git_commit")},
+        "provenance": {
+            **{key: result[key] for key in ("experiment_id", "protocol_sha256", "freeze_manifest_sha256", "external_manifest_sha256", "checkpoint_sha256", "evaluation_git_commit")},
+            "external_opened_after_commit": freeze_introduced,
+        },
         "failed_criteria": validated["failed_criteria"], "limitations": list(result["limitations"]),
     }
 
@@ -431,8 +527,11 @@ def import_reviewed_result(result_path: str | Path, manifest_path: str | Path, *
     manifest_file = _canonical_file(manifest_path, repo=repo, expected=repo / _MANIFEST_RELATIVE, label="manifest")
     _tracked_head_bytes(result_file, repo=repo, label="result")
     result = _load_json(result_file, label="result")
-    validated = _validate_result(result)
-    _validate_cross_links(result, result_path=result_file, repo=repo)
+    _validate_result(result)
+    external_tree_ids, demol_count, freeze_introduced = _validate_cross_links(result, result_path=result_file, repo=repo)
+    validated = _validate_result(
+        result, external_tree_ids=external_tree_ids, max_measurable_trees=demol_count
+    )
     before = _load_json(manifest_file, label="manifest")
     updated = copy.deepcopy(before)
     candidate = updated.get("candidate")
@@ -443,7 +542,9 @@ def import_reviewed_result(result_path: str | Path, manifest_path: str | Path, *
     candidate["promotion_evidence"]["failed_criteria"] = [] if candidate["promotion_evidence"]["all_passed"] else validated["failed_criteria"]
     if type(updated.get("validation")) is not dict:
         raise ValueError("manifest validation is missing")
-    updated["validation"]["pointnet_independent"] = _independent_block(result, validated, result_file, repo)
+    updated["validation"]["pointnet_independent"] = _independent_block(
+        result, validated, result_file, repo, freeze_introduced=freeze_introduced
+    )
     row = _pointnet_row(updated)
     if type(row.get("evidence")) is not str or type(row.get("claim")) is not str:
         raise ValueError("PointNet++ capability evidence/claim is missing")
@@ -464,9 +565,12 @@ def validate_imported_independent(block: Any, *, repo_root: str | Path) -> dict[
     path = _canonical_file(repo / imported["result_path"], repo=repo, expected=repo / _RESULT_RELATIVE, label="imported result")
     _tracked_head_bytes(path, repo=repo, label="imported result")
     result = _load_json(path, label="imported result")
-    validated = _validate_result(result)
-    _validate_cross_links(result, result_path=path, repo=repo)
-    expected = _independent_block(result, validated, path, repo)
+    _validate_result(result)
+    external_tree_ids, demol_count, freeze_introduced = _validate_cross_links(result, result_path=path, repo=repo)
+    validated = _validate_result(
+        result, external_tree_ids=external_tree_ids, max_measurable_trees=demol_count
+    )
+    expected = _independent_block(result, validated, path, repo, freeze_introduced=freeze_introduced)
     if imported != expected:
         raise ValueError("validation.pointnet_independent does not match the committed result")
     return expected

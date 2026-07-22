@@ -15,6 +15,7 @@ from scripts.sync_truth import CONTROLLED_DOCS, TRUTH_END, TRUTH_START, load_man
 
 
 ROOT = Path(__file__).resolve().parents[2]
+EXTERNAL_IDS = tuple(f"tree-{index:02d}" for index in range(1, 11))
 
 
 def _sha(path: Path) -> str:
@@ -55,12 +56,13 @@ def _metrics(confusion: dict[str, int]) -> dict[str, object]:
 
 def _segmentation(confusion: dict[str, int]) -> dict[str, object]:
     one = _metrics(confusion)
-    doubled = {key: value * 2 for key, value in confusion.items()}
-    return {"per_tree": {"tree-a": copy.deepcopy(one), "tree-b": copy.deepcopy(one)}, "macro": {key: one[key] for key in ("wood_iou", "leaf_iou", "mean_iou", "accuracy")}, "pooled": _metrics(doubled)}
+    count = len(EXTERNAL_IDS)
+    total = {key: value * count for key, value in confusion.items()}
+    return {"per_tree": {tree_id: copy.deepcopy(one) for tree_id in EXTERNAL_IDS}, "macro": {key: one[key] for key in ("wood_iou", "leaf_iou", "mean_iou", "accuracy")}, "pooled": _metrics(total)}
 
 
 def _external(protocol_sha: str, freeze_sha: str, checkpoint: str, experiment: str) -> dict[str, object]:
-    tree_ids = [f"tree-{index:02d}" for index in range(1, 11)]
+    tree_ids = list(EXTERNAL_IDS)
     files = []
     for tree_id in tree_ids:
         for part in ("leaf", "wood"):
@@ -71,11 +73,12 @@ def _external(protocol_sha: str, freeze_sha: str, checkpoint: str, experiment: s
 
 def _freeze(protocol: dict[str, object], protocol_sha: str, training_commit: str, checkpoint: str) -> dict[str, object]:
     metrics = {"wood_iou": 0.5, "leaf_iou": 0.5, "mean_iou": 0.5, "accuracy": 0.5}
+    seed = protocol["training"]["seeds"][0]
     return {"schema_version": "1", "experiment_id": protocol["experiment_id"], "protocol_sha256": protocol_sha, "wan_manifest_sha256": "c" * 64, "training_runs_sha256": "d" * 64,
             "training_git_commit": training_commit, "working_tree_clean": True, "training_command": ["python", "-m", "scripts.pointnet_evidence", "train"], "environment": {}, "architecture": "PointNet2SegSSG",
             "training_configuration": protocol["training"], "wan_evidence": {"schema_version": "1", "config": {}, "sources": [], "outputs": {"train": {}, "dev": {}}},
-            "winner": {"seed": 1, "selected_epoch": 1, "dev_metrics": metrics, "checkpoint_file": "winner.pt", "checkpoint_sha256": checkpoint, "state_dict_sha256": "e" * 64},
-            "rerun_evidence": {"seed": 1, "best_epoch": 1, "best_macro_tile_wood_iou": 0.5, "state_dict_sha256": "e" * 64, "checkpoint_file": "seed-1-rerun.pt", "checkpoint_sha256": checkpoint, "reproducible": True}}
+            "winner": {"seed": seed, "selected_epoch": 7, "dev_metrics": metrics, "checkpoint_file": "winner.pt", "checkpoint_sha256": checkpoint, "state_dict_sha256": "e" * 64},
+            "rerun_evidence": {"seed": seed, "best_epoch": 7, "best_macro_tile_wood_iou": 0.5, "state_dict_sha256": "e" * 64, "checkpoint_file": "seed-1-rerun.pt", "checkpoint_sha256": checkpoint, "reproducible": True}}
 
 
 def _result(verdict: str, evaluation_commit: str, hashes: dict[str, str]) -> dict[str, object]:
@@ -111,8 +114,9 @@ def reviewed_repo(tmp_path: Path) -> tuple[Path, Path, Path]:
     _git(repo, "add", "."); _git(repo, "commit", "-m", "training provenance")
     training = _git(repo, "rev-parse", "HEAD")
     freeze_path = evidence / "freeze_manifest.json"; _write(freeze_path, _freeze(protocol, _sha(protocol_path), training, "f" * 64))
+    _git(repo, "add", str(freeze_path.relative_to(repo))); _git(repo, "commit", "-m", "freeze evidence")
     external_path = evidence / "external_dataset_manifest.json"; _write(external_path, _external(_sha(protocol_path), _sha(freeze_path), "f" * 64, str(protocol["experiment_id"])))
-    _git(repo, "add", "."); _git(repo, "commit", "-m", "evaluation inputs")
+    _git(repo, "add", str(external_path.relative_to(repo))); _git(repo, "commit", "-m", "external evidence")
     evaluation = _git(repo, "rev-parse", "HEAD")
     result_path = evidence / "result.json"; _write(result_path, _result("FAIL_METRICS", evaluation, {"protocol_sha256": _sha(protocol_path), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}))
     _git(repo, "add", "."); _git(repo, "commit", "-m", "result after evaluation")
@@ -125,7 +129,33 @@ def _commit_result(repo: Path, result_path: Path, result: dict[str, object], mes
         _git(repo, "commit", "-m", message)
 
 
-@pytest.mark.parametrize("verdict", ["INVALID_EVIDENCE", "FAIL_METRICS", "POINT_ESTIMATE_PASS_ONLY", "PROMOTE_POINTNET"])
+def _refresh_segmentation(segmentation: dict[str, object]) -> None:
+    per_tree = segmentation["per_tree"]
+    records = list(per_tree.values())
+    segmentation["macro"] = {key: sum(record[key] for record in records) / len(records) for key in ("wood_iou", "leaf_iou", "mean_iou", "accuracy")}
+    totals = {key: sum(record["confusion"][key] for record in records) for key in ("wood_as_wood", "wood_as_leaf", "leaf_as_wood", "leaf_as_leaf")}
+    segmentation["pooled"] = _metrics(totals)
+
+
+def _rehash_result(result: dict[str, object], evidence: Path, evaluation: str) -> None:
+    result["protocol_sha256"] = _sha(evidence / "protocol.json")
+    result["freeze_manifest_sha256"] = _sha(evidence / "freeze_manifest.json")
+    result["external_manifest_sha256"] = _sha(evidence / "external_dataset_manifest.json")
+    result["evaluation_git_commit"] = evaluation
+
+
+def _commit_changed_freeze_and_external(repo: Path, result_path: Path, mutate) -> None:
+    evidence = result_path.parent
+    freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
+    freeze = json.loads(freeze_path.read_text(encoding="utf-8")); mutate(freeze); _write(freeze_path, freeze)
+    _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "changed freeze")
+    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = _sha(freeze_path); _write(external_path, external)
+    _git(repo, "add", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "changed external")
+    result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)})
+    _commit_result(repo, result_path, result, "result after changed evidence")
+
+
+@pytest.mark.parametrize("verdict", ["FAIL_METRICS", "POINT_ESTIMATE_PASS_ONLY", "PROMOTE_POINTNET"])
 def test_imports_all_declared_verdicts_without_auto_promotion(reviewed_repo: tuple[Path, Path, Path], verdict: str):
     repo, result_path, manifest_path = reviewed_repo
     hashes = {key: _sha(result_path.parent / name) for key, name in (("protocol_sha256", "protocol.json"), ("freeze_manifest_sha256", "freeze_manifest.json"), ("external_manifest_sha256", "external_dataset_manifest.json"))}
@@ -138,10 +168,104 @@ def test_imports_all_declared_verdicts_without_auto_promotion(reviewed_repo: tup
     assert after["candidate"]["promotion_evidence"]["all_passed"] is (verdict == "PROMOTE_POINTNET")
 
 
+def test_rejects_invalid_evidence_even_with_production_shaped_artifacts(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo
+    result = json.loads(result_path.read_text(encoding="utf-8")); result["verdict"] = {"verdict": "INVALID_EVIDENCE", "promote": False}; _commit_result(repo, result_path, result)
+    with pytest.raises(ValueError, match="INVALID_EVIDENCE cannot be imported"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+@pytest.mark.parametrize("change", ["missing", "extra", "wrong"])
+def test_rejects_per_tree_ids_that_do_not_equal_external_manifest(reviewed_repo: tuple[Path, Path, Path], change: str):
+    repo, result_path, manifest_path = reviewed_repo
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    for backend in ("baseline", "candidate"):
+        segmentation = result[backend]["external_segmentation"]
+        records = segmentation["per_tree"]
+        if change == "missing":
+            records.pop(EXTERNAL_IDS[-1])
+        elif change == "extra":
+            records["tree-extra"] = copy.deepcopy(records[EXTERNAL_IDS[0]])
+        else:
+            records["wrong-tree"] = records.pop(EXTERNAL_IDS[-1])
+        _refresh_segmentation(segmentation)
+    _commit_result(repo, result_path, result, f"{change} cohort IDs")
+    with pytest.raises(ValueError, match="canonical cohort"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_rejects_duplicate_per_tree_json_key(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo
+    raw = result_path.read_text(encoding="utf-8").replace('"tree-02":', '"tree-01":', 1)
+    result_path.write_text(raw, encoding="utf-8", newline="\n")
+    _git(repo, "add", result_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "duplicate result ID")
+    with pytest.raises(ValueError, match="duplicate JSON key"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+@pytest.mark.parametrize("count", [0, 66])
+def test_rejects_measurable_tree_count_outside_protocol_bounds(reviewed_repo: tuple[Path, Path, Path], count: int):
+    repo, result_path, manifest_path = reviewed_repo; result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["candidate"]["downstream"]["measurable_trees"] = count
+    result["formal_gate"]["candidate"]["measurable_trees"] = count
+    _commit_result(repo, result_path, result, f"count {count}")
+    with pytest.raises(ValueError, match="measurable_trees"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_allows_different_measurable_counts_and_paired_mean_delta(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo; result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["baseline"]["downstream"]["measurable_trees"] = 64
+    result["formal_gate"]["baseline"]["measurable_trees"] = 64
+    result["paired_deltas"]["dbh_abs_error_delta"]["estimate"] = -0.3
+    result["confidence_intervals"]["dbh_abs_error_delta"] = {"estimate": -0.3, "lower": -0.4, "upper": -0.2}
+    _commit_result(repo, result_path, result, "different paired counts")
+    imported = import_reviewed_result(result_path, manifest_path, repo_root=repo)
+    assert imported["validation"]["pointnet_independent"]["baseline"]["measurable_trees"] == 64
+
+
+@pytest.mark.parametrize("mutate, message", [
+    (lambda freeze: freeze["winner"].update({"seed": 1}), "winner seed"),
+    (lambda freeze: freeze["rerun_evidence"].update({"seed": 20260717}), "rerun seed"),
+    (lambda freeze: freeze["rerun_evidence"].update({"best_epoch": 8}), "best epoch"),
+    (lambda freeze: freeze["rerun_evidence"].update({"best_macro_tile_wood_iou": 0.4}), "Wood IoU"),
+    (lambda freeze: freeze["rerun_evidence"].update({"state_dict_sha256": "0" * 64}), "state identity"),
+    (lambda freeze: freeze["rerun_evidence"].update({"checkpoint_sha256": "0" * 64}), "checkpoint identity"),
+])
+def test_rejects_freeze_reproducibility_cross_link_mutations(reviewed_repo: tuple[Path, Path, Path], mutate, message: str):
+    repo, result_path, manifest_path = reviewed_repo; _commit_changed_freeze_and_external(repo, result_path, mutate)
+    with pytest.raises(ValueError, match=message):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_rejects_same_commit_freeze_and_external_introduction(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo; evidence = result_path.parent
+    freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
+    freeze = json.loads(freeze_path.read_text(encoding="utf-8")); freeze["environment"] = {"same": True}; _write(freeze_path, freeze)
+    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = _sha(freeze_path); _write(external_path, external)
+    _git(repo, "add", freeze_path.relative_to(repo).as_posix(), external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "same commit")
+    result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}); _commit_result(repo, result_path, result)
+    with pytest.raises(ValueError, match="strict ancestor"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_rejects_external_manifest_introduced_before_current_freeze(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo; evidence = result_path.parent
+    freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
+    freeze = json.loads(freeze_path.read_text(encoding="utf-8")); freeze["environment"] = {"reverse": True}
+    staged = evidence / "staged-freeze.json"; _write(staged, freeze); future_hash = _sha(staged); staged.unlink()
+    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = future_hash; _write(external_path, external)
+    _git(repo, "add", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "external before freeze")
+    _write(freeze_path, freeze); _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "freeze after external")
+    result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}); _commit_result(repo, result_path, result)
+    with pytest.raises(ValueError, match="strict ancestor"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
 @pytest.mark.parametrize("mutate, message", [
     (lambda result: result["formal_gate"].update({"promote": True, "status": "promoted", "failed_criteria": []}), "formal gate"),
     (lambda result: result["confidence_intervals"]["wood_iou_delta"].update({"lower": 0.3}), "bounds"),
-    (lambda result: result["candidate"]["external_segmentation"]["per_tree"]["tree-a"].update({"wood_iou": True}), "not a boolean"),
+    (lambda result: result["candidate"]["external_segmentation"]["per_tree"][EXTERNAL_IDS[0]].update({"wood_iou": True}), "not a boolean"),
     (lambda result: result["confidence_intervals"]["wood_iou_delta"].update({"extra": 1}), "missing or extra"),
     (lambda result: result["formal_gate"].update({"failed_criteria": ["not_a_criterion"]}), "failed_criteria"),
     (lambda result: result["verdict"].update({"verdict": "POINT_ESTIMATE_PASS_ONLY", "promote": True}), "verdict"),
