@@ -1,5 +1,4 @@
 import hashlib
-import importlib
 import json
 import os
 import random
@@ -7,6 +6,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -908,13 +908,77 @@ def test_pointnet_evidence_prepare_wan_uses_protocol_order_and_one_json_line(
     assert captured["outputs"] == ["wan-train.npz", "wan-dev.npz"]
 
 
-def test_pointnet_evidence_exposes_torch_lazy_training_seam(monkeypatch):
-    monkeypatch.delitem(sys.modules, "scripts.pointnet_evidence", raising=False)
-    monkeypatch.setitem(sys.modules, "torch", None)
+def test_pointnet_evidence_non_training_cli_is_torch_lazy_in_fresh_subprocess():
+    ml_root = Path(__file__).resolve().parents[1]
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(ml_root)
+    script = textwrap.dedent(
+        """\
+        import io
+        import json
+        import sys
+        from contextlib import redirect_stdout
 
-    module = importlib.import_module("scripts.pointnet_evidence")
+        sys.modules["torch"] = None
+        from scripts import pointnet_evidence
 
-    assert callable(module.train_woodleaf.train)
+        assert callable(pointnet_evidence.train_woodleaf.train)
+        assert "training.train_woodleaf" not in sys.modules
+        assert "training.pointnet2_seg" not in sys.modules
+        assert "torchvision" not in sys.modules
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exit_code = pointnet_evidence.main(
+                [
+                    "evaluate",
+                    "--protocol",
+                    ".task13-no-data-protocol.json",
+                    "--freeze-manifest",
+                    ".task13-no-data-freeze.json",
+                    "--checkpoint",
+                    ".task13-no-data.pt",
+                    "--external-root",
+                    ".task13-no-data-external",
+                    "--external-manifest",
+                    ".task13-no-data-external.json",
+                    "--demol-root",
+                    ".task13-no-data-demol",
+                    "--evidence-dir",
+                    ".task13-no-data-evidence",
+                    "--repo-root",
+                    ".",
+                ]
+            )
+
+        summary = json.loads(output.getvalue())
+        assert exit_code == 1, summary
+        assert summary["command"] == "evaluate", summary
+        assert summary["error_type"] == "IndependentEvaluationError", summary
+        assert "protocol guard failed" in summary["error"], summary
+        assert summary["status"] == "error", summary
+        assert summary["verdict"] == "INVALID_EVIDENCE", summary
+        assert sys.modules["torch"] is None
+        assert "training.train_woodleaf" not in sys.modules
+        assert "training.pointnet2_seg" not in sys.modules
+        assert "torchvision" not in sys.modules
+        print("torch-lazy-ok")
+        """
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=ml_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, (
+        f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+    )
+    assert completed.stdout == "torch-lazy-ok\n"
 
 
 def test_pointnet_evidence_train_writes_ignored_record_and_winner_copy(
