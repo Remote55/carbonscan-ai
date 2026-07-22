@@ -1,4 +1,8 @@
-"""Import a committed independent PointNet result without changing the default."""
+"""Import one committed independent PointNet result without changing defaults.
+
+This module intentionally imports neither Torch nor model code.  It validates the
+JSON evidence contract and the Git history that binds the evidence instead.
+"""
 
 from __future__ import annotations
 
@@ -9,35 +13,49 @@ import json
 import math
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_ML_ROOT = _REPO_ROOT / "services" / "ml"
+if str(_ML_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ML_ROOT))
+
+# These production validators are deliberately data-only: neither imports Torch
+# nor opens datasets/checkpoints/network resources.
+from pipeline.external_tree_dataset import _load_freeze, _validate_manifest  # noqa: E402
+from training.evidence_protocol import load_protocol  # noqa: E402
+
+
 RESULT_KEYS = {
-    "schema_version",
-    "experiment_id",
-    "protocol_sha256",
-    "freeze_manifest_sha256",
-    "external_manifest_sha256",
-    "checkpoint_sha256",
-    "evaluation_git_commit",
-    "baseline",
-    "candidate",
-    "paired_deltas",
-    "confidence_intervals",
-    "formal_gate",
-    "verdict",
-    "limitations",
+    "schema_version", "experiment_id", "protocol_sha256", "freeze_manifest_sha256",
+    "external_manifest_sha256", "checkpoint_sha256", "evaluation_git_commit",
+    "baseline", "candidate", "paired_deltas", "confidence_intervals", "formal_gate",
+    "verdict", "limitations",
 }
-VERDICTS = {
-    "INVALID_EVIDENCE",
-    "FAIL_METRICS",
-    "POINT_ESTIMATE_PASS_ONLY",
-    "PROMOTE_POINTNET",
+VERDICTS = {"INVALID_EVIDENCE", "FAIL_METRICS", "POINT_ESTIMATE_PASS_ONLY", "PROMOTE_POINTNET"}
+_METRICS = ("dbh_mae_cm", "height_mae_m", "volume_mape_pct")
+_SEGMENTATION = ("wood_iou", "leaf_iou", "mean_iou", "accuracy")
+_CONFUSION = ("wood_as_wood", "wood_as_leaf", "leaf_as_wood", "leaf_as_leaf")
+_DELTAS = {
+    "wood_iou_delta": ("Wood IoU candidate-minus-baseline", "proportion", "wood_iou"),
+    "dbh_abs_error_delta": ("DBH absolute-error candidate-minus-baseline", "cm", "dbh_mae_cm"),
+    "height_abs_error_delta": ("Height absolute-error candidate-minus-baseline", "m", "height_mae_m"),
+    "volume_ape_delta": ("Volume APE candidate-minus-baseline", "percent", "volume_mape_pct"),
 }
-_METRIC_FIELDS = ("dbh_mae_cm", "height_mae_m", "volume_mape_pct")
-_LOWER_HEX = set("0123456789abcdef")
+_POINT_CRITERIA = (
+    "wood_iou_improves", "dbh_mae_non_regression", "height_mae_non_regression",
+    "volume_mape_non_regression", "measurable_tree_count",
+)
+_OPAQUE_CRITERIA = (
+    "checkpoint_sha256", "training_provenance", "independent_real_test", "reproducible_command",
+)
+_ALL_CRITERIA = {"candidate_metrics", *_POINT_CRITERIA, *_OPAQUE_CRITERIA}
+_RESULT_RELATIVE = Path("docs/evidence/pointnet_independent_eval/result.json")
+_MANIFEST_RELATIVE = Path("docs/evidence/core_demo_manifest.json")
 
 
 def _fail_constant(value: str) -> None:
@@ -46,21 +64,17 @@ def _fail_constant(value: str) -> None:
 
 def _load_json(path: Path, *, label: str) -> dict[str, Any]:
     try:
-        payload = json.loads(
-            path.read_text(encoding="utf-8"), parse_constant=_fail_constant
-        )
+        value = json.loads(path.read_text(encoding="utf-8"), parse_constant=_fail_constant)
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"{label} cannot be parsed as finite JSON") from exc
-    if type(payload) is not dict:
+    if type(value) is not dict:
         raise ValueError(f"{label} must be a JSON object")
-    _validate_finite_json(payload, label=label)
-    return payload
+    _finite_json(value, label)
+    return value
 
 
-def _validate_finite_json(value: Any, *, label: str) -> None:
-    if value is None or type(value) in (str, int):
-        return
-    if type(value) is bool:
+def _finite_json(value: Any, label: str) -> None:
+    if value is None or type(value) in (str, int, bool):
         return
     if type(value) is float:
         if not math.isfinite(value):
@@ -68,310 +82,337 @@ def _validate_finite_json(value: Any, *, label: str) -> None:
         return
     if type(value) is list:
         for index, item in enumerate(value):
-            _validate_finite_json(item, label=f"{label}[{index}]")
+            _finite_json(item, f"{label}[{index}]")
         return
     if type(value) is dict:
         for key, item in value.items():
             if type(key) is not str:
                 raise ValueError(f"{label} keys must be strings")
-            _validate_finite_json(item, label=f"{label}.{key}")
+            _finite_json(item, f"{label}.{key}")
         return
     raise ValueError(f"{label} contains a non-JSON value")
 
 
-def _exact_keys(value: Any, keys: set[str], label: str) -> dict[str, Any]:
+def _exact(value: Any, keys: set[str], label: str) -> dict[str, Any]:
     if type(value) is not dict or set(value) != keys:
         raise ValueError(f"{label} has missing or extra schema fields")
     return value
 
 
+def _number(value: Any, label: str, *, minimum: float | None = None, maximum: float | None = None) -> float:
+    if type(value) not in (int, float):
+        raise ValueError(f"{label} must be a finite number, not a boolean")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError(f"{label} must be finite")
+    if minimum is not None and result < minimum:
+        raise ValueError(f"{label} must be at least {minimum}")
+    if maximum is not None and result > maximum:
+        raise ValueError(f"{label} must be at most {maximum}")
+    return result
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as source:
-        while chunk := source.read(1024 * 1024):
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
 
 
 def _is_sha(value: Any, length: int) -> bool:
-    return (
-        type(value) is str
-        and len(value) == length
-        and all(character in _LOWER_HEX for character in value)
-    )
+    return type(value) is str and len(value) == length and all(c in "0123456789abcdef" for c in value)
 
 
-def _inside_repo(path: Path, repo_root: Path, *, label: str) -> Path:
-    resolved = path.resolve()
+def _git(repo: Path, *args: str) -> bytes:
     try:
-        resolved.relative_to(repo_root)
-    except ValueError as exc:
-        raise ValueError(f"{label} must be inside repo_root") from exc
-    if not resolved.is_file():
-        raise ValueError(f"{label} is missing")
-    return resolved
-
-
-def _git(repo_root: Path, *args: str) -> bytes:
-    try:
-        completed = subprocess.run(
-            ["git", *args],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-        )
+        return subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True).stdout
     except (OSError, subprocess.SubprocessError) as exc:
         raise ValueError(f"Git validation failed: {' '.join(args)}") from exc
-    return completed.stdout
 
 
-def _tracked_head_bytes(path: Path, repo_root: Path, *, label: str) -> None:
-    logical = path.relative_to(repo_root).as_posix()
+def _canonical_file(value: str | Path, *, repo: Path, expected: Path, label: str) -> Path:
+    supplied = Path(value)
+    if ".." in supplied.parts or supplied.is_symlink():
+        raise ValueError(f"{label} must use its canonical repository path (no traversal or symlink)")
+    path = supplied.resolve()
+    if path != expected.resolve():
+        raise ValueError(f"{label} must equal {expected.relative_to(repo).as_posix()}")
+    # A symlinked parent may otherwise hide a non-canonical source location.
+    current = supplied if supplied.is_absolute() else repo / supplied
+    while current != repo:
+        if current.is_symlink():
+            raise ValueError(f"{label} must not traverse a symlink")
+        current = current.parent
+    if not path.is_file():
+        raise ValueError(f"{label} is missing")
+    return path
+
+
+def _tracked_head_bytes(path: Path, *, repo: Path, label: str) -> None:
+    logical = path.relative_to(repo).as_posix()
     try:
-        _git(repo_root, "ls-files", "--error-unmatch", "--", logical)
-        committed = _git(repo_root, "show", f"HEAD:{logical}")
+        _git(repo, "ls-files", "--error-unmatch", "--", logical)
+        committed = _git(repo, "show", f"HEAD:{logical}")
     except ValueError as exc:
         raise ValueError(f"{label} must be Git-tracked and committed") from exc
     if committed != path.read_bytes():
         raise ValueError(f"{label} bytes do not match its committed Git version")
 
 
-def _finite_number(value: Any, label: str, *, minimum: float | None = None) -> float:
-    if type(value) not in (int, float) or isinstance(value, bool):
-        raise ValueError(f"{label} must be a finite number, not a boolean")
-    number = float(value)
-    if not math.isfinite(number):
-        raise ValueError(f"{label} must be finite")
-    if minimum is not None and number < minimum:
-        raise ValueError(f"{label} must be at least {minimum}")
-    return number
+def _commit_exists_and_is_ancestor(commit: str, ancestor_of: str, *, repo: Path, label: str) -> None:
+    _git(repo, "cat-file", "-e", f"{commit}^{{commit}}")
+    _git(repo, "merge-base", "--is-ancestor", commit, ancestor_of)
 
 
-def _metrics(result: dict[str, Any], label: str) -> dict[str, Any]:
-    record = _exact_keys(
-        result,
-        {"external_segmentation", "downstream"},
-        f"result.{label}",
-    )
-    segmentation = record["external_segmentation"]
-    if type(segmentation) is not dict or "macro" not in segmentation:
-        raise ValueError(f"result.{label}.external_segmentation macro is required")
-    macro = segmentation["macro"]
-    if type(macro) is not dict or "wood_iou" not in macro:
-        raise ValueError(f"result.{label}.external_segmentation.macro.wood_iou is required")
-    wood_iou = _finite_number(
-        macro["wood_iou"], f"result.{label}.external macro Wood IoU", minimum=0.0
-    )
-    if wood_iou > 1.0:
-        raise ValueError(f"result.{label}.external macro Wood IoU must not exceed 1")
-    downstream = record["downstream"]
-    if type(downstream) is not dict:
-        raise ValueError(f"result.{label}.downstream must be an object")
-    values = {"external_macro_wood_iou": macro["wood_iou"]}
-    for field in _METRIC_FIELDS:
-        values[field] = downstream.get(field)
-        _finite_number(values[field], f"result.{label}.downstream.{field}", minimum=0.0)
-    count = downstream.get("measurable_trees")
-    if type(count) is not int or count <= 0:
+def _commit_bytes(path: Path, commit: str, *, repo: Path, label: str) -> None:
+    logical = path.relative_to(repo).as_posix()
+    try:
+        committed = _git(repo, "show", f"{commit}:{logical}")
+    except ValueError as exc:
+        raise ValueError(f"{label} is not committed at evaluation_git_commit") from exc
+    if committed != path.read_bytes():
+        raise ValueError(f"{label} bytes differ from evaluation_git_commit")
+
+
+def _from_confusion(confusion: dict[str, int]) -> dict[str, Any]:
+    wood, wood_leaf, leaf_wood, leaf = (confusion[key] for key in _CONFUSION)
+    total = wood + wood_leaf + leaf_wood + leaf
+    if total <= 0:
+        raise ValueError("segmentation confusion must represent at least one point")
+    wood_iou = wood / (wood + wood_leaf + leaf_wood) if wood + wood_leaf + leaf_wood else 1.0
+    leaf_iou = leaf / (leaf + wood_leaf + leaf_wood) if leaf + wood_leaf + leaf_wood else 1.0
+    return {"wood_iou": wood_iou, "leaf_iou": leaf_iou, "mean_iou": (wood_iou + leaf_iou) / 2.0, "accuracy": (wood + leaf) / total, "confusion": dict(confusion)}
+
+
+def _segmentation_record(value: Any, label: str) -> dict[str, Any]:
+    record = _exact(value, {*_SEGMENTATION, "confusion"}, label)
+    confusion = _exact(record["confusion"], set(_CONFUSION), f"{label}.confusion")
+    if any(type(confusion[key]) is not int or confusion[key] < 0 for key in _CONFUSION):
+        raise ValueError(f"{label}.confusion must contain non-negative integer counts")
+    expected = _from_confusion(confusion)
+    for key in _SEGMENTATION:
+        _number(record[key], f"{label}.{key}", minimum=0.0, maximum=1.0)
+        if record[key] != expected[key]:
+            raise ValueError(f"{label}.{key} is inconsistent with confusion")
+    return expected
+
+
+def _segmentation(value: Any, label: str) -> dict[str, Any]:
+    record = _exact(value, {"per_tree", "macro", "pooled"}, f"result.{label}.external_segmentation")
+    per_tree = record["per_tree"]
+    if type(per_tree) is not dict or not per_tree:
+        raise ValueError(f"result.{label}.external_segmentation.per_tree must be non-empty")
+    retained: list[dict[str, Any]] = []
+    totals = dict.fromkeys(_CONFUSION, 0)
+    for tree_id, tree in per_tree.items():
+        if type(tree_id) is not str or not tree_id:
+            raise ValueError(f"result.{label} external tree IDs must be non-empty strings")
+        canonical = _segmentation_record(tree, f"result.{label}.external[{tree_id}]")
+        retained.append(canonical)
+        for key in _CONFUSION:
+            totals[key] += canonical["confusion"][key]
+    macro = _exact(record["macro"], set(_SEGMENTATION), f"result.{label}.external macro")
+    expected_macro = {key: sum(tree[key] for tree in retained) / len(retained) for key in _SEGMENTATION}
+    for key in _SEGMENTATION:
+        _number(macro[key], f"result.{label}.external macro.{key}", minimum=0.0, maximum=1.0)
+        if macro[key] != expected_macro[key]:
+            raise ValueError(f"result.{label}.external macro is inconsistent with per-tree records")
+    if _segmentation_record(record["pooled"], f"result.{label}.external pooled") != _from_confusion(totals):
+        raise ValueError(f"result.{label}.external pooled metrics are inconsistent")
+    return {"wood_iou": macro["wood_iou"]}
+
+
+def _metrics(value: Any, label: str) -> dict[str, Any]:
+    record = _exact(value, {"external_segmentation", "downstream"}, f"result.{label}")
+    result = _segmentation(record["external_segmentation"], label)
+    downstream = _exact(record["downstream"], {*_METRICS, "measurable_trees"}, f"result.{label}.downstream")
+    for key in _METRICS:
+        _number(downstream[key], f"result.{label}.downstream.{key}", minimum=0.0)
+        result[key] = downstream[key]
+    if type(downstream["measurable_trees"]) is not int or downstream["measurable_trees"] <= 0:
         raise ValueError(f"result.{label}.downstream.measurable_trees must be a positive integer")
-    values["measurable_trees"] = count
-    return values
-
-
-def _validate_result(result: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(result, RESULT_KEYS, "result")
-    if result["schema_version"] != "1":
-        raise ValueError("result schema_version must equal '1'")
-    if type(result["experiment_id"]) is not str or not result["experiment_id"]:
-        raise ValueError("result experiment_id must be a non-empty string")
-    for field in (
-        "protocol_sha256",
-        "freeze_manifest_sha256",
-        "external_manifest_sha256",
-        "checkpoint_sha256",
-    ):
-        if not _is_sha(result[field], 64):
-            raise ValueError(f"result {field} must be lowercase SHA-256")
-    if not _is_sha(result["evaluation_git_commit"], 40):
-        raise ValueError("result evaluation_git_commit must be lowercase Git SHA")
-
-    baseline = _metrics(result["baseline"], "baseline")
-    candidate = _metrics(result["candidate"], "candidate")
-    formal = _exact_keys(
-        result["formal_gate"],
-        {"promote", "status", "failed_criteria", "baseline", "candidate"},
-        "result.formal_gate",
-    )
-    if type(formal["promote"]) is not bool or type(formal["status"]) is not str:
-        raise ValueError("result formal_gate values are malformed")
-    if formal["status"] not in {"promoted", "rejected", "candidate_not_evaluated"}:
-        raise ValueError("result formal_gate status is invalid")
-    if type(formal["failed_criteria"]) is not list or any(
-        type(item) is not str or not item for item in formal["failed_criteria"]
-    ):
-        raise ValueError("result formal_gate failed_criteria must be non-empty strings")
-    if len(set(formal["failed_criteria"])) != len(formal["failed_criteria"]):
-        raise ValueError("result formal_gate failed_criteria must be unique")
-    formal_baseline = _formal_metrics(formal["baseline"], "baseline")
-    formal_candidate = _formal_metrics(formal["candidate"], "candidate")
-    if formal_baseline != _formal_from_result(baseline) or formal_candidate != _formal_from_result(candidate):
-        raise ValueError("result formal gate metrics do not match reported metrics")
-
-    verdict = _exact_keys(result["verdict"], {"verdict", "promote"}, "result.verdict")
-    if verdict["verdict"] not in VERDICTS or type(verdict["promote"]) is not bool:
-        raise ValueError("result verdict is malformed")
-    if verdict["verdict"] != "POINT_ESTIMATE_PASS_ONLY" and verdict["promote"] != formal["promote"]:
-        raise ValueError("result verdict and formal gate promote values disagree")
-    if verdict["verdict"] == "PROMOTE_POINTNET":
-        if not (formal["promote"] and formal["status"] == "promoted" and not formal["failed_criteria"]):
-            raise ValueError("PROMOTE_POINTNET requires a fully passed formal gate")
-    elif verdict["verdict"] == "POINT_ESTIMATE_PASS_ONLY":
-        if not (formal["promote"] and formal["status"] == "promoted" and not formal["failed_criteria"]):
-            raise ValueError("POINT_ESTIMATE_PASS_ONLY requires a passed formal gate")
-    elif formal["promote"] or formal["status"] != "rejected" or not formal["failed_criteria"]:
-        raise ValueError("only passed verdicts may use a promoted formal gate")
-    if type(result["limitations"]) is not list or not result["limitations"] or any(
-        type(item) is not str or not item for item in result["limitations"]
-    ):
-        raise ValueError("result limitations must be non-empty strings")
-    return {
-        "baseline": baseline,
-        "candidate": candidate,
-        "formal_failed_criteria": list(formal["failed_criteria"]),
-        "verdict": verdict["verdict"],
-    }
+    result["measurable_trees"] = downstream["measurable_trees"]
+    return result
 
 
 def _formal_metrics(value: Any, label: str) -> dict[str, Any]:
-    record = _exact_keys(
-        value,
-        {"wood_iou", *set(_METRIC_FIELDS), "measurable_trees"},
-        f"result.formal_gate.{label}",
-    )
-    _finite_number(record["wood_iou"], f"result.formal_gate.{label}.wood_iou", minimum=0.0)
-    for field in _METRIC_FIELDS:
-        _finite_number(record[field], f"result.formal_gate.{label}.{field}", minimum=0.0)
+    record = _exact(value, {"wood_iou", *_METRICS, "measurable_trees"}, f"result.formal_gate.{label}")
+    _number(record["wood_iou"], f"result.formal_gate.{label}.wood_iou", minimum=0.0, maximum=1.0)
+    for key in _METRICS:
+        _number(record[key], f"result.formal_gate.{label}.{key}", minimum=0.0)
     if type(record["measurable_trees"]) is not int or record["measurable_trees"] <= 0:
-        raise ValueError(f"result.formal_gate.{label}.measurable_trees must be positive")
+        raise ValueError(f"result.formal_gate.{label}.measurable_trees must be a positive integer")
     return record
 
 
-def _formal_from_result(metrics: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "wood_iou": metrics["external_macro_wood_iou"],
-        **{field: metrics[field] for field in _METRIC_FIELDS},
-        "measurable_trees": metrics["measurable_trees"],
+def _intervals(value: Any) -> dict[str, dict[str, Any]]:
+    intervals = _exact(value, set(_DELTAS), "result confidence intervals")
+    for name, interval in intervals.items():
+        _exact(interval, {"estimate", "lower", "upper"}, f"result confidence intervals.{name}")
+        for field in ("estimate", "lower", "upper"):
+            _number(interval[field], f"result confidence intervals.{name}.{field}")
+        if not interval["lower"] <= interval["estimate"] <= interval["upper"]:
+            raise ValueError(f"result confidence intervals.{name} bounds are inconsistent")
+    return intervals
+
+
+def _validate_deltas(value: Any, intervals: dict[str, dict[str, Any]], baseline: dict[str, Any], candidate: dict[str, Any]) -> None:
+    deltas = _exact(value, set(_DELTAS), "result paired_deltas")
+    if baseline["measurable_trees"] != candidate["measurable_trees"]:
+        raise ValueError("result measurable-tree counts must match for paired deltas")
+    for key, (name, unit, metric) in _DELTAS.items():
+        delta = _exact(deltas[key], {"name", "unit", "estimate"}, f"result paired_deltas.{key}")
+        if delta["name"] != name or delta["unit"] != unit:
+            raise ValueError(f"result paired_deltas.{key} declaration is invalid")
+        _number(delta["estimate"], f"result paired_deltas.{key}.estimate")
+        if delta["estimate"] != intervals[key]["estimate"]:
+            raise ValueError(f"result paired_deltas.{key} estimate does not match confidence interval")
+        if delta["estimate"] != candidate[metric] - baseline[metric]:
+            raise ValueError(f"result paired_deltas.{key} estimate is inconsistent with aggregate metrics")
+
+
+def _formal_failures(baseline: dict[str, Any], candidate: dict[str, Any]) -> list[str]:
+    checks = {
+        "checkpoint_sha256": True,
+        "training_provenance": True,
+        "independent_real_test": True,
+        "reproducible_command": True,
+        "wood_iou_improves": candidate["wood_iou"] > baseline["wood_iou"],
+        "dbh_mae_non_regression": candidate["dbh_mae_cm"] <= baseline["dbh_mae_cm"],
+        "height_mae_non_regression": candidate["height_mae_m"] <= baseline["height_mae_m"],
+        "volume_mape_non_regression": candidate["volume_mape_pct"] <= baseline["volume_mape_pct"],
+        "measurable_tree_count": candidate["measurable_trees"] >= baseline["measurable_trees"],
     }
+    return [criterion for criterion, passed in checks.items() if not passed]
 
 
-def _validate_cross_links(result: dict[str, Any], result_path: Path, repo_root: Path) -> None:
+def _validate_result(result: dict[str, Any]) -> dict[str, Any]:
+    _exact(result, RESULT_KEYS, "result")
+    if result["schema_version"] != "1" or type(result["experiment_id"]) is not str or not result["experiment_id"]:
+        raise ValueError("result identity is malformed")
+    for key in ("protocol_sha256", "freeze_manifest_sha256", "external_manifest_sha256", "checkpoint_sha256"):
+        if not _is_sha(result[key], 64):
+            raise ValueError(f"result {key} must be lowercase SHA-256")
+    if not _is_sha(result["evaluation_git_commit"], 40):
+        raise ValueError("result evaluation_git_commit must be lowercase Git SHA")
+    baseline, candidate = _metrics(result["baseline"], "baseline"), _metrics(result["candidate"], "candidate")
+    intervals = _intervals(result["confidence_intervals"])
+    _validate_deltas(result["paired_deltas"], intervals, baseline, candidate)
+    formal = _exact(result["formal_gate"], {"promote", "status", "failed_criteria", "baseline", "candidate"}, "result.formal_gate")
+    if type(formal["promote"]) is not bool or type(formal["status"]) is not str or formal["status"] not in {"promoted", "rejected"}:
+        raise ValueError("result formal_gate values are malformed")
+    if type(formal["failed_criteria"]) is not list or any(type(item) is not str or item not in _ALL_CRITERIA for item in formal["failed_criteria"]):
+        raise ValueError("result formal_gate failed_criteria are invalid")
+    if len(set(formal["failed_criteria"])) != len(formal["failed_criteria"]):
+        raise ValueError("result formal_gate failed_criteria must be unique")
+    formal_baseline, formal_candidate = _formal_metrics(formal["baseline"], "baseline"), _formal_metrics(formal["candidate"], "candidate")
+    expected_baseline = {"wood_iou": baseline["wood_iou"], **{key: baseline[key] for key in _METRICS}, "measurable_trees": baseline["measurable_trees"]}
+    expected_candidate = {"wood_iou": candidate["wood_iou"], **{key: candidate[key] for key in _METRICS}, "measurable_trees": candidate["measurable_trees"]}
+    if formal_baseline != expected_baseline or formal_candidate != expected_candidate:
+        raise ValueError("result formal gate metrics do not match reported metrics")
+    failures = _formal_failures(baseline, candidate)
+    if formal["failed_criteria"] != failures or formal["promote"] != (not failures) or formal["status"] != ("promoted" if not failures else "rejected"):
+        raise ValueError("result formal gate is inconsistent with recomputed metrics")
+    verdict = _exact(result["verdict"], {"verdict", "promote"}, "result.verdict")
+    if verdict["verdict"] not in VERDICTS or type(verdict["promote"]) is not bool:
+        raise ValueError("result verdict is malformed")
+    strong = intervals["wood_iou_delta"]["lower"] > 0 and all(intervals[name]["upper"] <= 0 for name in ("dbh_abs_error_delta", "height_abs_error_delta", "volume_ape_delta"))
+    expected = "PROMOTE_POINTNET" if not failures and strong else "POINT_ESTIMATE_PASS_ONLY" if not failures else "FAIL_METRICS"
+    # INVALID_EVIDENCE remains a review record for a formally rejected run.  A
+    # verified importer never lets it grant promotion or erase formal failures.
+    if verdict["verdict"] == "INVALID_EVIDENCE":
+        if not failures or verdict["promote"] is not False:
+            raise ValueError("INVALID_EVIDENCE requires a rejected formal gate")
+    elif verdict["verdict"] != expected or verdict["promote"] != (expected == "PROMOTE_POINTNET"):
+        raise ValueError("result verdict is inconsistent with formal gate and confidence intervals")
+    if type(result["limitations"]) is not list or not result["limitations"] or any(type(item) is not str or not item for item in result["limitations"]):
+        raise ValueError("result limitations must be non-empty strings")
+    return {"baseline": baseline, "candidate": candidate, "failed_criteria": failures, "verdict": verdict["verdict"]}
+
+
+def _validate_cross_links(result: dict[str, Any], *, result_path: Path, repo: Path) -> None:
     siblings = {
         "protocol_sha256": result_path.parent / "protocol.json",
         "freeze_manifest_sha256": result_path.parent / "freeze_manifest.json",
         "external_manifest_sha256": result_path.parent / "external_dataset_manifest.json",
     }
-    payloads: dict[str, dict[str, Any]] = {}
-    for hash_field, path in siblings.items():
-        path = _inside_repo(path, repo_root, label=path.name)
-        _tracked_head_bytes(path, repo_root, label=path.name)
-        if _sha256(path) != result[hash_field]:
-            raise ValueError(f"result {hash_field} does not match {path.name}")
-        payloads[hash_field] = _load_json(path, label=path.name)
-
-    protocol = payloads["protocol_sha256"]
-    freeze = payloads["freeze_manifest_sha256"]
-    external = payloads["external_manifest_sha256"]
-    experiment_id = result["experiment_id"]
-    if protocol.get("experiment_id") != experiment_id:
-        raise ValueError("protocol experiment identity does not match result")
+    evaluation = result["evaluation_git_commit"]
+    _commit_exists_and_is_ancestor(evaluation, "HEAD", repo=repo, label="evaluation_git_commit")
+    loaded: dict[str, dict[str, Any]] = {}
+    for field, path in siblings.items():
+        path = _canonical_file(path, repo=repo, expected=path, label=path.name)
+        _tracked_head_bytes(path, repo=repo, label=path.name)
+        _commit_bytes(path, evaluation, repo=repo, label=path.name)
+        if _sha256(path) != result[field]:
+            raise ValueError(f"result {field} does not match {path.name}")
+        loaded[field] = _load_json(path, label=path.name)
+    _, freeze, external = loaded.values()
+    try:
+        production_protocol = load_protocol(siblings["protocol_sha256"])
+        production_freeze = _load_freeze(siblings["freeze_manifest_sha256"])
+        _validate_manifest(external)
+    except Exception as exc:
+        raise ValueError(f"production evidence schema is invalid: {exc}") from exc
+    training = production_freeze["training_git_commit"]
+    _commit_exists_and_is_ancestor(training, evaluation, repo=repo, label="training_git_commit")
     checks = {
-        "freeze experiment": freeze.get("experiment_id") == experiment_id,
-        "external experiment": external.get("experiment_id") == experiment_id,
-        "freeze protocol": freeze.get("protocol_sha256") == result["protocol_sha256"],
-        "external protocol": external.get("protocol_sha256") == result["protocol_sha256"],
-        "external freeze": external.get("freeze_manifest_sha256") == result["freeze_manifest_sha256"],
-        "freeze checkpoint": freeze.get("winner", {}).get("checkpoint_sha256")
-        == result["checkpoint_sha256"],
-        "external checkpoint": external.get("checkpoint_sha256") == result["checkpoint_sha256"],
+        "protocol experiment": production_protocol["experiment_id"] == result["experiment_id"],
+        "freeze experiment": freeze["experiment_id"] == result["experiment_id"],
+        "external experiment": external["experiment_id"] == result["experiment_id"],
+        "freeze protocol": freeze["protocol_sha256"] == result["protocol_sha256"],
+        "external protocol": external["protocol_sha256"] == result["protocol_sha256"],
+        "external freeze": external["freeze_manifest_sha256"] == result["freeze_manifest_sha256"],
+        "freeze training configuration": freeze["training_configuration"] == production_protocol["training"],
+        "freeze checkpoint": freeze["winner"]["checkpoint_sha256"] == result["checkpoint_sha256"],
+        "external checkpoint": external["checkpoint_sha256"] == result["checkpoint_sha256"],
     }
     failed = [name for name, matched in checks.items() if not matched]
     if failed:
         raise ValueError(f"evidence cross-links do not bind result: {', '.join(failed)}")
 
 
-def _pointnet_capability(manifest: dict[str, Any]) -> dict[str, Any]:
-    rows = [
-        row
-        for row in manifest.get("capabilities", [])
-        if type(row) is dict and row.get("name") == "5b. PointNet++ wood/leaf candidate"
-    ]
+def _independent_block(result: dict[str, Any], validated: dict[str, Any], path: Path, repo: Path) -> dict[str, Any]:
+    def truth_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "external_macro_wood_iou": metrics["wood_iou"],
+            **{key: metrics[key] for key in _METRICS},
+            "measurable_trees": metrics["measurable_trees"],
+        }
+
+    return {
+        "result_path": path.relative_to(repo).as_posix(), "result_sha256": _sha256(path), "verdict": validated["verdict"],
+        "baseline": truth_metrics(validated["baseline"]), "candidate": truth_metrics(validated["candidate"]),
+        "provenance": {key: result[key] for key in ("experiment_id", "protocol_sha256", "freeze_manifest_sha256", "external_manifest_sha256", "checkpoint_sha256", "evaluation_git_commit")},
+        "failed_criteria": validated["failed_criteria"], "limitations": list(result["limitations"]),
+    }
+
+
+def _pointnet_row(manifest: dict[str, Any]) -> dict[str, Any]:
+    rows = [row for row in manifest.get("capabilities", []) if type(row) is dict and row.get("name") == "5b. PointNet++ wood/leaf candidate"]
     if len(rows) != 1:
         raise ValueError("manifest must contain exactly one PointNet++ capability row")
     return rows[0]
 
 
-def _independent_block(
-    result: dict[str, Any],
-    validated: dict[str, Any],
-    result_path: Path,
-    repo_root: Path,
-) -> dict[str, Any]:
-    return {
-        "result_path": result_path.relative_to(repo_root).as_posix(),
-        "result_sha256": _sha256(result_path),
-        "verdict": validated["verdict"],
-        "baseline": validated["baseline"],
-        "candidate": validated["candidate"],
-        "provenance": {
-            field: result[field]
-            for field in (
-                "experiment_id",
-                "protocol_sha256",
-                "freeze_manifest_sha256",
-                "external_manifest_sha256",
-                "checkpoint_sha256",
-                "evaluation_git_commit",
-            )
-        },
-        "failed_criteria": validated["formal_failed_criteria"],
-        "limitations": list(result["limitations"]),
-    }
+def _assert_allowed(before: dict[str, Any], after: dict[str, Any]) -> None:
+    old_candidate, new_candidate = before.get("candidate"), after.get("candidate")
+    if type(old_candidate) is not dict or type(new_candidate) is not dict or old_candidate.get("status") != "Experimental" or old_candidate.get("promoted") is not False:
+        raise ValueError("pre-import candidate must be Experimental and unpromoted")
+    if new_candidate.get("status") != old_candidate["status"] or new_candidate.get("promoted") is not old_candidate["promoted"]:
+        raise ValueError("importer must not change candidate status or promoted")
+    if type(old_candidate.get("promotion_evidence")) is not dict or type(new_candidate.get("promotion_evidence")) is not dict or old_candidate["promotion_evidence"].get("policy") != new_candidate["promotion_evidence"].get("policy"):
+        raise ValueError("importer must preserve promotion policy text")
+    expected = copy.deepcopy(before)
+    expected["candidate"]["promotion_evidence"] = copy.deepcopy(after["candidate"]["promotion_evidence"])
+    expected["validation"]["pointnet_independent"] = copy.deepcopy(after["validation"]["pointnet_independent"])
+    old_row, new_row = _pointnet_row(expected), _pointnet_row(after)
+    old_row["evidence"], old_row["claim"] = new_row.get("evidence"), new_row.get("claim")
+    if expected != after:
+        raise ValueError("importer may change only reviewed PointNet evidence surfaces")
 
 
-def validate_imported_independent(
-    block: Any, *, repo_root: str | Path
-) -> dict[str, Any]:
-    """Revalidate imported bytes and cross-links for ``sync_truth --check``."""
-    repository = Path(repo_root).resolve()
-    imported = _exact_keys(
-        block,
-        {
-            "result_path",
-            "result_sha256",
-            "verdict",
-            "baseline",
-            "candidate",
-            "provenance",
-            "failed_criteria",
-            "limitations",
-        },
-        "validation.pointnet_independent",
-    )
-    relative = imported["result_path"]
-    if type(relative) is not str or not relative or Path(relative).is_absolute():
-        raise ValueError("validation.pointnet_independent result_path must be repository-relative")
-    result_file = _inside_repo(repository / relative, repository, label="imported result")
-    _tracked_head_bytes(result_file, repository, label="imported result")
-    result = _load_json(result_file, label="imported result")
-    validated = _validate_result(result)
-    _validate_cross_links(result, result_file, repository)
-    expected = _independent_block(result, validated, result_file, repository)
-    if imported != expected:
-        raise ValueError("validation.pointnet_independent does not match the committed result")
-    return expected
-
-
-def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+def _write_atomic(path: Path, payload: dict[str, Any]) -> None:
     text = json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
@@ -383,87 +424,59 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
         raise
 
 
-def import_reviewed_result(
-    result_path: str | Path,
-    manifest_path: str | Path,
-    *,
-    repo_root: str | Path,
-) -> dict[str, Any]:
-    """Import one committed result while preserving every non-review surface."""
-    repository = Path(repo_root).resolve()
-    result_file = _inside_repo(Path(result_path), repository, label="result")
-    manifest_file = _inside_repo(Path(manifest_path), repository, label="manifest")
-    _tracked_head_bytes(result_file, repository, label="result")
+def import_reviewed_result(result_path: str | Path, manifest_path: str | Path, *, repo_root: str | Path) -> dict[str, Any]:
+    """Validate and atomically import one committed evidence result."""
+    repo = Path(repo_root).resolve()
+    result_file = _canonical_file(result_path, repo=repo, expected=repo / _RESULT_RELATIVE, label="result")
+    manifest_file = _canonical_file(manifest_path, repo=repo, expected=repo / _MANIFEST_RELATIVE, label="manifest")
+    _tracked_head_bytes(result_file, repo=repo, label="result")
     result = _load_json(result_file, label="result")
     validated = _validate_result(result)
-    _validate_cross_links(result, result_file, repository)
-    manifest = _load_json(manifest_file, label="manifest")
-    before = copy.deepcopy(manifest)
-    updated = copy.deepcopy(manifest)
+    _validate_cross_links(result, result_path=result_file, repo=repo)
+    before = _load_json(manifest_file, label="manifest")
+    updated = copy.deepcopy(before)
     candidate = updated.get("candidate")
-    if type(candidate) is not dict:
-        raise ValueError("manifest candidate is missing")
-    promotion = candidate.get("promotion_evidence")
-    if type(promotion) is not dict or type(promotion.get("policy")) is not str:
+    if type(candidate) is not dict or type(candidate.get("promotion_evidence")) is not dict or type(candidate["promotion_evidence"].get("policy")) is not str:
         raise ValueError("manifest promotion evidence policy is missing")
-    candidate["status"] = "Experimental"
-    candidate["promoted"] = False
-    promotion["all_passed"] = validated["verdict"] == "PROMOTE_POINTNET"
-    promotion["failed_criteria"] = (
-        [] if promotion["all_passed"] else validated["formal_failed_criteria"]
-    )
-    validation = updated.get("validation")
-    if type(validation) is not dict:
+    # Do not assign candidate.status/promoted: _assert_allowed proves immutability.
+    candidate["promotion_evidence"]["all_passed"] = validated["verdict"] == "PROMOTE_POINTNET"
+    candidate["promotion_evidence"]["failed_criteria"] = [] if candidate["promotion_evidence"]["all_passed"] else validated["failed_criteria"]
+    if type(updated.get("validation")) is not dict:
         raise ValueError("manifest validation is missing")
-    validation["pointnet_independent"] = _independent_block(
-        result, validated, result_file, repository
-    )
-    pointnet = _pointnet_capability(updated)
-    for field in ("evidence", "claim"):
-        if type(pointnet.get(field)) is not str:
-            raise ValueError(f"PointNet++ capability {field} is missing")
-    pointnet["evidence"] = (
-        f"{validation['pointnet_independent']['result_path']}; SHA-256 "
-        f"{validation['pointnet_independent']['result_sha256']}"
-    )
-    pointnet["claim"] = (
-        f"Reviewed independent verdict {validated['verdict']}; candidate external macro Wood IoU "
-        f"{validated['candidate']['external_macro_wood_iou']}; remains Experimental and not default-promoted."
-    )
-    _assert_only_allowed_changes(before, updated)
-    _write_json_atomic(manifest_file, updated)
+    updated["validation"]["pointnet_independent"] = _independent_block(result, validated, result_file, repo)
+    row = _pointnet_row(updated)
+    if type(row.get("evidence")) is not str or type(row.get("claim")) is not str:
+        raise ValueError("PointNet++ capability evidence/claim is missing")
+    independent = updated["validation"]["pointnet_independent"]
+    row["evidence"] = f"{independent['result_path']}; SHA-256 {independent['result_sha256']}"
+    row["claim"] = f"Reviewed independent verdict {validated['verdict']}; candidate external macro Wood IoU {validated['candidate']['wood_iou']}; remains Experimental and not default-promoted."
+    _assert_allowed(before, updated)
+    _write_atomic(manifest_file, updated)
     return updated
 
 
-def _assert_only_allowed_changes(before: dict[str, Any], after: dict[str, Any]) -> None:
-    if before.get("baseline") != after.get("baseline"):
-        raise ValueError("importer must not change baseline")
-    for field in ("backend", "display_name"):
-        if before.get("candidate", {}).get(field) != after.get("candidate", {}).get(field):
-            raise ValueError(f"importer must not change candidate.{field}")
-    if after.get("candidate", {}).get("status") != "Experimental" or after.get("candidate", {}).get("promoted") is not False:
-        raise ValueError("importer must retain Experimental, unpromoted candidate")
-    if before.get("core_demo") != after.get("core_demo"):
-        raise ValueError("importer must not change core_demo")
-    before_rows = {row.get("name"): row for row in before.get("capabilities", []) if type(row) is dict}
-    after_rows = {row.get("name"): row for row in after.get("capabilities", []) if type(row) is dict}
-    for name, row in before_rows.items():
-        if name != "5b. PointNet++ wood/leaf candidate" and after_rows.get(name) != row:
-            raise ValueError("importer must not change non-PointNet capabilities")
-    preserved_validation = {
-        key: value for key, value in before.get("validation", {}).items() if key != "pointnet_independent"
-    }
-    if {
-        key: value for key, value in after.get("validation", {}).items() if key != "pointnet_independent"
-    } != preserved_validation:
-        raise ValueError("importer must not change existing validation evidence")
+def validate_imported_independent(block: Any, *, repo_root: str | Path) -> dict[str, Any]:
+    """Re-hash and re-validate imported evidence for ``sync_truth --check``."""
+    repo = Path(repo_root).resolve()
+    imported = _exact(block, {"result_path", "result_sha256", "verdict", "baseline", "candidate", "provenance", "failed_criteria", "limitations"}, "validation.pointnet_independent")
+    if imported.get("result_path") != _RESULT_RELATIVE.as_posix() or not _is_sha(imported.get("result_sha256"), 64):
+        raise ValueError("validation.pointnet_independent must use the canonical result path and SHA-256")
+    path = _canonical_file(repo / imported["result_path"], repo=repo, expected=repo / _RESULT_RELATIVE, label="imported result")
+    _tracked_head_bytes(path, repo=repo, label="imported result")
+    result = _load_json(path, label="imported result")
+    validated = _validate_result(result)
+    _validate_cross_links(result, result_path=path, repo=repo)
+    expected = _independent_block(result, validated, path, repo)
+    if imported != expected:
+        raise ValueError("validation.pointnet_independent does not match the committed result")
+    return expected
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--repo-root", type=Path, default=_REPO_ROOT)
     args = parser.parse_args()
     import_reviewed_result(args.result, args.manifest, repo_root=args.repo_root)
     print(json.dumps({"status": "ok", "result": str(args.result)}, sort_keys=True))
