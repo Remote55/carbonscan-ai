@@ -46,7 +46,8 @@ dev loader selected the epoch, so it is validation/development evidence,
 not an independent final test or promotion gate.
 
 > **Harder, cross-species test (optional):** pass only 2 plots to `--plots` and
-> evaluate on the 3rd species' tiles (regenerate with that plot as the test set).
+> evaluate on the 3rd species' tiles (regenerate that plot as the development
+> split). This remains development evidence, not an independent final test.
 > This is leave-one-species-out and is a stronger (harder) claim.
 
 ## Step 2 — Fine-tune on Colab (free GPU)
@@ -106,12 +107,14 @@ evaluation is still required before making a real-data performance claim."*
   `--min-pts` (drop sparse cells), `--frac` / `--buffer` (split). Defaults match
   the numbers above.
 
-## Same-environment experiments (train+test on real Wan, 4 variants)
+## Same-environment experiments (train+development on real Wan, 4 variants)
 
-Per advisor guidance: train/test on the **same real environment** with more data,
-use synthetic only as **augmentation**, and **keep every result**.
+Per advisor guidance: use a train+development split in the **same real
+environment** with more data, use synthetic only as **augmentation**, and
+**keep every result**. This development split has the limits stated above and
+does not become an independent final test.
 
-### Step A — regenerate a bigger real training set (local)
+### Step A — regenerate bigger real training and development sets (local)
 ```bash
 cd services/ml && python -m training.realdata_dataset \
   --plots data/realdata/wan2021/reference_pc_White_Birch.txt \
@@ -143,4 +146,7 @@ Each run ends with a line like:
 ```
 [held-out] wood_iou=0.31 leaf_iou=0.55 mean_iou=0.43 accuracy=0.62
 ```
+Here `[held-out]` is the training script's legacy output label for the
+development split. It is not an independent or final test.
+
 Copy those numbers into the matrix table in `docs/ml/WOODLEAF_RESULTS.md` (one row per variant).

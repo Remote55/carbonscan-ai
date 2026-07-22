@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 
 import pytest
 from scripts.sync_truth import (
@@ -56,6 +57,28 @@ CONTROLLED_WAN_METRIC_DOCS = (
 )
 
 
+UNSUPPORTED_WAN_POSITIVE_CLAIMS = (
+    re.compile(
+        r"\b(?:is|provides|uses)\s+(?:a\s+)?leakage[- ]free\s+(?:held[- ]out|split)\b"
+    ),
+    re.compile(
+        r"\b(?:is|constitutes|provides)\s+(?:an?\s+)?real\s+(?:tls\s+)?test(?:\s+set)?\b"
+    ),
+    re.compile(
+        r"\b(?:the\s+)?split\s+(?:guarantees|ensures|proves|confirms|shows)\s+"
+        r"(?:that\s+)?no\s+shared\s+trees?\b"
+    ),
+    re.compile(
+        r"(?<!not )(?<!cannot )(?<!does not )\b(?:guarantees|ensures|proves|confirms|shows)\s+"
+        r"(?:\w+\s+){0,4}unseen\s+trees?\b"
+    ),
+    re.compile(
+        r"\btrain\s*(?:/|and)\s*(?:test|development)\b[^.\n]{0,60}\bnever\s+share(?:s)?\s+"
+        r"(?:a\s+)?tree\b"
+    ),
+)
+
+
 def _without_generated_truth_blocks(text: str) -> str:
     """Return prose that authors, rather than sync_truth, control."""
     start = "<!-- TREEQ_TRUTH_START -->"
@@ -64,6 +87,16 @@ def _without_generated_truth_blocks(text: str) -> str:
         block_end = text.index(end, text.index(start)) + len(end)
         text = text[: text.index(start)] + text[block_end:]
     return text
+
+
+def _unsupported_wan_positive_claims(prose: str) -> tuple[str, ...]:
+    """Find only affirmative, unsupported Wan split claims in author prose."""
+    lowered = " ".join(prose.lower().split())
+    return tuple(
+        pattern.pattern
+        for pattern in UNSUPPORTED_WAN_POSITIVE_CLAIMS
+        if pattern.search(lowered)
+    )
 
 
 def _manifest(tmp_path: Path) -> Path:
@@ -236,14 +269,33 @@ def test_wan_development_prose_states_split_limits(path: Path):
     ):
         assert fact in prose, (path, fact)
 
-    for stale_claim in (
-        "leakage-free held-out",
-        "train/test never share a tree",
-        "no tree leaks across the split",
-        "unseen trees",
-        "honest number to report",
-    ):
-        assert stale_claim not in prose, (path, stale_claim)
+    assert not _unsupported_wan_positive_claims(prose), path
+
+
+@pytest.mark.parametrize(
+    "honest_prose",
+    (
+        "This development split does not prove unseen trees.",
+        "The current evidence is not an independent final test.",
+        "A future independent final test is required before promotion.",
+    ),
+)
+def test_wan_positive_claim_detector_accepts_honest_limitations(honest_prose: str):
+    assert not _unsupported_wan_positive_claims(honest_prose)
+
+
+@pytest.mark.parametrize(
+    "unsupported_prose",
+    (
+        "This is a leakage-free split.",
+        "The Wan evaluation is a real test set.",
+        "The split guarantees no shared trees.",
+        "The split guarantees unseen trees.",
+        "Train/test never share a tree.",
+    ),
+)
+def test_wan_positive_claim_detector_rejects_unsupported_claims(unsupported_prose: str):
+    assert _unsupported_wan_positive_claims(unsupported_prose)
 
 
 def test_wan_converter_legacy_test_names_are_disclosed():
@@ -251,6 +303,20 @@ def test_wan_converter_legacy_test_names_are_disclosed():
     assert "--out-test" in text
     assert "wan_test.npz" in text
     assert "legacy names for the development/validation split" in text
+
+
+def test_wan_same_environment_section_uses_development_not_test_framing():
+    text = Path("docs/ml/FINETUNE_REALDATA.md").read_text(encoding="utf-8")
+    lowered = text.lower()
+
+    assert "same-environment experiments (train+development on real wan" in lowered
+    assert "train+test on real wan" not in lowered
+    assert "train/test on the **same real environment**" not in lowered
+
+    held_out_index = lowered.index("[held-out]")
+    nearby = lowered[held_out_index : held_out_index + 300]
+    assert "legacy output label" in nearby
+    assert "not an independent or final test" in nearby
 
 
 @pytest.mark.parametrize("path", CONTROLLED_WAN_METRIC_DOCS)
@@ -272,6 +338,8 @@ def test_g3_is_confounded_historical_comparison_not_promotion_evidence():
     assert "within-script historical comparison only" in lowered
     assert "not an adoption or promotion decision" in lowered
     assert "adopt sectional" not in lowered
+    assert "~18.8% mape" in lowered
+    assert "~18.8% mae" not in lowered
 
 
 @pytest.mark.parametrize("path", STATUS_BANNER_DOCS)

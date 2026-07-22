@@ -2,7 +2,7 @@
 
 For each Belgium tree, compare predicted stem volume to the destructive ground
 truth two ways:
-    A) tlsep/PCA segmentation + taper volume (current default, ~18.8% MAE)
+    A) tlsep/PCA segmentation + taper volume (current default, ~18.8% MAPE)
     B) PointNet++ segmentation + sectional-cylinders volume
 
 Both segmentation and volume method changed between A and B. Any volume
