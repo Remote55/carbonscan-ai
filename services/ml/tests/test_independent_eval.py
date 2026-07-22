@@ -478,7 +478,7 @@ def test_demol_zero_measurable_candidate_is_invalid_evidence():
 
     def candidate(points: np.ndarray) -> np.ndarray:
         if len(points) == 4:
-            raise RuntimeError("candidate unavailable")
+            return np.ones(len(points), dtype=np.int8)
         return _candidate(points)
 
     with pytest.raises(IndependentEvaluationError, match="zero measurable"):
@@ -490,12 +490,12 @@ def test_demol_requires_at_least_one_identically_paired_measurable_row():
 
     def baseline(points: np.ndarray) -> np.ndarray:
         if len(points) == 4 and points[0, 0] == 1.0:
-            raise RuntimeError("baseline unavailable")
+            return np.ones(len(points), dtype=np.int8)
         return _baseline(points)
 
     def candidate(points: np.ndarray) -> np.ndarray:
         if len(points) == 4 and points[0, 0] == 2.0:
-            raise RuntimeError("candidate unavailable")
+            return np.ones(len(points), dtype=np.int8)
         return _candidate(points)
 
     with pytest.raises(IndependentEvaluationError, match="paired downstream"):
@@ -578,47 +578,152 @@ def test_staged_csv_content_mismatch_rolls_back_before_publication(tmp_path: Pat
     assert not list(tmp_path.glob(".evidence.*"))
 
 
-def test_artifact_mid_publish_rename_failure_rolls_back_every_created_final(
+def test_artifact_mid_publish_link_failure_rolls_back_every_created_final(
     tmp_path: Path, monkeypatch
 ):
     from pipeline import independent_eval
     from pipeline.independent_eval import IndependentEvaluationError
 
-    real_replace = independent_eval._replace_staged_file
+    real_link = independent_eval._link_staged_file
     calls = 0
 
-    def injected_replace(source: Path, destination: Path) -> None:
+    def injected_link(source: Path, destination: Path) -> None:
         nonlocal calls
         calls += 1
         if calls == 3:
-            raise OSError("injected rename failure")
-        real_replace(source, destination)
+            raise OSError("injected link failure")
+        real_link(source, destination)
 
-    monkeypatch.setattr(independent_eval, "_replace_staged_file", injected_replace)
+    monkeypatch.setattr(independent_eval, "_link_staged_file", injected_link)
     evidence_dir = tmp_path / "evidence"
 
-    with pytest.raises(IndependentEvaluationError, match="injected rename failure"):
+    with pytest.raises(IndependentEvaluationError, match="injected link failure"):
         independent_eval._publish_evidence_artifacts(_toy_bundle(), evidence_dir)
     assert not evidence_dir.exists() or list(evidence_dir.iterdir()) == []
     assert not list(tmp_path.glob(".evidence.*"))
 
 
-def test_artifact_post_rename_failure_rolls_back_successfully_moved_final(
+def test_artifact_post_link_failure_rolls_back_successfully_published_final(
     tmp_path: Path, monkeypatch
 ):
     from pipeline import independent_eval
     from pipeline.independent_eval import IndependentEvaluationError
 
-    real_replace = independent_eval._replace_staged_file
+    real_link = independent_eval._link_staged_file
 
-    def replace_then_fail(source: Path, destination: Path) -> None:
-        real_replace(source, destination)
-        raise OSError("injected post-rename failure")
+    def link_then_fail(source: Path, destination: Path) -> None:
+        real_link(source, destination)
+        raise OSError("injected post-link failure")
 
-    monkeypatch.setattr(independent_eval, "_replace_staged_file", replace_then_fail)
+    monkeypatch.setattr(independent_eval, "_link_staged_file", link_then_fail)
     evidence_dir = tmp_path / "evidence"
 
-    with pytest.raises(IndependentEvaluationError, match="injected post-rename failure"):
+    with pytest.raises(IndependentEvaluationError, match="injected post-link failure"):
+        independent_eval._publish_evidence_artifacts(_toy_bundle(), evidence_dir)
+    assert not evidence_dir.exists() or list(evidence_dir.iterdir()) == []
+    assert not list(tmp_path.glob(".evidence.*"))
+
+
+def test_staged_source_unlink_failure_rolls_back_its_owned_final(tmp_path: Path, monkeypatch):
+    from pipeline import independent_eval
+    from pipeline.independent_eval import IndependentEvaluationError
+
+    real_unlink = Path.unlink
+
+    def fail_staged_unlink(path: Path, *args, **kwargs) -> None:
+        if path.name == "segmentation_per_tree.csv" and path.parent.name.startswith(".evidence."):
+            raise OSError("injected staged source unlink failure")
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_staged_unlink)
+    evidence_dir = tmp_path / "evidence"
+
+    with pytest.raises(IndependentEvaluationError, match="injected staged source unlink failure"):
+        independent_eval._publish_evidence_artifacts(_toy_bundle(), evidence_dir)
+    assert not evidence_dir.exists() or list(evidence_dir.iterdir()) == []
+    assert not list(tmp_path.glob(".evidence.*"))
+
+
+def test_artifact_race_preserves_concurrent_final_and_rolls_back_owned_files(
+    tmp_path: Path, monkeypatch
+):
+    from pipeline import independent_eval
+    from pipeline.independent_eval import IndependentEvaluationError
+
+    real_link = independent_eval._link_staged_file
+    concurrent_bytes = b"belongs to concurrent publisher"
+
+    def concurrent_publish(source: Path, destination: Path) -> None:
+        destination.write_bytes(concurrent_bytes)
+        real_link(source, destination)
+
+    monkeypatch.setattr(independent_eval, "_link_staged_file", concurrent_publish)
+    evidence_dir = tmp_path / "evidence"
+
+    with pytest.raises(IndependentEvaluationError, match="already exists"):
+        independent_eval._publish_evidence_artifacts(_toy_bundle(), evidence_dir)
+    concurrent = evidence_dir / "segmentation_per_tree.csv"
+    assert concurrent.read_bytes() == concurrent_bytes
+    assert [path.name for path in evidence_dir.iterdir()] == [concurrent.name]
+    assert not list(tmp_path.glob(".evidence.*"))
+
+
+@pytest.mark.parametrize(
+    ("artifact", "corruption"),
+    [
+        ("result.json", "formatting"),
+        ("result.json", "ordering"),
+        ("result.json", "newline"),
+        ("REPORT.md", "content"),
+    ],
+)
+def test_staged_json_and_report_corruption_prevent_publication(
+    tmp_path: Path, monkeypatch, artifact: str, corruption: str
+):
+    from pipeline import independent_eval
+    from pipeline.independent_eval import IndependentEvaluationError
+
+    if artifact == "result.json":
+        real_write = independent_eval._write_result_json
+
+        def corrupt(path: Path, result: dict) -> None:
+            real_write(path, result)
+            if corruption == "formatting":
+                path.write_text(
+                    json.dumps(result, sort_keys=True, ensure_ascii=True, allow_nan=False) + "\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+            elif corruption == "ordering":
+                path.write_text(
+                    json.dumps(
+                        result,
+                        sort_keys=False,
+                        indent=2,
+                        ensure_ascii=True,
+                        allow_nan=False,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+            else:
+                path.write_bytes(path.read_bytes().rstrip(b"\n"))
+
+        monkeypatch.setattr(independent_eval, "_write_result_json", corrupt)
+        expected_error = "result content mismatch"
+    else:
+        real_write = independent_eval._write_report
+
+        def corrupt(path: Path, result: dict) -> None:
+            real_write(path, result)
+            path.write_text("corrupt report\n", encoding="utf-8", newline="\n")
+
+        monkeypatch.setattr(independent_eval, "_write_report", corrupt)
+        expected_error = "report content mismatch"
+
+    evidence_dir = tmp_path / "evidence"
+    with pytest.raises(IndependentEvaluationError, match=expected_error):
         independent_eval._publish_evidence_artifacts(_toy_bundle(), evidence_dir)
     assert not evidence_dir.exists() or list(evidence_dir.iterdir()) == []
     assert not list(tmp_path.glob(".evidence.*"))
@@ -970,6 +1075,77 @@ def test_incomplete_tiled_coverage_invalidates_whole_run_without_artifacts(
     with pytest.raises(IndependentEvaluationError, match="coverage"):
         independent_eval.run_independent_evaluation(**paths)
     assert demol_loads == ["loaded"]
+    assert not Path(paths["evidence_dir"]).exists()
+
+
+def test_demol_predictor_failure_invalidates_evidence_and_cli_without_artifacts(
+    tmp_path: Path, monkeypatch, capsys
+):
+    from pipeline import independent_eval
+    from pipeline.demol_eval import DemolTree
+    from pipeline.pointnet_tiled import TiledPrediction
+    from scripts import pointnet_evidence
+
+    paths, protocol, freeze, external_manifest = _guard_fixture(tmp_path)
+    monkeypatch.setattr(independent_eval, "load_protocol", lambda path: protocol)
+    monkeypatch.setattr(independent_eval, "_load_freeze", lambda path: freeze)
+    monkeypatch.setattr(independent_eval, "_load_external_manifest", lambda path: external_manifest)
+    monkeypatch.setattr(independent_eval, "_validate_git_evidence_state", lambda **kwargs: "e" * 40)
+    monkeypatch.setattr(
+        independent_eval,
+        "load_external_trees",
+        lambda root, manifest: [
+            (tree_id, _points(100.0 + index, 4), np.array([0, 0, 1, 1], dtype=np.uint8))
+            for index, tree_id in enumerate(manifest["tree_ids"])
+        ],
+    )
+    monkeypatch.setattr(
+        independent_eval,
+        "load_demol_cohort",
+        lambda *args, **kwargs: [DemolTree("DEMOL-A", _points(1.0, 4), 10.0, 5.0, 2.0)],
+    )
+    monkeypatch.setattr(
+        independent_eval,
+        "WoodLeafSegmenter",
+        lambda *args, **kwargs: SimpleNamespace(
+            pointnet_logits=lambda points: np.zeros((len(points), 2))
+        ),
+    )
+    monkeypatch.setattr(
+        independent_eval,
+        "segment_wood_leaf",
+        lambda points, **kwargs: np.array([0, 0, 1, 1], dtype=np.int8),
+    )
+    monkeypatch.setattr(
+        independent_eval,
+        "predict_tiled",
+        lambda points, model_logits, **kwargs: TiledPrediction(
+            np.array([0, 0, 1, 1], dtype=np.int8),
+            np.zeros((len(points), 2)),
+            np.array([0, 1, 1, 1], dtype=np.int64)
+            if points[0, 0] < 100.0
+            else np.ones(len(points), dtype=np.int64),
+        ),
+    )
+    monkeypatch.setattr(
+        independent_eval.qsm,
+        "compute_qsm",
+        lambda wood, *, seed: SimpleNamespace(
+            dbh_cm=10.0,
+            height_m=5.0,
+            total_volume_m3=2.0,
+        ),
+    )
+    monkeypatch.setattr(pointnet_evidence, "run_independent_evaluation", independent_eval.run_independent_evaluation)
+
+    argv = ["evaluate"]
+    for name, value in paths.items():
+        argv.extend([f"--{name.replace('_', '-')}", value])
+
+    assert pointnet_evidence.main(argv) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output["verdict"] == "INVALID_EVIDENCE"
+    assert "predictor:" in output["error"]
     assert not Path(paths["evidence_dir"]).exists()
 
 

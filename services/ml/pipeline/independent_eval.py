@@ -353,9 +353,10 @@ def _compose_evaluation_from_validated_inputs(
             qsm_func=qsm_func,
             qsm_seed=protocol["demol"]["qsm_seed"],
         )
+        downstream_rows = list(downstream["per_tree"])
+        _reject_deterministic_demol_failures(downstream_rows)
         baseline_downstream = _finite_downstream(downstream["baseline"], backend="baseline")
         candidate_downstream = _finite_downstream(downstream["candidate"], backend="candidate")
-        downstream_rows = list(downstream["per_tree"])
         intervals = _intervals(
             external_baseline,
             external_candidate,
@@ -418,6 +419,18 @@ def _compose_evaluation_from_validated_inputs(
         "limitations": list(_LIMITATIONS),
     }
     return EvaluationBundle(result, segmentation_rows, downstream_rows)
+
+
+def _reject_deterministic_demol_failures(rows: Iterable[Mapping[str, Any]]) -> None:
+    """Fail the whole run when inference evidence, rather than QSM, is invalid."""
+    for index, row in enumerate(rows):
+        for backend in ("baseline", "candidate"):
+            failure = row.get(f"{backend}_failure")
+            if isinstance(failure, str) and failure.startswith(("predictor:", "labels:")):
+                tree_id = row.get("tree_id", f"row-{index}")
+                raise IndependentEvaluationError(
+                    f"{backend} Demol {tree_id} has invalid inference evidence: {failure}"
+                )
 
 
 def _validate_identity_record(
@@ -485,6 +498,24 @@ def _csv_content(fields: list[str], rows: list[dict[str, Any]]) -> str:
 
 def _write_csv(path: Path, fields: list[str], rows: list[dict[str, Any]]) -> None:
     path.write_text(_csv_content(fields, rows), encoding="utf-8", newline="")
+
+
+def _result_json_text(result: Mapping[str, Any]) -> str:
+    """Serialize result.json once so writing and staged validation agree exactly."""
+    return (
+        json.dumps(
+            result,
+            sort_keys=True,
+            indent=2,
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        + "\n"
+    )
+
+
+def _write_result_json(path: Path, result: Mapping[str, Any]) -> None:
+    path.write_text(_result_json_text(result), encoding="utf-8", newline="\n")
 
 
 def _report(result: Mapping[str, Any]) -> str:
@@ -573,6 +604,10 @@ def _report(result: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _write_report(path: Path, result: Mapping[str, Any]) -> None:
+    path.write_text(_report(result), encoding="utf-8", newline="\n")
+
+
 def _validate_staged_artifacts(stage: Path, bundle: EvaluationBundle) -> None:
     if {path.name for path in stage.iterdir()} != {
         "segmentation_per_tree.csv",
@@ -601,14 +636,37 @@ def _validate_staged_artifacts(stage: Path, bundle: EvaluationBundle) -> None:
         raise IndependentEvaluationError("segmentation rows are not sorted")
     if [row["tree_id"] for row in downstream] != sorted(row["tree_id"] for row in downstream):
         raise IndependentEvaluationError("downstream rows are not sorted")
-    loaded = json.loads((stage / "result.json").read_text(encoding="utf-8"))
+    result_bytes = (stage / "result.json").read_bytes()
+    if result_bytes != _result_json_text(bundle.result).encode("utf-8"):
+        raise IndependentEvaluationError("result content mismatch")
+    report_bytes = (stage / "REPORT.md").read_bytes()
+    if report_bytes != _report(bundle.result).encode("utf-8"):
+        raise IndependentEvaluationError("report content mismatch")
+    loaded = json.loads(result_bytes.decode("utf-8"))
     if loaded != bundle.result or set(loaded) != _RESULT_FIELDS:
         raise IndependentEvaluationError("result schema or content mismatch")
     _validate_finite_json(loaded)
 
 
-def _replace_staged_file(source: Path, destination: Path) -> None:
-    os.replace(source, destination)
+def _link_staged_file(source: Path, destination: Path) -> None:
+    """Atomically create a destination hard link without replacing another run's file."""
+    os.link(source, destination)
+
+
+def _staged_source_owns_destination(source: Path, destination: Path) -> bool:
+    """Recognize a post-link wrapper failure without claiming a concurrent file."""
+    try:
+        return source.exists() and destination.exists() and os.path.samefile(source, destination)
+    except OSError:
+        return False
+
+
+def _file_identity(path: Path) -> tuple[int, int] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return stat.st_dev, stat.st_ino
 
 
 def _publish_evidence_artifacts(
@@ -633,7 +691,7 @@ def _publish_evidence_artifacts(
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix=f".{destination.name}.", dir=destination.parent))
-    created: list[Path] = []
+    created: list[tuple[Path, tuple[int, int]]] = []
     destination_created = False
     try:
         _write_csv(stage / finals[0].name, _SEGMENTATION_FIELDS, bundle.segmentation_rows)
@@ -642,29 +700,34 @@ def _publish_evidence_artifacts(
             _DOWNSTREAM_FIELDS,
             sorted(bundle.downstream_rows, key=lambda row: row["tree_id"]),
         )
-        (stage / finals[2].name).write_text(
-            json.dumps(
-                bundle.result,
-                sort_keys=True,
-                indent=2,
-                ensure_ascii=True,
-                allow_nan=False,
-            )
-            + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
-        (stage / finals[3].name).write_text(_report(bundle.result), encoding="utf-8", newline="\n")
+        _write_result_json(stage / finals[2].name, bundle.result)
+        _write_report(stage / finals[3].name, bundle.result)
         _validate_staged_artifacts(stage, bundle)
-        if not destination.exists():
+        try:
             destination.mkdir()
             destination_created = True
+        except FileExistsError:
+            if not destination.is_dir():
+                raise IndependentEvaluationError("evidence_dir must be a directory")
         for final in finals:
-            created.append(final)
-            _replace_staged_file(stage / final.name, final)
+            source = stage / final.name
+            try:
+                _link_staged_file(source, final)
+            except Exception:
+                if _staged_source_owns_destination(source, final):
+                    identity = _file_identity(final)
+                    if identity is not None:
+                        created.append((final, identity))
+                raise
+            identity = _file_identity(final)
+            if identity is None:
+                raise OSError("published evidence artifact disappeared before ownership tracking")
+            created.append((final, identity))
+            source.unlink()
     except Exception as exc:
-        for path in created:
-            path.unlink(missing_ok=True)
+        for path, identity in created:
+            if _file_identity(path) == identity:
+                path.unlink(missing_ok=True)
         if destination_created:
             try:
                 destination.rmdir()
