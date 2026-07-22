@@ -18,7 +18,6 @@ import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
-
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _ML_ROOT = _REPO_ROOT / "services" / "ml"
 if str(_ML_ROOT) not in sys.path:
@@ -26,9 +25,11 @@ if str(_ML_ROOT) not in sys.path:
 
 # These production validators are deliberately data-only: neither imports Torch
 # nor opens datasets/checkpoints/network resources.
-from pipeline.external_tree_dataset import _load_freeze, _validate_manifest  # noqa: E402
+from pipeline.external_tree_dataset import (  # noqa: E402
+    _load_freeze,
+    _validate_manifest,
+)
 from training.evidence_protocol import load_protocol  # noqa: E402
-
 
 RESULT_KEYS = {
     "schema_version", "experiment_id", "protocol_sha256", "freeze_manifest_sha256",
