@@ -44,6 +44,27 @@ STATUS_BANNER_DOCS = (
     Path("apps/mobile/README.md"),
 )
 
+WAN_DEVELOPMENT_DOCS = (
+    Path("docs/ml/FINETUNE_REALDATA.md"),
+    Path("docs/ml/WOODLEAF_RESULTS.md"),
+    Path("docs/ml/PIPELINE.md"),
+)
+
+CONTROLLED_WAN_METRIC_DOCS = (
+    Path("docs/ml/WOODLEAF_RESULTS.md"),
+    Path("docs/ml/PIPELINE.md"),
+)
+
+
+def _without_generated_truth_blocks(text: str) -> str:
+    """Return prose that authors, rather than sync_truth, control."""
+    start = "<!-- TREEQ_TRUTH_START -->"
+    end = "<!-- TREEQ_TRUTH_END -->"
+    while start in text:
+        block_end = text.index(end, text.index(start)) + len(end)
+        text = text[: text.index(start)] + text[block_end:]
+    return text
+
 
 def _manifest(tmp_path: Path) -> Path:
     path = tmp_path / "manifest.json"
@@ -199,6 +220,58 @@ def test_current_claim_documents_share_exact_evidence():
 
     assert "wood IoU = 0.42" not in combined
     assert "PointNet++ เป็น production default" not in combined
+
+
+@pytest.mark.parametrize("path", WAN_DEVELOPMENT_DOCS)
+def test_wan_development_prose_states_split_limits(path: Path):
+    prose = " ".join(
+        _without_generated_truth_blocks(path.read_text(encoding="utf-8")).split()
+    ).lower()
+
+    for fact in (
+        "spatially separated development split",
+        "2.5 m excluded band",
+        "native tree ids are unavailable",
+        "same dev loader selected the epoch",
+    ):
+        assert fact in prose, (path, fact)
+
+    for stale_claim in (
+        "leakage-free held-out",
+        "train/test never share a tree",
+        "no tree leaks across the split",
+        "unseen trees",
+        "honest number to report",
+    ):
+        assert stale_claim not in prose, (path, stale_claim)
+
+
+def test_wan_converter_legacy_test_names_are_disclosed():
+    text = Path("docs/ml/FINETUNE_REALDATA.md").read_text(encoding="utf-8").lower()
+    assert "--out-test" in text
+    assert "wan_test.npz" in text
+    assert "legacy names for the development/validation split" in text
+
+
+@pytest.mark.parametrize("path", CONTROLLED_WAN_METRIC_DOCS)
+def test_controlled_wan_documents_retain_exact_recorded_metrics(path: Path):
+    text = path.read_text(encoding="utf-8")
+    for metric in ("0.418", "0.808", "0.613", "0.831"):
+        assert metric in text, (path, metric)
+
+
+def test_g3_is_confounded_historical_comparison_not_promotion_evidence():
+    source = Path("services/ml/notebooks/experiment_g3_pointnet_volume.py").read_text(
+        encoding="utf-8"
+    )
+    lowered = source.lower()
+
+    assert "confounded historical experiment" in source
+    assert "not promotion evidence" in source
+    assert "both segmentation and volume method changed" in lowered
+    assert "within-script historical comparison only" in lowered
+    assert "not an adoption or promotion decision" in lowered
+    assert "adopt sectional" not in lowered
 
 
 @pytest.mark.parametrize("path", STATUS_BANNER_DOCS)

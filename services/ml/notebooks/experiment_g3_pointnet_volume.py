@@ -1,13 +1,15 @@
-"""G3 experiment — does PointNet++ wood + sectional QSM beat the taper baseline?
+"""G3 confounded historical experiment; not promotion evidence.
 
 For each Belgium tree, compare predicted stem volume to the destructive ground
 truth two ways:
-    A) PCA wood + taper equation        (current default, ~18.8% MAE)
-    B) PointNet++ wood + sectional QSM   (the G3 hypothesis — clean wood should
-       let the stacked-cylinder method work, unlike on crown-contaminated PCA)
+    A) tlsep/PCA segmentation + taper volume (current default, ~18.8% MAE)
+    B) PointNet++ segmentation + sectional-cylinders volume
 
-This is an experiment, not a shipped figure: it tells us whether to adopt
-sectional volume now that a trained wood/leaf model exists.
+Both segmentation and volume method changed between A and B. Any volume
+difference therefore cannot be causally attributed to PointNet segmentation and
+cannot satisfy the evidence gate. This is a confounded historical experiment,
+not promotion evidence; its local result is a within-script historical
+comparison only, not an adoption or promotion decision.
 
     python notebooks/experiment_g3_pointnet_volume.py --model woodleaf_pn2.pt
 
@@ -85,8 +87,15 @@ def main() -> None:
     print(f"Baseline  PCA + taper        : mean |err| {t.mean():5.1f}%   median {np.median(t):5.1f}%")
     print(f"Experiment PointNet++ + sect : mean |err| {s.mean():5.1f}%   median {np.median(s):5.1f}%")
     print("=" * 60)
-    verdict = "ADOPT sectional (beats taper)" if s.mean() < t.mean() else "KEEP taper (sectional still worse)"
-    print(f"Verdict: {verdict}")
+    verdict = (
+        "sectional has lower mean error in this local comparison"
+        if s.mean() < t.mean()
+        else "taper has lower mean error in this local comparison"
+    )
+    print(
+        "Historical comparison verdict (within-script historical comparison only; "
+        f"not an adoption or promotion decision): {verdict}"
+    )
 
 
 if __name__ == "__main__":

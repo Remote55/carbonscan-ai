@@ -4,7 +4,7 @@
 > but only **~0.33 zero-shot on real TLS** (PCA baseline ~0.25). That sim-to-real
 > gap is expected — closing it needs training on *real labelled* data. This
 > runbook fine-tunes the model on the real Wan 2021 dataset and reports a
-> **leakage-free held-out** real IoU.
+> spatially separated development-split real IoU, not promotion evidence.
 
 ## Data
 **Wan 2021** — Dryad `10.5061/dryad.rfj6q5799` (CC-BY). 3 plot files
@@ -17,7 +17,7 @@
 Run where the big `.txt` files live. The converter seek-samples each plot, tiles
 it into ~2.5 m cells (≈ single-tree scale), normalises each cell to the unit
 sphere (PointNet++ input format), and splits tiles **spatially** with a buffer
-gap so train/test never share a tree.
+gap for development/validation only.
 
 ```bash
 cd services/ml
@@ -34,13 +34,16 @@ Expected output (≈):
 train_samples: 295   test_samples: 77   train_wood_frac: 0.287   test_wood_frac: 0.241
 ```
 `wan_train.npz` (~12 MB) + `wan_test.npz` (~3 MB) — small enough to upload to Colab.
+`--out-test` and `wan_test.npz` are legacy names for the development/validation split;
+they do not make it an independent final test.
 
-### The split (anti-cheat)
+### The split and its limit
 Per plot, tiles are cut along x at `frac` (default 0.70); tiles inside a `buffer`
-band (default 2.5 m) around the cut are **dropped**, so train and test cover
-**spatially disjoint** regions — no tree leaks across the split. All 3 species
-appear in both sets → this measures *within-distribution* generalisation to
-**unseen trees**.
+band (default 2.5 m) around the cut are **dropped**. This is a **spatially
+separated development split with a 2.5 m excluded band**. Native tree IDs are
+unavailable, so spatial separation cannot prove unseen-tree separation. The same
+dev loader selected the epoch, so it is validation/development evidence,
+not an independent final test or promotion gate.
 
 > **Harder, cross-species test (optional):** pass only 2 plots to `--plots` and
 > evaluate on the 3rd species' tiles (regenerate with that plot as the test set).
@@ -69,8 +72,9 @@ packages). Then:
   ('balanced') weights to lift the wood class.
 - `--init-checkpoint` starts from the synthetic weights (fine-tune, not from
   scratch). Use a **low LR (1e-4)** so it adapts without forgetting.
-- The per-epoch `val_wood_IoU` is the **wood-class IoU on the held-out real test
-  tiles** — this is the honest number to report.
+- The per-epoch `val_wood_IoU` is the wood-class IoU on the legacy-named
+  development/validation tiles. The same dev loader selected the epoch, so it
+  is useful for monitoring but is not an independent final-test number.
 - Best checkpoint is saved to `woodleaf_pn2_wan.pt`.
 
 **Baselines to compare against (optional):**
@@ -82,7 +86,7 @@ packages). Then:
 
 ## Step 3 — Report honestly
 
-| Setting | Wood IoU (real, held-out) |
+| Setting | Wood IoU (historical development observation) |
 |---|---|
 | PCA baseline (`tlsep`), zero-shot | ~0.25 |
 | PointNet++ synthetic-only, zero-shot | ~0.33 |
@@ -90,11 +94,10 @@ packages). Then:
 | (reference) PointNet++ on synthetic test | 0.978 |
 
 Frame for the report: *"PointNet++ trained on synthetic reaches 0.978 on the
-synthetic test but only ~0.33 zero-shot on independent real TLS. After
-fine-tuning on real labelled TLS (Wan 2021, leakage-free spatial held-out test),
-wood IoU recovers to **X** — demonstrating that the architecture works on real
-data once real training labels are available, and motivating Thai field-data
-collection for in-country species."*
+synthetic test; the ~0.33 zero-shot and any fine-tuned Wan figures are
+approximate historical development observations. They are not independent real
+TLS/final-test evidence or promotion evidence. A separately governed final
+evaluation is still required before making a real-data performance claim."*
 
 ## Notes
 - Files produced here (`*.npz`, `*.pt`, `data/realdata/`) are git-ignored — they

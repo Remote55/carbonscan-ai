@@ -119,8 +119,9 @@ linearity, planarity และ verticality จาก K-nearest neighbors แล�
 
 backend นี้ต้องรับ `.pt` checkpoint อย่างชัดเจน จุดน้อยกว่า 512 จุดจะ fallback ไป heuristic
 ผล Wan ที่บันทึกไว้คือ Wood IoU 0.418, Leaf IoU 0.808, Mean IoU 0.613 และ accuracy 0.831
-แต่ held-out loader เดียวกันถูกใช้เลือก best epoch และ checkpoint/tree-ID provenance สำหรับ independent
-final test ยังไม่ครบ จึงห้ามเรียกว่า production default
+เป็น spatially separated development split with a 2.5 m excluded band; native tree IDs are unavailable,
+and the same dev loader selected the epoch. ดังนั้น spatial split นี้ไม่พิสูจน์ unseen-tree separation
+และไม่ใช่ independent final-test หรือ promotion evidence; PointNet++ จึงห้ามเรียกว่า production default
 
 Promotion gate อยู่ใน `pipeline.provenance.evaluate_promotion()` และต้องผ่าน Wood IoU improvement,
 DBH/height/volume non-regression, measurable-tree count, checkpoint identity, training provenance และ

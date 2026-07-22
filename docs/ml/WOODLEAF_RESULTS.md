@@ -3,6 +3,9 @@
 > เก็บผลทุก variant ตามที่รันทดลองจริง พร้อมแยก synthetic, zero-shot และ same-environment
 > ตัวเลข Wan ด้านล่างมาจาก spatial held-out loader แต่ loader เดียวกันถูกใช้เลือก best epoch
 > จึงไม่ใช่ independent final test สำหรับ promotion gate
+> Wan นี้คือ **spatially separated development split with a 2.5 m excluded band**;
+> native tree IDs are unavailable, and the same dev loader selected the epoch.
+> จึงไม่พิสูจน์ unseen-tree separation และไม่ใช่ promotion evidence
 
 <!-- TREEQ_TRUTH_START -->
 ### Verified truth snapshot (generated)
@@ -36,7 +39,7 @@
 
 ### Prior runs: synthetic-trained to real
 
-ค่าชุดนี้เป็น approximate historical runs:
+ค่าชุดนี้เป็น approximate historical development/zero-shot observations ไม่ใช่ promotion evidence:
 
 | Run | Init | Augment | Class weight | Wood IoU | Leaf IoU | Mean IoU |
 |---|---|---|---|---:|---:|---:|
@@ -46,7 +49,9 @@
 
 ### Same-environment matrix — Colab run 2026-06-29
 
-Split เป็น spatial held-out + buffer และ metrics เป็น pooled per-point IoU
+Split นี้เป็น spatially separated development split with a 2.5 m excluded band;
+native tree IDs are unavailable, and the same dev loader selected the epoch.
+Metrics เป็น pooled per-point IoU จึงไม่ใช่ independent final-test evidence.
 
 | # | Init | Synthetic augment | Class weight | Train tiles | Wood IoU | Leaf IoU | Mean IoU | Accuracy |
 |---|---|---:|---|---:|---:|---:|---:|---:|
@@ -55,8 +60,8 @@ Split เป็น spatial held-out + buffer และ metrics เป็น pool
 | **3** | scratch | 200 | none | 539 | **0.418** | **0.808** | **0.613** | **0.831** |
 | 4 | scratch | 200 | auto | 539 | 0.332 | 0.770 | 0.551 | 0.793 |
 
-Variant 3 เป็น best recorded run ใน matrix นี้ แต่คำว่า best หมายถึง best บน held-out loader ที่ใช้ระหว่าง
-best-epoch selection ด้วย ไม่ใช่ independent final-test performance
+Variant 3 เป็น best recorded run ใน matrix นี้ แต่คำว่า best หมายถึง best บน development loader เดียวกับที่ใช้
+best-epoch selection ด้วย ไม่ใช่ independent final-test performance หรือ promotion evidence
 
 ## Findings ที่รายงานได้
 
