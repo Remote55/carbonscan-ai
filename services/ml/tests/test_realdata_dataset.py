@@ -241,7 +241,7 @@ def test_build_evidence_dataset_rejects_absolute_source_record(
     protocol = _tiny_protocol()
     protocol["wan"]["source_record"] = source_record
 
-    with pytest.raises(ValueError, match="absolute.*source_record"):
+    with pytest.raises(ValueError, match=r"absolute.*source_record"):
         _build_tiny_evidence(tmp_path, sources, protocol)
 
     assert list((tmp_path / "output").iterdir()) == []
@@ -380,7 +380,7 @@ def test_build_evidence_dataset_rejects_output_aliasing_raw_source_before_write(
     nested.mkdir()
     raw_alias = nested / ".." / "plot_a.txt"
 
-    with pytest.raises(ValueError, match="output paths.*source files"):
+    with pytest.raises(ValueError, match=r"output paths.*source files"):
         realdata_dataset.build_evidence_dataset(
             sources,
             output / "train.npz",

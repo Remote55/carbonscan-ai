@@ -1,10 +1,12 @@
 import hashlib
+import importlib
 import json
 import os
 import random
 import shutil
 import struct
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -904,6 +906,15 @@ def test_pointnet_evidence_prepare_wan_uses_protocol_order_and_one_json_line(
         "reference_pc_Chinese_scholar_tree.txt",
     ]
     assert captured["outputs"] == ["wan-train.npz", "wan-dev.npz"]
+
+
+def test_pointnet_evidence_exposes_torch_lazy_training_seam(monkeypatch):
+    monkeypatch.delitem(sys.modules, "scripts.pointnet_evidence", raising=False)
+    monkeypatch.setitem(sys.modules, "torch", None)
+
+    module = importlib.import_module("scripts.pointnet_evidence")
+
+    assert callable(module.train_woodleaf.train)
 
 
 def test_pointnet_evidence_train_writes_ignored_record_and_winner_copy(

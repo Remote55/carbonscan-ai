@@ -99,6 +99,7 @@ def _tile_samples_with_records(
         record_inputs,
         center_array,
         assignments,
+        strict=True,
     ):
         records.append(
             {
@@ -108,7 +109,7 @@ def _tile_samples_with_records(
                 "grid_y": int(grid_y),
                 "center_x": float(center[0]),
                 "center_y": float(center[1]),
-                "raw_points": int(len(idx)),
+                "raw_points": len(idx),
                 "selected_indices_sha256": sha256_ndarray(sel, "<i8"),
                 "split": str(split_name),
             }
@@ -340,14 +341,14 @@ def build_evidence_dataset(
                 "sha256": sha256_file(out_train),
                 "x_sha256": sha256_ndarray(x_train, "<f4"),
                 "y_sha256": sha256_ndarray(y_train, "<i8"),
-                "samples": int(len(x_train)),
+                "samples": len(x_train),
             },
             "dev": {
                 "filename": out_dev.name,
                 "sha256": sha256_file(out_dev),
                 "x_sha256": sha256_ndarray(x_dev, "<f4"),
                 "y_sha256": sha256_ndarray(y_dev, "<i8"),
-                "samples": int(len(x_dev)),
+                "samples": len(x_dev),
             },
         },
         "tiles": tiles,

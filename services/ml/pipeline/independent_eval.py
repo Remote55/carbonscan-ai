@@ -706,9 +706,11 @@ def _publish_evidence_artifacts(
         try:
             destination.mkdir()
             destination_created = True
-        except FileExistsError:
+        except FileExistsError as exc:
             if not destination.is_dir():
-                raise IndependentEvaluationError("evidence_dir must be a directory")
+                raise IndependentEvaluationError(
+                    "evidence_dir must be a directory"
+                ) from exc
         for final in finals:
             source = stage / final.name
             try:

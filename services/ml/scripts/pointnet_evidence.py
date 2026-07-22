@@ -21,6 +21,15 @@ from training.evidence_protocol import load_protocol
 from training.realdata_dataset import build_evidence_dataset
 
 
+def _train_woodleaf(args: Any) -> dict[str, Any]:
+    from training.train_woodleaf import train
+
+    return train(args)
+
+
+train_woodleaf = SimpleNamespace(train=_train_woodleaf)
+
+
 def _summary_line(payload: dict[str, Any]) -> None:
     print(
         json.dumps(
@@ -104,7 +113,7 @@ def _training_command(
 
 
 def _train(args: argparse.Namespace) -> dict[str, Any]:
-    from training import evidence_training, train_woodleaf
+    from training import evidence_training
     from training.evidence_training import run_training_matrix
 
     protocol_path = Path(args.protocol).resolve()
