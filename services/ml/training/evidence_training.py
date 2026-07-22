@@ -69,6 +69,7 @@ _CHECKPOINT_KEYS = {
     "wan_manifest_sha256",
     "training_git_commit",
 }
+_WAN_SOURCE_KEYS = {"filename", "sha256", "size_bytes"}
 
 
 def set_global_determinism(seed: int) -> dict[str, Any]:
@@ -304,6 +305,18 @@ def _load_json_object(path: Path, label: str) -> dict[str, Any]:
     return payload
 
 
+def _validate_wan_source(source: Any, index: int) -> dict[str, Any]:
+    label = f"Wan source {index}"
+    if type(source) is not dict or set(source) != _WAN_SOURCE_KEYS:
+        raise ValueError(f"{label} schema is not exact")
+    _require_logical_filename(source["filename"], f"{label} filename")
+    if not _is_lower_sha256(source["sha256"]):
+        raise ValueError(f"{label} sha256 must be lowercase SHA-256")
+    if type(source["size_bytes"]) is not int or source["size_bytes"] <= 0:
+        raise ValueError(f"{label} size_bytes must be a positive integer")
+    return source
+
+
 def _validate_wan_manifest(payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("schema_version") != "1":
         raise ValueError("Wan manifest schema_version must equal '1'")
@@ -315,11 +328,7 @@ def _validate_wan_manifest(payload: dict[str, Any]) -> dict[str, Any]:
     if set(outputs) != {"train", "dev"}:
         raise ValueError("Wan manifest outputs must contain exactly train and dev")
     for index, source in enumerate(sources):
-        if type(source) is not dict:
-            raise ValueError(f"Wan source {index} must be an object")
-        _require_logical_filename(source.get("filename"), f"Wan source {index} filename")
-        if not _is_lower_sha256(source.get("sha256")):
-            raise ValueError(f"Wan source {index} sha256 must be lowercase SHA-256")
+        _validate_wan_source(source, index)
     for split_name, output in outputs.items():
         if type(output) is not dict:
             raise ValueError(f"Wan output {split_name} must be an object")

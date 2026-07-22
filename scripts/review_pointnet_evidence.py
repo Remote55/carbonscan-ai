@@ -15,7 +15,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 
@@ -56,10 +56,52 @@ _OPAQUE_CRITERIA = (
 _ALL_CRITERIA = {"candidate_metrics", *_POINT_CRITERIA, *_OPAQUE_CRITERIA}
 _RESULT_RELATIVE = Path("docs/evidence/pointnet_independent_eval/result.json")
 _MANIFEST_RELATIVE = Path("docs/evidence/core_demo_manifest.json")
+_LOWER_HEX = frozenset("0123456789abcdef")
+_WAN_SOURCE_KEYS = {"filename", "sha256", "size_bytes"}
 
 
 def _fail_constant(value: str) -> None:
     raise ValueError(f"JSON contains non-finite constant {value}")
+
+
+def _is_cross_platform_absolute(value: str) -> bool:
+    return PurePosixPath(value.replace("\\", "/")).is_absolute() or PureWindowsPath(
+        value
+    ).is_absolute()
+
+
+def _validate_wan_source(source: Any, index: int) -> dict[str, Any]:
+    label = f"Wan source {index}"
+    if type(source) is not dict or set(source) != _WAN_SOURCE_KEYS:
+        raise ValueError(f"{label} schema is not exact")
+    filename = source["filename"]
+    if type(filename) is not str or not filename:
+        raise ValueError(f"{label} filename must be a non-empty logical filename")
+    normalized = filename.replace("\\", "/")
+    if (
+        _is_cross_platform_absolute(filename)
+        or normalized in {".", ".."}
+        or "/" in normalized
+        or PureWindowsPath(filename).name != filename
+    ):
+        raise ValueError(f"{label} filename must be a logical basename without traversal")
+    sha256 = source["sha256"]
+    if not (
+        type(sha256) is str
+        and len(sha256) == 64
+        and all(character in _LOWER_HEX for character in sha256)
+    ):
+        raise ValueError(f"{label} sha256 must be lowercase SHA-256")
+    if type(source["size_bytes"]) is not int or source["size_bytes"] <= 0:
+        raise ValueError(f"{label} size_bytes must be a positive integer")
+    return source
+
+
+def _validate_frozen_wan_sources(wan_evidence: Any) -> None:
+    if type(wan_evidence) is not dict or type(wan_evidence.get("sources")) is not list:
+        raise ValueError("freeze manifest wan_evidence schema is invalid")
+    for index, source in enumerate(wan_evidence["sources"]):
+        _validate_wan_source(source, index)
 
 
 def _load_json(path: Path, *, label: str) -> dict[str, Any]:
@@ -428,6 +470,7 @@ def _validate_cross_links(result: dict[str, Any], *, result_path: Path, repo: Pa
     try:
         production_protocol = load_protocol(siblings["protocol_sha256"])
         production_freeze = _load_freeze(siblings["freeze_manifest_sha256"])
+        _validate_frozen_wan_sources(production_freeze["wan_evidence"])
         _validate_manifest(external)
     except Exception as exc:
         raise ValueError(f"production evidence schema is invalid: {exc}") from exc

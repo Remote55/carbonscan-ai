@@ -566,11 +566,20 @@ def _freeze_fixture(tmp_path: Path, monkeypatch):
         "source_record": "10.5061/dryad.rfj6q5799",
         "config": {"tile_m": 2.5},
         "sources": [
-            {"filename": "reference_pc_White_Birch.txt", "sha256": "1" * 64},
-            {"filename": "reference_pc_Dahurian_Larch.txt", "sha256": "2" * 64},
+            {
+                "filename": "reference_pc_White_Birch.txt",
+                "sha256": "1" * 64,
+                "size_bytes": 101,
+            },
+            {
+                "filename": "reference_pc_Dahurian_Larch.txt",
+                "sha256": "2" * 64,
+                "size_bytes": 202,
+            },
             {
                 "filename": "reference_pc_Chinese_scholar_tree.txt",
                 "sha256": "3" * 64,
+                "size_bytes": 303,
             },
         ],
         "outputs": {
@@ -707,6 +716,33 @@ def _build_freeze(fixture):
 def _assert_no_freeze_outputs(fixture):
     assert not (fixture["evidence_dir"] / "training_runs.json").exists()
     assert not (fixture["evidence_dir"] / "freeze_manifest.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    [
+        (lambda source: source.pop("size_bytes"), "schema is not exact"),
+        (lambda source: source.update(size_bytes=True), "size_bytes"),
+        (lambda source: source.update(size_bytes=1.0), "size_bytes"),
+        (lambda source: source.update(size_bytes=0), "size_bytes"),
+        (lambda source: source.update(size_bytes=-1), "size_bytes"),
+        (lambda source: source.update(unexpected="value"), "schema is not exact"),
+    ],
+)
+def test_build_freeze_manifest_rejects_invalid_wan_source_sizes_without_writes(
+    tmp_path, monkeypatch, mutate, match
+):
+    fixture = _freeze_fixture(tmp_path, monkeypatch)
+    wan_manifest = json.loads(
+        fixture["wan_manifest_path"].read_text(encoding="utf-8")
+    )
+    mutate(wan_manifest["sources"][0])
+    write_canonical_json(fixture["wan_manifest_path"], wan_manifest)
+
+    with pytest.raises(ValueError, match=match):
+        _build_freeze(fixture)
+
+    _assert_no_freeze_outputs(fixture)
 
 
 def test_build_freeze_manifest_writes_sanitized_canonical_evidence(tmp_path, monkeypatch):

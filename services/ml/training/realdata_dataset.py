@@ -283,7 +283,13 @@ def build_evidence_dataset(
     sources = []
     tiles: list[dict[str, Any]] = []
     for filename, path in ordered_sources:
-        sources.append({"filename": filename, "sha256": sha256_file(path)})
+        sources.append(
+            {
+                "filename": filename,
+                "sha256": sha256_file(path),
+                "size_bytes": path.stat().st_size,
+            }
+        )
         points, labels = load_wan_plot(
             path,
             label_col=6,

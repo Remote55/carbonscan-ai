@@ -170,6 +170,9 @@ def test_build_evidence_dataset_records_every_tile_without_absolute_paths(tmp_pa
     assert [source["sha256"] for source in a["sources"]] == [
         sha256_file(tmp_path / filename) for filename in protocol["wan"]["files"]
     ]
+    assert [source["size_bytes"] for source in a["sources"]] == [
+        (tmp_path / filename).stat().st_size for filename in protocol["wan"]["files"]
+    ]
     assert {row["split"] for row in a["tiles"]} <= {
         "train",
         "dev",

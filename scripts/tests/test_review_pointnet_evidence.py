@@ -76,7 +76,7 @@ def _freeze(protocol: dict[str, object], protocol_sha: str, training_commit: str
     seed = protocol["training"]["seeds"][0]
     return {"schema_version": "1", "experiment_id": protocol["experiment_id"], "protocol_sha256": protocol_sha, "wan_manifest_sha256": "c" * 64, "training_runs_sha256": "d" * 64,
             "training_git_commit": training_commit, "working_tree_clean": True, "training_command": ["python", "-m", "scripts.pointnet_evidence", "train"], "environment": {}, "architecture": "PointNet2SegSSG",
-            "training_configuration": protocol["training"], "wan_evidence": {"schema_version": "1", "config": {}, "sources": [], "outputs": {"train": {}, "dev": {}}},
+            "training_configuration": protocol["training"], "wan_evidence": {"schema_version": "1", "config": {}, "sources": [{"filename": "reference_pc_White_Birch.txt", "sha256": "a" * 64, "size_bytes": 101}], "outputs": {"train": {}, "dev": {}}},
             "winner": {"seed": seed, "selected_epoch": 7, "dev_metrics": metrics, "checkpoint_file": "winner.pt", "checkpoint_sha256": checkpoint, "state_dict_sha256": "e" * 64},
             "rerun_evidence": {"seed": seed, "best_epoch": 7, "best_macro_tile_wood_iou": 0.6, "state_dict_sha256": "e" * 64, "checkpoint_file": "seed-1-rerun.pt", "checkpoint_sha256": "1" * 64, "reproducible": True}}
 
@@ -154,6 +154,31 @@ def _commit_changed_freeze_and_external(repo: Path, result_path: Path, mutate) -
     _git(repo, "add", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "changed external")
     result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)})
     _commit_result(repo, result_path, result, "result after changed evidence")
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    [
+        (lambda source: source.pop("size_bytes"), "schema is not exact"),
+        (lambda source: source.update(size_bytes=True), "size_bytes"),
+        (lambda source: source.update(size_bytes=1.0), "size_bytes"),
+        (lambda source: source.update(size_bytes=0), "size_bytes"),
+        (lambda source: source.update(size_bytes=-1), "size_bytes"),
+        (lambda source: source.update(unexpected="value"), "schema is not exact"),
+    ],
+)
+def test_review_importer_rejects_invalid_frozen_wan_source_sizes(
+    reviewed_repo: tuple[Path, Path, Path], mutate, match: str
+):
+    repo, result_path, manifest_path = reviewed_repo
+
+    def mutate_freeze(freeze):
+        mutate(freeze["wan_evidence"]["sources"][0])
+
+    _commit_changed_freeze_and_external(repo, result_path, mutate_freeze)
+
+    with pytest.raises(ValueError, match=match):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
 
 
 @pytest.mark.parametrize("verdict", ["FAIL_METRICS", "POINT_ESTIMATE_PASS_ONLY", "PROMOTE_POINTNET"])
