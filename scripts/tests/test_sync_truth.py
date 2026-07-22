@@ -65,6 +65,17 @@ UNSUPPORTED_WAN_POSITIVE_CLAIMS = (
         r"\b(?:is|constitutes|provides)\s+(?:an?\s+)?real\s+(?:tls\s+)?test(?:\s+set)?\b"
     ),
     re.compile(
+        r"\b(?:is|constitutes|provides)\s+(?:an?\s+)?independent\s+final\s+test\b"
+    ),
+    re.compile(
+        r"\b(?:wan\s+)?(?:figures|evidence)\s+(?:are|constitute|provide)\s+"
+        r"independent\s+real\s+tls/(?:final[- ]test)\s+evidence\b"
+    ),
+    re.compile(
+        r"\bper[- ]epoch\s+validation\s+is\s+(?:the\s+)?honest\s+"
+        r"independent\s+test\s+number(?:\s+to\s+report)?\b"
+    ),
+    re.compile(
         r"\b(?:the\s+)?split\s+(?:guarantees|ensures|proves|confirms|shows)\s+"
         r"(?:that\s+)?no\s+shared\s+trees?\b"
     ),
@@ -292,6 +303,9 @@ def test_wan_positive_claim_detector_accepts_honest_limitations(honest_prose: st
         "The split guarantees no shared trees.",
         "The split guarantees unseen trees.",
         "Train/test never share a tree.",
+        "The Wan evaluation is an independent final test.",
+        "The Wan figures are independent real TLS/final-test evidence.",
+        "Per-epoch validation is the honest independent test number to report.",
     ),
 )
 def test_wan_positive_claim_detector_rejects_unsupported_claims(unsupported_prose: str):
