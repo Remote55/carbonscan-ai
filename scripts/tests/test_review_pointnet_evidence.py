@@ -285,26 +285,41 @@ def test_rejects_freeze_changed_at_external_commit_then_restored_later(reviewed_
         import_reviewed_result(result_path, manifest_path, repo_root=repo)
 
 
-def test_rejects_external_manifest_already_present_at_new_freeze(reviewed_repo: tuple[Path, Path, Path]):
+def test_rejects_old_external_path_present_when_current_freeze_is_introduced(reviewed_repo: tuple[Path, Path, Path]):
     repo, result_path, manifest_path = reviewed_repo; evidence = result_path.parent
     freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
     freeze = json.loads(freeze_path.read_text(encoding="utf-8")); freeze["environment"] = {"late": True}; _write(freeze_path, freeze)
-    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = _sha(freeze_path); _write(external_path, external)
-    _git(repo, "add", freeze_path.relative_to(repo).as_posix(), external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "late freeze with external")
+    _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "freeze while old external exists")
+    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = _sha(freeze_path); external["files"][0]["sha256"] = "c" * 64; _write(external_path, external)
+    _git(repo, "add", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "final external after freeze")
     result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}); _commit_result(repo, result_path, result)
-    with pytest.raises(ValueError, match="strict ancestor|must not exist"):
+    with pytest.raises(ValueError, match="external manifest must not exist at freeze introduction"):
         import_reviewed_result(result_path, manifest_path, repo_root=repo)
 
 
-def test_rejects_parallel_training_commit(reviewed_repo: tuple[Path, Path, Path]):
+def test_rejects_training_merged_after_freeze_but_before_external(reviewed_repo: tuple[Path, Path, Path]):
     repo, result_path, manifest_path = reviewed_repo; evidence = result_path.parent
     current_branch = _git(repo, "branch", "--show-current")
-    _git(repo, "checkout", "--orphan", "parallel-training")
+    _git(repo, "checkout", "-b", "training-side")
     (repo / "parallel.txt").write_text("parallel\n", encoding="utf-8")
     _git(repo, "add", "parallel.txt"); _git(repo, "commit", "-m", "parallel training")
     parallel = _git(repo, "rev-parse", "HEAD"); _git(repo, "checkout", current_branch)
-    _commit_changed_freeze_and_external(repo, result_path, lambda freeze: freeze.update({"training_git_commit": parallel}))
-    with pytest.raises(ValueError, match="Git validation"):
+    freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
+    _git(repo, "rm", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "remove external before freeze")
+    freeze = json.loads(freeze_path.read_text(encoding="utf-8")); freeze["training_git_commit"] = parallel; _write(freeze_path, freeze)
+    _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "freeze references side training")
+    _git(repo, "merge", "--no-ff", "training-side", "-m", "merge training after freeze")
+    _write(external_path, _external(_sha(evidence / "protocol.json"), _sha(freeze_path), "f" * 64, "pointnet-independent-eval-2026-07-16"))
+    _git(repo, "add", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "external after merge")
+    result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}); _commit_result(repo, result_path, result)
+    with pytest.raises(ValueError, match="training_git_commit/freeze introduction must be a strict ancestor"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_rejects_winner_checkpoint_mismatch_with_result_and_external(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo
+    _commit_changed_freeze_and_external(repo, result_path, lambda freeze: freeze["winner"].update({"checkpoint_sha256": "0" * 64}))
+    with pytest.raises(ValueError, match="freeze checkpoint"):
         import_reviewed_result(result_path, manifest_path, repo_root=repo)
 
 
