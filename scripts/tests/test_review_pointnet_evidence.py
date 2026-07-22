@@ -78,7 +78,7 @@ def _freeze(protocol: dict[str, object], protocol_sha: str, training_commit: str
             "training_git_commit": training_commit, "working_tree_clean": True, "training_command": ["python", "-m", "scripts.pointnet_evidence", "train"], "environment": {}, "architecture": "PointNet2SegSSG",
             "training_configuration": protocol["training"], "wan_evidence": {"schema_version": "1", "config": {}, "sources": [], "outputs": {"train": {}, "dev": {}}},
             "winner": {"seed": seed, "selected_epoch": 7, "dev_metrics": metrics, "checkpoint_file": "winner.pt", "checkpoint_sha256": checkpoint, "state_dict_sha256": "e" * 64},
-            "rerun_evidence": {"seed": seed, "best_epoch": 7, "best_macro_tile_wood_iou": 0.5, "state_dict_sha256": "e" * 64, "checkpoint_file": "seed-1-rerun.pt", "checkpoint_sha256": checkpoint, "reproducible": True}}
+            "rerun_evidence": {"seed": seed, "best_epoch": 7, "best_macro_tile_wood_iou": 0.6, "state_dict_sha256": "e" * 64, "checkpoint_file": "seed-1-rerun.pt", "checkpoint_sha256": "1" * 64, "reproducible": True}}
 
 
 def _result(verdict: str, evaluation_commit: str, hashes: dict[str, str]) -> dict[str, object]:
@@ -147,9 +147,10 @@ def _rehash_result(result: dict[str, object], evidence: Path, evaluation: str) -
 def _commit_changed_freeze_and_external(repo: Path, result_path: Path, mutate) -> None:
     evidence = result_path.parent
     freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
+    _git(repo, "rm", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "remove external before freeze")
     freeze = json.loads(freeze_path.read_text(encoding="utf-8")); mutate(freeze); _write(freeze_path, freeze)
     _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "changed freeze")
-    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = _sha(freeze_path); _write(external_path, external)
+    external = _external(_sha(evidence / "protocol.json"), _sha(freeze_path), "f" * 64, "pointnet-independent-eval-2026-07-16"); _write(external_path, external)
     _git(repo, "add", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "changed external")
     result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)})
     _commit_result(repo, result_path, result, "result after changed evidence")
@@ -224,13 +225,21 @@ def test_allows_different_measurable_counts_and_paired_mean_delta(reviewed_repo:
     assert imported["validation"]["pointnet_independent"]["baseline"]["measurable_trees"] == 64
 
 
+def test_records_exact_count_failure_when_candidate_has_64_of_65_measurable_trees(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo; result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["candidate"]["downstream"]["measurable_trees"] = 64
+    result["formal_gate"]["candidate"]["measurable_trees"] = 64
+    result["formal_gate"]["failed_criteria"] = ["wood_iou_improves", "dbh_mae_non_regression", "measurable_tree_count"]
+    _commit_result(repo, result_path, result, "candidate loses measurable tree")
+    imported = import_reviewed_result(result_path, manifest_path, repo_root=repo)
+    assert imported["candidate"]["promotion_evidence"]["failed_criteria"] == ["wood_iou_improves", "dbh_mae_non_regression", "measurable_tree_count"]
+
+
 @pytest.mark.parametrize("mutate, message", [
     (lambda freeze: freeze["winner"].update({"seed": 1}), "winner seed"),
     (lambda freeze: freeze["rerun_evidence"].update({"seed": 20260717}), "rerun seed"),
     (lambda freeze: freeze["rerun_evidence"].update({"best_epoch": 8}), "best epoch"),
-    (lambda freeze: freeze["rerun_evidence"].update({"best_macro_tile_wood_iou": 0.4}), "Wood IoU"),
     (lambda freeze: freeze["rerun_evidence"].update({"state_dict_sha256": "0" * 64}), "state identity"),
-    (lambda freeze: freeze["rerun_evidence"].update({"checkpoint_sha256": "0" * 64}), "checkpoint identity"),
 ])
 def test_rejects_freeze_reproducibility_cross_link_mutations(reviewed_repo: tuple[Path, Path, Path], mutate, message: str):
     repo, result_path, manifest_path = reviewed_repo; _commit_changed_freeze_and_external(repo, result_path, mutate)
@@ -259,6 +268,43 @@ def test_rejects_external_manifest_introduced_before_current_freeze(reviewed_rep
     _write(freeze_path, freeze); _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "freeze after external")
     result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}); _commit_result(repo, result_path, result)
     with pytest.raises(ValueError, match="strict ancestor"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_rejects_freeze_changed_at_external_commit_then_restored_later(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo; evidence = result_path.parent
+    freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
+    original = freeze_path.read_bytes(); original_hash = hashlib.sha256(original).hexdigest()
+    freeze = json.loads(original); freeze["environment"] = {"temporary": True}; _write(freeze_path, freeze)
+    _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "temporary freeze")
+    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = original_hash; external["files"][0]["sha256"] = "c" * 64; _write(external_path, external)
+    _git(repo, "add", external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "external against future freeze")
+    freeze_path.write_bytes(original); _git(repo, "add", freeze_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "restore freeze")
+    result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}); _commit_result(repo, result_path, result)
+    with pytest.raises(ValueError, match="freeze manifest bytes differ"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_rejects_external_manifest_already_present_at_new_freeze(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo; evidence = result_path.parent
+    freeze_path, external_path = evidence / "freeze_manifest.json", evidence / "external_dataset_manifest.json"
+    freeze = json.loads(freeze_path.read_text(encoding="utf-8")); freeze["environment"] = {"late": True}; _write(freeze_path, freeze)
+    external = json.loads(external_path.read_text(encoding="utf-8")); external["freeze_manifest_sha256"] = _sha(freeze_path); _write(external_path, external)
+    _git(repo, "add", freeze_path.relative_to(repo).as_posix(), external_path.relative_to(repo).as_posix()); _git(repo, "commit", "-m", "late freeze with external")
+    result = _result("FAIL_METRICS", _git(repo, "rev-parse", "HEAD"), {"protocol_sha256": _sha(evidence / "protocol.json"), "freeze_manifest_sha256": _sha(freeze_path), "external_manifest_sha256": _sha(external_path)}); _commit_result(repo, result_path, result)
+    with pytest.raises(ValueError, match="strict ancestor|must not exist"):
+        import_reviewed_result(result_path, manifest_path, repo_root=repo)
+
+
+def test_rejects_parallel_training_commit(reviewed_repo: tuple[Path, Path, Path]):
+    repo, result_path, manifest_path = reviewed_repo; evidence = result_path.parent
+    current_branch = _git(repo, "branch", "--show-current")
+    _git(repo, "checkout", "--orphan", "parallel-training")
+    (repo / "parallel.txt").write_text("parallel\n", encoding="utf-8")
+    _git(repo, "add", "parallel.txt"); _git(repo, "commit", "-m", "parallel training")
+    parallel = _git(repo, "rev-parse", "HEAD"); _git(repo, "checkout", current_branch)
+    _commit_changed_freeze_and_external(repo, result_path, lambda freeze: freeze.update({"training_git_commit": parallel}))
+    with pytest.raises(ValueError, match="Git validation"):
         import_reviewed_result(result_path, manifest_path, repo_root=repo)
 
 

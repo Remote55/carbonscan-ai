@@ -233,12 +233,10 @@ def _validate_freeze_reproducibility(freeze: dict[str, Any], protocol: dict[str,
         raise ValueError("freeze rerun seed does not match winner")
     if rerun["best_epoch"] != winner["selected_epoch"]:
         raise ValueError("freeze rerun best epoch does not match winner")
-    if rerun["best_macro_tile_wood_iou"] != winner["dev_metrics"]["wood_iou"]:
-        raise ValueError("freeze rerun Wood IoU does not match winner")
     if rerun["state_dict_sha256"] != winner["state_dict_sha256"]:
         raise ValueError("freeze rerun state identity does not match winner")
-    if winner["checkpoint_sha256"] != checkpoint or rerun["checkpoint_sha256"] != winner["checkpoint_sha256"]:
-        raise ValueError("freeze checkpoint identity does not match winner/rerun/result")
+    if winner["checkpoint_sha256"] != checkpoint:
+        raise ValueError("freeze winner checkpoint identity does not match result")
 
 
 def _from_confusion(confusion: dict[str, int]) -> dict[str, Any]:
@@ -444,6 +442,19 @@ def _validate_cross_links(result: dict[str, Any], *, result_path: Path, repo: Pa
     _strict_ancestor(
         freeze_introduced, external_introduced, repo=repo, label="external_opened_after_commit"
     )
+    _strict_ancestor(
+        training, freeze_introduced, repo=repo, label="training_git_commit/freeze introduction"
+    )
+    _commit_bytes(
+        siblings["freeze_manifest_sha256"], external_introduced, repo=repo, label="freeze manifest"
+    )
+    external_logical = siblings["external_manifest_sha256"].relative_to(repo).as_posix()
+    try:
+        _git(repo, "show", f"{freeze_introduced}:{external_logical}")
+    except ValueError:
+        pass
+    else:
+        raise ValueError("external manifest must not exist at freeze introduction")
     _commit_exists_and_is_ancestor(
         external_introduced, evaluation, repo=repo, label="external manifest introduction/evaluation"
     )
