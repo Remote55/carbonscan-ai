@@ -1110,6 +1110,189 @@ def test_pointnet_evidence_train_writes_ignored_record_and_winner_copy(
     assert str(fixture["repo"]) not in repr(record)
 
 
+def _separated_wan_training_fixture(tmp_path: Path, monkeypatch):
+    fixture = _freeze_fixture(tmp_path, monkeypatch)
+    for checkpoint_path in fixture["artifact_dir"].glob("*.pt"):
+        checkpoint_path.unlink()
+    fixture["training_runs_path"].unlink()
+
+    fixture["evidence_dir"].mkdir()
+    protocol_path = fixture["evidence_dir"] / "protocol.json"
+    fixture["protocol_path"].replace(protocol_path)
+    fixture["wan_manifest_path"].unlink()
+
+    train_npz = fixture["artifact_dir"] / "wan-train.npz"
+    dev_npz = fixture["artifact_dir"] / "wan-dev.npz"
+    np.savez(train_npz, x=np.zeros((1, 2, 3), dtype=np.float32))
+    np.savez(dev_npz, x=np.ones((1, 2, 3), dtype=np.float32))
+    wan_manifest_path = fixture["evidence_dir"] / "wan_manifest.json"
+    wan_manifest = {
+        "schema_version": "1",
+        "source_record": "10.5061/dryad.rfj6q5799",
+        "config": {"tile_m": 2.5},
+        "sources": [
+            {
+                "filename": "reference_pc_White_Birch.txt",
+                "sha256": "1" * 64,
+                "size_bytes": 101,
+            },
+            {
+                "filename": "reference_pc_Dahurian_Larch.txt",
+                "sha256": "2" * 64,
+                "size_bytes": 202,
+            },
+            {
+                "filename": "reference_pc_Chinese_scholar_tree.txt",
+                "sha256": "3" * 64,
+                "size_bytes": 303,
+            },
+        ],
+        "outputs": {
+            "train": {
+                "filename": train_npz.name,
+                "sha256": sha256_file(train_npz),
+                "x_sha256": "5" * 64,
+                "y_sha256": "6" * 64,
+                "samples": 3,
+            },
+            "dev": {
+                "filename": dev_npz.name,
+                "sha256": sha256_file(dev_npz),
+                "x_sha256": "8" * 64,
+                "y_sha256": "9" * 64,
+                "samples": 2,
+            },
+        },
+        "tiles": [],
+    }
+    write_canonical_json(wan_manifest_path, wan_manifest)
+    _git(repo := fixture["repo"], "add", "-A")
+    _git(repo, "commit", "-q", "-m", "separate evidence and artifacts")
+    assert not _git(repo, "status", "--porcelain")
+    return {
+        **fixture,
+        "protocol_path": protocol_path,
+        "wan_manifest_path": wan_manifest_path,
+        "train_npz": train_npz,
+        "dev_npz": dev_npz,
+    }
+
+
+def test_pointnet_evidence_train_uses_artifact_dir_for_separated_wan_outputs(
+    tmp_path, monkeypatch, capsys
+):
+    fixture = _separated_wan_training_fixture(tmp_path, monkeypatch)
+    calls = []
+
+    def fake_train(args):
+        calls.append(
+            (
+                args.seed,
+                Path(args.train_npz).resolve(),
+                Path(args.val_npz).resolve(),
+            )
+        )
+        score = {20260716: 0.40, 20260717: 0.55, 20260718: 0.50}[args.seed]
+        state_dict = {"weight": torch.tensor([float(args.seed)])}
+        dev_metrics = {
+            "wood_iou": score,
+            "leaf_iou": 0.6,
+            "mean_iou": (score + 0.6) / 2.0,
+            "accuracy": 0.7,
+        }
+        torch.save(
+            {
+                "schema_version": "2",
+                "state_dict": state_dict,
+                "num_classes": 2,
+                "seed": args.seed,
+                "selected_epoch": 12,
+                "dev_metrics": dev_metrics,
+                "protocol_sha256": args.protocol_sha256,
+                "wan_manifest_sha256": args.wan_manifest_sha256,
+                "training_git_commit": args.training_git_commit,
+            },
+            args.out,
+        )
+        return {
+            "seed": args.seed,
+            "best_epoch": 12,
+            "best_macro_tile_wood_iou": score,
+            "dev_metrics": dev_metrics,
+            "state_dict_sha256": canonical_state_dict_sha256(state_dict),
+            "checkpoint_path": str(args.out),
+            "checkpoint_sha256": sha256_file(args.out),
+            "protocol_sha256": args.protocol_sha256,
+            "wan_manifest_sha256": args.wan_manifest_sha256,
+            "training_git_commit": args.training_git_commit,
+        }
+
+    monkeypatch.setattr(pointnet_evidence.train_woodleaf, "train", fake_train)
+
+    exit_code = pointnet_evidence.main(
+        [
+            "train",
+            "--protocol",
+            str(fixture["protocol_path"]),
+            "--wan-manifest",
+            str(fixture["wan_manifest_path"]),
+            "--artifact-dir",
+            str(fixture["artifact_dir"]),
+            "--repo-root",
+            str(fixture["repo"]),
+        ]
+    )
+
+    summary = _one_ascii_json_line(capsys)
+    expected_paths = (fixture["train_npz"].resolve(), fixture["dev_npz"].resolve())
+    assert exit_code == 0
+    assert summary["status"] == "ok"
+    assert calls == [
+        (20260716, *expected_paths),
+        (20260717, *expected_paths),
+        (20260718, *expected_paths),
+        (20260717, *expected_paths),
+    ]
+    assert all(
+        not path.is_relative_to(fixture["wan_manifest_path"].parent)
+        for _, train_npz, dev_npz in calls
+        for path in (train_npz, dev_npz)
+    )
+
+
+def test_pointnet_evidence_train_rejects_hash_drift_at_separated_artifact_root(
+    tmp_path, monkeypatch, capsys
+):
+    fixture = _separated_wan_training_fixture(tmp_path, monkeypatch)
+    fixture["dev_npz"].write_bytes(b"tampered-dev")
+    calls = []
+
+    def unexpected_train(args):
+        calls.append(args.seed)
+        raise RuntimeError("training must not start")
+
+    monkeypatch.setattr(pointnet_evidence.train_woodleaf, "train", unexpected_train)
+
+    exit_code = pointnet_evidence.main(
+        [
+            "train",
+            "--protocol",
+            str(fixture["protocol_path"]),
+            "--wan-manifest",
+            str(fixture["wan_manifest_path"]),
+            "--artifact-dir",
+            str(fixture["artifact_dir"]),
+            "--repo-root",
+            str(fixture["repo"]),
+        ]
+    )
+
+    summary = _one_ascii_json_line(capsys)
+    assert exit_code == 1
+    assert "sha256" in summary["error"]
+    assert calls == []
+
+
 def test_pointnet_evidence_train_rejects_wan_output_hash_mismatch_before_training(
     tmp_path, monkeypatch, capsys
 ):

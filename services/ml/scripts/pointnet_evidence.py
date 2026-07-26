@@ -125,12 +125,16 @@ def _train(args: argparse.Namespace) -> dict[str, Any]:
     wan_manifest_sha256 = sha256_file(wan_manifest_path)
     wan_manifest = json.loads(wan_manifest_path.read_text(encoding="utf-8"))
     wan_evidence = evidence_training._validate_wan_manifest(wan_manifest)
+    wan_output_paths = {}
     for split_name, output in wan_evidence["outputs"].items():
-        output_path = (wan_manifest_path.parent / output["filename"]).resolve()
+        output_path = (artifact_dir / output["filename"]).resolve()
+        if not output_path.is_relative_to(artifact_dir):
+            raise ValueError(f"Wan output {split_name} must resolve under artifact_dir")
         if not output_path.is_file():
             raise ValueError(f"Wan output {split_name} file is missing")
         if sha256_file(output_path) != output["sha256"]:
             raise ValueError(f"Wan output {split_name} sha256 mismatch")
+        wan_output_paths[split_name] = output_path
     if git_worktree_dirty(repo_root):
         raise ValueError("Git working tree must be clean before training")
     training_git_commit = resolve_git_commit(repo_root)
@@ -150,8 +154,8 @@ def _train(args: argparse.Namespace) -> dict[str, Any]:
     winner_path = artifact_dir / "winner.pt"
     if training_runs_path.exists() or winner_path.exists():
         raise ValueError("training outputs already exist")
-    train_npz = wan_manifest_path.parent / wan_evidence["outputs"]["train"]["filename"]
-    dev_npz = wan_manifest_path.parent / wan_evidence["outputs"]["dev"]["filename"]
+    train_npz = wan_output_paths["train"]
+    dev_npz = wan_output_paths["dev"]
     training = protocol["training"]
 
     def train_one_seed(seed: int, output_path: Path) -> dict[str, Any]:
