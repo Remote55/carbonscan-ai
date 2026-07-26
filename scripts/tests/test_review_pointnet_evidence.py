@@ -13,6 +13,7 @@ import pytest
 from scripts.review_pointnet_evidence import _validate_result, import_reviewed_result
 from scripts.sync_truth import (
     CONTROLLED_DOCS,
+    PROMOTION_POLICY,
     TRUTH_END,
     TRUTH_START,
     load_manifest,
@@ -56,7 +57,7 @@ def _manifest() -> dict[str, object]:
             "promotion_evidence": {
                 "all_passed": False,
                 "failed_criteria": ["independent_real_test_not_recorded"],
-                "policy": "Promote only after reviewed independent evidence.",
+                "policy": PROMOTION_POLICY,
             },
         },
         "validation": {

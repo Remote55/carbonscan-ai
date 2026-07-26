@@ -18,7 +18,7 @@
         "volume_mape_non_regression",
         "measurable_tree_count"
       ],
-      "policy": "Promote only when Wood IoU improves on an independent real test while DBH and volume do not regress."
+      "policy": "Promote only after verified checkpoint and training provenance, a reproducible independent real-data evaluation, improved Wood IoU, non-regressing DBH/height/volume errors, and a candidate measurable-tree count at least as high as the baseline."
     }
   },
   "validation": {

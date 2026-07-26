@@ -27,6 +27,12 @@ EXPECTED_WAN = {
     "mean_iou": 0.613,
     "accuracy": 0.831,
 }
+PROMOTION_POLICY = (
+    "Promote only after verified checkpoint and training provenance, a reproducible "
+    "independent real-data evaluation, improved Wood IoU, non-regressing "
+    "DBH/height/volume errors, and a candidate measurable-tree count at least as high "
+    "as the baseline."
+)
 
 
 def _require_keys(value: dict[str, Any], keys: set[str], label: str) -> None:
@@ -89,7 +95,11 @@ def load_manifest(
     if candidate["status"] not in VALID_STATUSES:
         raise ValueError("candidate has an invalid status")
     promotion = candidate["promotion_evidence"]
-    _require_keys(promotion, {"all_passed", "failed_criteria"}, "promotion evidence")
+    _require_keys(
+        promotion, {"all_passed", "failed_criteria", "policy"}, "promotion evidence"
+    )
+    if promotion["policy"] != PROMOTION_POLICY:
+        raise ValueError("promotion policy must match the canonical formal-gate policy")
     if candidate["promoted"] is not False or candidate["status"] != "Experimental":
         raise ValueError("promotion evidence cannot auto-promote PointNet++")
 

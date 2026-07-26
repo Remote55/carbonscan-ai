@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from scripts.sync_truth import (
+    PROMOTION_POLICY,
     load_manifest,
     render_capability_matrix,
     render_typescript,
@@ -126,6 +127,7 @@ def _manifest(tmp_path: Path) -> Path:
                     "promotion_evidence": {
                         "all_passed": False,
                         "failed_criteria": ["independent_real_test"],
+                        "policy": PROMOTION_POLICY,
                     },
                 },
                 "validation": {
@@ -175,6 +177,27 @@ def test_manifest_rejects_promoted_pointnet_without_gate(tmp_path: Path):
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ValueError, match="promotion evidence"):
         load_manifest(path)
+
+
+def test_manifest_rejects_incomplete_promotion_policy(tmp_path: Path):
+    path = _manifest(tmp_path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["candidate"]["promotion_evidence"]["policy"] = (
+        "Promote only when Wood IoU improves on an independent real test while DBH "
+        "and volume do not regress."
+    )
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="promotion policy"):
+        load_manifest(path)
+
+
+def test_checked_in_manifest_uses_canonical_promotion_policy():
+    manifest = load_manifest(
+        Path("docs/evidence/core_demo_manifest.json"), repo_root=Path.cwd()
+    )
+
+    assert manifest["candidate"]["promotion_evidence"]["policy"] == PROMOTION_POLICY
 
 
 def test_manifest_rejects_dirty_core_demo(tmp_path: Path):
