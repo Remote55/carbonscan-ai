@@ -59,6 +59,7 @@ _RESULT_RELATIVE = Path("docs/evidence/pointnet_independent_eval/result.json")
 _MANIFEST_RELATIVE = Path("docs/evidence/core_demo_manifest.json")
 _LOWER_HEX = frozenset("0123456789abcdef")
 _WAN_SOURCE_KEYS = {"filename", "sha256", "size_bytes"}
+_WOOD_PAIRED_DELTA_ULP_BUDGET = 8
 
 
 def _fail_constant(value: str) -> None:
@@ -327,7 +328,11 @@ def _segmentation(value: Any, label: str) -> dict[str, Any]:
             raise ValueError(f"result.{label}.external macro is inconsistent with per-tree records")
     if _segmentation_record(record["pooled"], f"result.{label}.external pooled") != _from_confusion(totals):
         raise ValueError(f"result.{label}.external pooled metrics are inconsistent")
-    return {"wood_iou": macro["wood_iou"], "tree_ids": frozenset(per_tree)}
+    return {
+        "wood_iou": macro["wood_iou"],
+        "tree_ids": frozenset(per_tree),
+        "wood_iou_by_tree": {tree_id: tree["wood_iou"] for tree_id, tree in per_tree.items()},
+    }
 
 
 def _metrics(
@@ -376,6 +381,28 @@ def _intervals(value: Any) -> dict[str, dict[str, Any]]:
     return intervals
 
 
+def _wood_paired_mean(baseline: dict[str, Any], candidate: dict[str, Any]) -> float:
+    baseline_by_tree = baseline["wood_iou_by_tree"]
+    candidate_by_tree = candidate["wood_iou_by_tree"]
+    if set(baseline_by_tree) != set(candidate_by_tree):
+        raise ValueError("result Wood paired per-tree IDs do not match")
+    tree_ids = sorted(baseline_by_tree)
+    return sum(candidate_by_tree[tree_id] - baseline_by_tree[tree_id] for tree_id in tree_ids) / len(tree_ids)
+
+
+def _within_wood_paired_delta_ulp_budget(observed: float, expected: float) -> bool:
+    """Allow only local binary64 rounding drift from the per-tree paired mean.
+
+    The exact-zero branch uses the smallest binary64 ULP so zero and subnormal
+    expected deltas remain finite and deterministic rather than using a relative
+    tolerance. All unrelated evidence fields remain exact.
+    """
+    if observed == expected:
+        return True
+    ulp = math.ulp(0.0) if expected == 0.0 else math.ulp(expected)
+    return abs(observed - expected) <= _WOOD_PAIRED_DELTA_ULP_BUDGET * ulp
+
+
 def _validate_deltas(value: Any, intervals: dict[str, dict[str, Any]], baseline: dict[str, Any], candidate: dict[str, Any]) -> None:
     deltas = _exact(value, set(_DELTAS), "result paired_deltas")
     for key, (name, unit, metric) in _DELTAS.items():
@@ -385,8 +412,10 @@ def _validate_deltas(value: Any, intervals: dict[str, dict[str, Any]], baseline:
         _number(delta["estimate"], f"result paired_deltas.{key}.estimate")
         if delta["estimate"] != intervals[key]["estimate"]:
             raise ValueError(f"result paired_deltas.{key} estimate does not match confidence interval")
-        if key == "wood_iou_delta" and delta["estimate"] != candidate[metric] - baseline[metric]:
-            raise ValueError(f"result paired_deltas.{key} estimate is inconsistent with aggregate metrics")
+        if key == "wood_iou_delta":
+            expected_paired = _wood_paired_mean(baseline, candidate)
+            if not _within_wood_paired_delta_ulp_budget(delta["estimate"], expected_paired):
+                raise ValueError(f"result paired_deltas.{key} estimate is inconsistent with per-tree Wood IoUs")
 
 
 def _formal_failures(baseline: dict[str, Any], candidate: dict[str, Any]) -> list[str]:

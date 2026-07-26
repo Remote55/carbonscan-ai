@@ -5,11 +5,12 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import subprocess
 from pathlib import Path
 
 import pytest
-from scripts.review_pointnet_evidence import import_reviewed_result
+from scripts.review_pointnet_evidence import _validate_result, import_reviewed_result
 from scripts.sync_truth import (
     CONTROLLED_DOCS,
     TRUTH_END,
@@ -122,6 +123,29 @@ def _segmentation(confusion: dict[str, int]) -> dict[str, object]:
         "macro": {key: one[key] for key in ("wood_iou", "leaf_iou", "mean_iou", "accuracy")},
         "pooled": _metrics(total),
     }
+
+
+def _committed_result() -> dict[str, object]:
+    return json.loads(
+        (ROOT / "docs/evidence/pointnet_independent_eval/result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def _set_wood_delta(result: dict[str, object], estimate: float) -> None:
+    result["paired_deltas"]["wood_iou_delta"]["estimate"] = estimate
+    result["confidence_intervals"]["wood_iou_delta"] = {
+        "estimate": estimate,
+        "lower": estimate - 0.1,
+        "upper": estimate + 0.1,
+    }
+
+
+def _offset_ulps(value: float, steps: int) -> float:
+    for _ in range(steps):
+        value = math.nextafter(value, math.inf)
+    return value
 
 
 def _external(
@@ -399,6 +423,53 @@ def _commit_changed_freeze_and_external(repo: Path, result_path: Path, mutate) -
     _commit_result(repo, result_path, result, "result after changed evidence")
 
 
+def test_data_validator_accepts_committed_wood_paired_mean_despite_six_ulp_macro_drift():
+    result = _committed_result()
+    baseline = result["baseline"]["external_segmentation"]
+    candidate = result["candidate"]["external_segmentation"]
+    tree_ids = sorted(baseline["per_tree"])
+    assert tree_ids == sorted(candidate["per_tree"])
+    paired_mean = sum(
+        candidate["per_tree"][tree_id]["wood_iou"]
+        - baseline["per_tree"][tree_id]["wood_iou"]
+        for tree_id in tree_ids
+    ) / len(tree_ids)
+    paired_estimate = result["paired_deltas"]["wood_iou_delta"]["estimate"]
+    macro_difference = (
+        candidate["macro"]["wood_iou"] - baseline["macro"]["wood_iou"]
+    )
+    assert paired_estimate == paired_mean
+    assert abs(paired_estimate - macro_difference) == 6 * math.ulp(paired_estimate)
+
+    _validate_result(result)
+
+
+def test_data_validator_rejects_coordinated_material_wood_delta_mutation():
+    result = _committed_result()
+    paired_estimate = result["paired_deltas"]["wood_iou_delta"]["estimate"]
+    _set_wood_delta(result, paired_estimate + 1e-8)
+
+    with pytest.raises(ValueError, match="per-tree Wood IoUs"):
+        _validate_result(result)
+
+
+def test_data_validator_allows_wood_delta_within_eight_ulp_bound():
+    result = _committed_result()
+    paired_estimate = result["paired_deltas"]["wood_iou_delta"]["estimate"]
+    _set_wood_delta(result, _offset_ulps(paired_estimate, 8))
+
+    _validate_result(result)
+
+
+def test_data_validator_rejects_wood_delta_beyond_eight_ulp_bound():
+    result = _committed_result()
+    paired_estimate = result["paired_deltas"]["wood_iou_delta"]["estimate"]
+    _set_wood_delta(result, _offset_ulps(paired_estimate, 9))
+
+    with pytest.raises(ValueError, match="per-tree Wood IoUs"):
+        _validate_result(result)
+
+
 @pytest.mark.parametrize(
     ("mutate", "match"),
     [
@@ -507,13 +578,14 @@ def test_rejects_measurable_tree_count_outside_protocol_bounds(
         import_reviewed_result(result_path, manifest_path, repo_root=repo)
 
 
-def test_allows_different_measurable_counts_and_paired_mean_delta(
+def test_allows_65_baseline_49_candidate_measurable_trees_and_paired_downstream_delta(
     reviewed_repo: tuple[Path, Path, Path],
 ):
     repo, result_path, manifest_path = reviewed_repo
     result = json.loads(result_path.read_text(encoding="utf-8"))
-    result["baseline"]["downstream"]["measurable_trees"] = 64
-    result["formal_gate"]["baseline"]["measurable_trees"] = 64
+    result["candidate"]["downstream"]["measurable_trees"] = 49
+    result["formal_gate"]["candidate"]["measurable_trees"] = 49
+    result["formal_gate"]["failed_criteria"].append("measurable_tree_count")
     result["paired_deltas"]["dbh_abs_error_delta"]["estimate"] = -0.3
     result["confidence_intervals"]["dbh_abs_error_delta"] = {
         "estimate": -0.3,
@@ -522,7 +594,9 @@ def test_allows_different_measurable_counts_and_paired_mean_delta(
     }
     _commit_result(repo, result_path, result, "different paired counts")
     imported = import_reviewed_result(result_path, manifest_path, repo_root=repo)
-    assert imported["validation"]["pointnet_independent"]["baseline"]["measurable_trees"] == 64
+    validation = imported["validation"]["pointnet_independent"]
+    assert validation["baseline"]["measurable_trees"] == 65
+    assert validation["candidate"]["measurable_trees"] == 49
 
 
 def test_records_exact_count_failure_when_candidate_has_64_of_65_measurable_trees(
