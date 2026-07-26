@@ -715,11 +715,15 @@ def _publish_evidence_artifacts(
             source = stage / final.name
             try:
                 _link_staged_file(source, final)
-            except Exception:
+            except Exception as exc:
                 if _staged_source_owns_destination(source, final):
                     identity = _file_identity(final)
                     if identity is not None:
                         created.append((final, identity))
+                if isinstance(exc, FileExistsError):
+                    raise IndependentEvaluationError(
+                        "final evidence artifact already exists"
+                    ) from exc
                 raise
             identity = _file_identity(final)
             if identity is None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import inspect
 import json
 import sys
@@ -655,13 +656,18 @@ def test_artifact_race_preserves_concurrent_final_and_rolls_back_owned_files(
 
     def concurrent_publish(source: Path, destination: Path) -> None:
         destination.write_bytes(concurrent_bytes)
-        real_link(source, destination)
+        try:
+            real_link(source, destination)
+        except FileExistsError as exc:
+            raise FileExistsError(17, "File exists", destination) from exc
 
     monkeypatch.setattr(independent_eval, "_link_staged_file", concurrent_publish)
     evidence_dir = tmp_path / "evidence"
 
-    with pytest.raises(IndependentEvaluationError, match="already exists"):
+    with pytest.raises(IndependentEvaluationError) as caught:
         independent_eval._publish_evidence_artifacts(_toy_bundle(), evidence_dir)
+    assert str(caught.value) == "final evidence artifact already exists"
+    assert isinstance(caught.value.__cause__, FileExistsError)
     concurrent = evidence_dir / "segmentation_per_tree.csv"
     assert concurrent.read_bytes() == concurrent_bytes
     assert [path.name for path in evidence_dir.iterdir()] == [concurrent.name]
@@ -733,8 +739,10 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
     import pipeline.main as pipeline_main
 
     main_path = Path(pipeline_main.__file__).resolve()
+    normalized_main_bytes = main_path.read_bytes().replace(b"\r\n", b"\n")
     assert (
-        sha256_file(main_path) == "cd713f7147240132f05201da91afc00d58779079052eb2ae82c8ecc8c014f2ef"
+        hashlib.sha256(normalized_main_bytes).hexdigest()
+        == "83608517a332d182f39c6bedaac22edfae474ef9fdd090609803cc5e61f69379"
     )
     assert (
         inspect.signature(pipeline_main.process_points).parameters["wood_leaf_backend"].default
