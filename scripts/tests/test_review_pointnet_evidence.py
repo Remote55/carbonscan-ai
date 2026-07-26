@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,14 @@ from scripts.sync_truth import (
 
 ROOT = Path(__file__).resolve().parents[2]
 EXTERNAL_IDS = tuple(f"tree-{index:02d}" for index in range(1, 11))
+review_pointnet_evidence = sys.modules[_validate_result.__module__]
+
+
+def _naive_sum(values):
+    total = 0
+    for value in values:
+        total += value
+    return total
 
 
 def _sha(path: Path) -> str:
@@ -458,6 +467,13 @@ def test_data_validator_accepts_committed_wood_paired_mean_despite_six_ulp_macro
     )
     assert paired_estimate == paired_mean
     assert abs(paired_estimate - macro_difference) == 6 * math.ulp(paired_estimate)
+
+    _validate_result(result)
+
+
+def test_data_validator_macro_is_independent_of_runtime_sum_algorithm(monkeypatch):
+    result = _committed_result()
+    monkeypatch.setattr(review_pointnet_evidence, "sum", _naive_sum, raising=False)
 
     _validate_result(result)
 

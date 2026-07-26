@@ -321,7 +321,10 @@ def _segmentation(value: Any, label: str) -> dict[str, Any]:
         for key in _CONFUSION:
             totals[key] += canonical["confusion"][key]
     macro = _exact(record["macro"], set(_SEGMENTATION), f"result.{label}.external macro")
-    expected_macro = {key: sum(tree[key] for tree in retained) / len(retained) for key in _SEGMENTATION}
+    expected_macro = {
+        key: math.fsum(tree[key] for tree in retained) / len(retained)
+        for key in _SEGMENTATION
+    }
     for key in _SEGMENTATION:
         _number(macro[key], f"result.{label}.external macro.{key}", minimum=0.0, maximum=1.0)
         if macro[key] != expected_macro[key]:

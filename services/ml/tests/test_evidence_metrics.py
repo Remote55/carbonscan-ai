@@ -2,14 +2,27 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
+import pipeline.evidence_metrics as evidence_metrics
 from pipeline.evidence_metrics import (
     aggregate_segmentation_metrics,
     paired_percentile_ci,
     segmentation_metrics,
 )
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def _naive_sum(values):
+    total = 0
+    for value in values:
+        total += value
+    return total
 
 
 def test_segmentation_metrics_keeps_full_precision_and_confusion_counts():
@@ -89,6 +102,20 @@ def test_aggregation_retains_trees_and_separates_macro_from_pooled_metrics():
             "leaf_as_leaf": 2,
         },
     }
+
+
+def test_aggregation_macro_is_independent_of_runtime_sum_algorithm(monkeypatch):
+    committed = json.loads(
+        (ROOT / "docs/evidence/pointnet_independent_eval/result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    segmentation = committed["baseline"]["external_segmentation"]
+    monkeypatch.setattr(evidence_metrics, "sum", _naive_sum, raising=False)
+
+    result = aggregate_segmentation_metrics(segmentation["per_tree"])
+
+    assert result["macro"] == segmentation["macro"]
 
 
 @pytest.mark.parametrize(

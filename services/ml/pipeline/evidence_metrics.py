@@ -168,7 +168,10 @@ def aggregate_segmentation_metrics(
         for key in _CONFUSION_KEYS:
             pooled_confusion[key] += canonical["confusion"][key]
 
-    macro = {key: float(sum(values) / len(values)) for key, values in macro_values.items()}
+    macro = {
+        key: float(math.fsum(values) / len(values))
+        for key, values in macro_values.items()
+    }
     return {
         "per_tree": retained,
         "macro": macro,
