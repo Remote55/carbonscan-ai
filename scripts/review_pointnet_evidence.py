@@ -121,10 +121,10 @@ def _load_json(path: Path, *, label: str) -> dict[str, Any]:
             parse_constant=_fail_constant,
             object_pairs_hook=no_duplicate_keys,
         )
-    except ValueError as exc:
-        raise ValueError(f"{label} is invalid: {exc}") from exc
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"{label} cannot be parsed as finite JSON") from exc
+    except ValueError as exc:
+        raise ValueError(f"{label} is invalid: {exc}") from exc
     if type(value) is not dict:
         raise ValueError(f"{label} must be a JSON object")
     _finite_json(value, label)
@@ -405,7 +405,7 @@ def _within_wood_paired_delta_ulp_budget(observed: float, expected: float) -> bo
 
 def _validate_deltas(value: Any, intervals: dict[str, dict[str, Any]], baseline: dict[str, Any], candidate: dict[str, Any]) -> None:
     deltas = _exact(value, set(_DELTAS), "result paired_deltas")
-    for key, (name, unit, metric) in _DELTAS.items():
+    for key, (name, unit, _metric) in _DELTAS.items():
         delta = _exact(deltas[key], {"name", "unit", "estimate"}, f"result paired_deltas.{key}")
         if delta["name"] != name or delta["unit"] != unit:
             raise ValueError(f"result paired_deltas.{key} declaration is invalid")

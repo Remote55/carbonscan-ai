@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from scripts.review_pointnet_evidence import _validate_result, import_reviewed_result
+from scripts.review_pointnet_evidence import _load_json, _validate_result, import_reviewed_result
 from scripts.sync_truth import (
     CONTROLLED_DOCS,
     PROMOTION_POLICY,
@@ -36,6 +36,23 @@ def _write(path: Path, value: object) -> None:
         encoding="utf-8",
         newline="\n",
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "label"),
+    [
+        (b"\xff", "invalid UTF-8"),
+        (b'{"unterminated":', "malformed JSON"),
+    ],
+)
+def test_load_json_routes_decode_and_syntax_failures_to_parse_error(
+    tmp_path: Path, raw: bytes, label: str
+):
+    path = tmp_path / "invalid.json"
+    path.write_bytes(raw)
+
+    with pytest.raises(ValueError, match=rf"{label} cannot be parsed as finite JSON"):
+        _load_json(path, label=label)
 
 
 def _git(repo: Path, *args: str) -> str:
