@@ -1299,7 +1299,9 @@ def test_pointnet_evidence_train_rejects_wan_symlink_resolving_below_artifact_ro
     try:
         fixture["train_npz"].symlink_to(Path("nested") / nested_train_npz.name)
     except OSError as exc:
-        pytest.skip(str(exc))
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip(str(exc))
+        raise
     calls = []
 
     def unexpected_train(args):
