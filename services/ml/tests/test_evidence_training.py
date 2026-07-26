@@ -1110,22 +1110,29 @@ def test_pointnet_evidence_train_writes_ignored_record_and_winner_copy(
     assert str(fixture["repo"]) not in repr(record)
 
 
-def _separated_wan_training_fixture(tmp_path: Path, monkeypatch):
-    fixture = _freeze_fixture(tmp_path, monkeypatch)
-    for checkpoint_path in fixture["artifact_dir"].glob("*.pt"):
-        checkpoint_path.unlink()
-    fixture["training_runs_path"].unlink()
+def _separated_wan_training_fixture(tmp_path: Path):
+    repo = tmp_path / "repo"
+    artifact_dir = repo / "artifacts"
+    evidence_dir = repo / "evidence"
+    repo.mkdir()
+    artifact_dir.mkdir()
+    evidence_dir.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "tests@example.invalid")
+    _git(repo, "config", "user.name", "TreeQ Tests")
+    (repo / ".gitignore").write_text("/artifacts/\n", encoding="utf-8")
+    protocol_path = evidence_dir / "protocol.json"
+    source_protocol = (
+        Path(__file__).parents[3]
+        / "docs/evidence/pointnet_independent_eval/protocol.json"
+    )
+    protocol_path.write_bytes(source_protocol.read_bytes())
 
-    fixture["evidence_dir"].mkdir()
-    protocol_path = fixture["evidence_dir"] / "protocol.json"
-    fixture["protocol_path"].replace(protocol_path)
-    fixture["wan_manifest_path"].unlink()
-
-    train_npz = fixture["artifact_dir"] / "wan-train.npz"
-    dev_npz = fixture["artifact_dir"] / "wan-dev.npz"
+    train_npz = artifact_dir / "wan-train.npz"
+    dev_npz = artifact_dir / "wan-dev.npz"
     np.savez(train_npz, x=np.zeros((1, 2, 3), dtype=np.float32))
     np.savez(dev_npz, x=np.ones((1, 2, 3), dtype=np.float32))
-    wan_manifest_path = fixture["evidence_dir"] / "wan_manifest.json"
+    wan_manifest_path = evidence_dir / "wan_manifest.json"
     wan_manifest = {
         "schema_version": "1",
         "source_record": "10.5061/dryad.rfj6q5799",
@@ -1166,11 +1173,13 @@ def _separated_wan_training_fixture(tmp_path: Path, monkeypatch):
         "tiles": [],
     }
     write_canonical_json(wan_manifest_path, wan_manifest)
-    _git(repo := fixture["repo"], "add", "-A")
+    _git(repo, "add", ".gitignore", "evidence")
     _git(repo, "commit", "-q", "-m", "separate evidence and artifacts")
     assert not _git(repo, "status", "--porcelain")
     return {
-        **fixture,
+        "repo": repo,
+        "artifact_dir": artifact_dir,
+        "evidence_dir": evidence_dir,
         "protocol_path": protocol_path,
         "wan_manifest_path": wan_manifest_path,
         "train_npz": train_npz,
@@ -1181,7 +1190,7 @@ def _separated_wan_training_fixture(tmp_path: Path, monkeypatch):
 def test_pointnet_evidence_train_uses_artifact_dir_for_separated_wan_outputs(
     tmp_path, monkeypatch, capsys
 ):
-    fixture = _separated_wan_training_fixture(tmp_path, monkeypatch)
+    fixture = _separated_wan_training_fixture(tmp_path)
     calls = []
 
     def fake_train(args):
@@ -1260,10 +1269,69 @@ def test_pointnet_evidence_train_uses_artifact_dir_for_separated_wan_outputs(
     )
 
 
+def test_resolve_wan_output_path_requires_a_direct_artifact_child(tmp_path):
+    artifact_dir = (tmp_path / "artifacts").resolve()
+    artifact_dir.mkdir()
+    direct_file = artifact_dir / "wan-train.npz"
+    direct_file.write_bytes(b"direct")
+    nested_file = artifact_dir / "nested" / "wan-train.npz"
+    nested_file.parent.mkdir()
+    nested_file.write_bytes(b"nested")
+
+    resolver = getattr(pointnet_evidence, "_resolve_wan_output_path", None)
+    assert resolver is not None, "direct-child Wan output resolver is required"
+    assert resolver(artifact_dir, direct_file.name, "Wan output train") == direct_file
+    with pytest.raises(
+        ValueError,
+        match="Wan output train must resolve directly under artifact_dir",
+    ):
+        resolver(artifact_dir, "nested/wan-train.npz", "Wan output train")
+
+
+def test_pointnet_evidence_train_rejects_wan_symlink_resolving_below_artifact_root(
+    tmp_path, monkeypatch, capsys
+):
+    fixture = _separated_wan_training_fixture(tmp_path)
+    nested_dir = fixture["artifact_dir"] / "nested"
+    nested_dir.mkdir()
+    nested_train_npz = nested_dir / fixture["train_npz"].name
+    fixture["train_npz"].replace(nested_train_npz)
+    try:
+        fixture["train_npz"].symlink_to(Path("nested") / nested_train_npz.name)
+    except OSError as exc:
+        pytest.skip(str(exc))
+    calls = []
+
+    def unexpected_train(args):
+        calls.append(args.seed)
+        raise RuntimeError("nested target accepted")
+
+    monkeypatch.setattr(pointnet_evidence.train_woodleaf, "train", unexpected_train)
+
+    exit_code = pointnet_evidence.main(
+        [
+            "train",
+            "--protocol",
+            str(fixture["protocol_path"]),
+            "--wan-manifest",
+            str(fixture["wan_manifest_path"]),
+            "--artifact-dir",
+            str(fixture["artifact_dir"]),
+            "--repo-root",
+            str(fixture["repo"]),
+        ]
+    )
+
+    summary = _one_ascii_json_line(capsys)
+    assert exit_code == 1
+    assert summary["error"] == "Wan output train must resolve directly under artifact_dir"
+    assert calls == []
+
+
 def test_pointnet_evidence_train_rejects_hash_drift_at_separated_artifact_root(
     tmp_path, monkeypatch, capsys
 ):
-    fixture = _separated_wan_training_fixture(tmp_path, monkeypatch)
+    fixture = _separated_wan_training_fixture(tmp_path)
     fixture["dev_npz"].write_bytes(b"tampered-dev")
     calls = []
 

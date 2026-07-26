@@ -66,6 +66,17 @@ def _prepare_wan(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _resolve_wan_output_path(
+    artifact_dir: Path,
+    filename: str,
+    label: str,
+) -> Path:
+    output_path = (artifact_dir / filename).resolve()
+    if output_path.parent != artifact_dir:
+        raise ValueError(f"{label} must resolve directly under artifact_dir")
+    return output_path
+
+
 def _sanitize_training_record(
     record: dict[str, Any],
     expected_checkpoint_path: Path,
@@ -127,9 +138,11 @@ def _train(args: argparse.Namespace) -> dict[str, Any]:
     wan_evidence = evidence_training._validate_wan_manifest(wan_manifest)
     wan_output_paths = {}
     for split_name, output in wan_evidence["outputs"].items():
-        output_path = (artifact_dir / output["filename"]).resolve()
-        if not output_path.is_relative_to(artifact_dir):
-            raise ValueError(f"Wan output {split_name} must resolve under artifact_dir")
+        output_path = _resolve_wan_output_path(
+            artifact_dir,
+            output["filename"],
+            f"Wan output {split_name}",
+        )
         if not output_path.is_file():
             raise ValueError(f"Wan output {split_name} file is missing")
         if sha256_file(output_path) != output["sha256"]:
