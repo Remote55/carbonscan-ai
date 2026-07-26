@@ -1,0 +1,124 @@
+{
+  "architecture": "PointNet2SegSSG",
+  "environment": {
+    "cuda_version": "12.8",
+    "cudnn_version": 90701,
+    "device_type": "cuda",
+    "gpu_count": 1,
+    "gpu_names": [
+      "NVIDIA GeForce RTX 4060 Laptop GPU"
+    ],
+    "numpy_version": "2.4.4",
+    "python_version": "3.12.13",
+    "pytorch_version": "2.7.1+cu128"
+  },
+  "experiment_id": "pointnet-independent-eval-2026-07-16",
+  "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+  "rerun_evidence": {
+    "best_epoch": 33,
+    "best_macro_tile_wood_iou": 0.472762987948273,
+    "checkpoint_file": "seed-20260717-rerun.pt",
+    "checkpoint_sha256": "d23ff210d3646522cc706fd6758a4d8a4584545793c44684e31d1627b1ee1620",
+    "reproducible": true,
+    "seed": 20260717,
+    "state_dict_sha256": "be4202449770a2797f4ff2f2003f47e1c80bae99085584127e6c314494dee017"
+  },
+  "schema_version": "1",
+  "training_command": [
+    "python",
+    "-m",
+    "scripts.pointnet_evidence",
+    "train",
+    "--protocol",
+    "protocol.json",
+    "--wan-manifest",
+    "wan_split_manifest.json",
+    "--artifact-dir",
+    "pointnet_evidence",
+    "--repo-root",
+    "."
+  ],
+  "training_configuration": {
+    "batch_size": 8,
+    "class_weight": "none",
+    "epochs": 60,
+    "initialization": "scratch",
+    "learning_rate": 0.001,
+    "optimizer": "Adam",
+    "scheduler_gamma": 0.5,
+    "scheduler_step": 20,
+    "seeds": [
+      20260716,
+      20260717,
+      20260718
+    ],
+    "selection_metric": "macro_tile_wood_iou",
+    "selection_tie_break": "lowest_seed",
+    "synthetic_samples": 200,
+    "synthetic_seed_start": 50000,
+    "weight_decay": 0.0001
+  },
+  "training_git_commit": "a336d06356c09d9c12864f399f2a6b5c02a8b040",
+  "training_runs_sha256": "fa89c1919c32538ccc339e340a7d502f5c7d7285cd5151df985cb52043a81364",
+  "wan_evidence": {
+    "config": {
+      "buffer_m": 2.5,
+      "min_points_per_tile": 1024,
+      "n_off": 10000,
+      "per": 1500,
+      "points_per_tile": 2048,
+      "resampling_seed": 0,
+      "tile_m": 2.5,
+      "train_fraction": 0.7
+    },
+    "outputs": {
+      "dev": {
+        "filename": "wan-dev.npz",
+        "samples": 98,
+        "sha256": "64365ac419cad49b6c7ffa6505f94fbab19d5e67fb67dfcfccf7cc3b47625334",
+        "x_sha256": "38c50bbd3954d9206cc85888e05a1c91d0622873af157d3f0d439f3dc469572b",
+        "y_sha256": "9ea196d5921cd34ed55a3daffd6f85156fdac4f7cfcf1419d30d32c19e56d397"
+      },
+      "train": {
+        "filename": "wan-train.npz",
+        "samples": 339,
+        "sha256": "8bcffe0f0d66dad70b5ce4a15f22898db5a893d18a3c9c10f88694f82c4b9ee6",
+        "x_sha256": "ed25174424b365250289dc923f2ab42040e238c7356e55eb9770102a49ee042b",
+        "y_sha256": "67fccef25ff1cf54d38dc03730faff199a5708901a7890f341408daa8355d1cc"
+      }
+    },
+    "schema_version": "1",
+    "sources": [
+      {
+        "filename": "reference_pc_White_Birch.txt",
+        "sha256": "3bc0e87fd65a9c25ba01e1b946366d90bf35b0e17999cfe35f775c09d27cab91",
+        "size_bytes": 2498831850
+      },
+      {
+        "filename": "reference_pc_Dahurian_Larch.txt",
+        "sha256": "9bf4c65801e4466009782c1fb8e5946595f984f94d76059525f7d91c95a4f31a",
+        "size_bytes": 3796703542
+      },
+      {
+        "filename": "reference_pc_Chinese_scholar_tree.txt",
+        "sha256": "111ef1c749109eaadbcdfa8273c4768edebd928648c807033b812b24f707c10d",
+        "size_bytes": 1482847323
+      }
+    ]
+  },
+  "wan_manifest_sha256": "e5a6b7c778d730d761aa114fd68d8b6a524d4d57ff7e54c8d5b3a789f159c2ab",
+  "winner": {
+    "checkpoint_file": "winner.pt",
+    "checkpoint_sha256": "9a21f8ee167d7511a55e5b2c835fab5b6d3ac95b0027340900982eff68a675f1",
+    "dev_metrics": {
+      "accuracy": 0.7788982780612245,
+      "leaf_iou": 0.7608458993069402,
+      "mean_iou": 0.5076782666578044,
+      "wood_iou": 0.25451063400866847
+    },
+    "seed": 20260717,
+    "selected_epoch": 33,
+    "state_dict_sha256": "be4202449770a2797f4ff2f2003f47e1c80bae99085584127e6c314494dee017"
+  },
+  "working_tree_clean": true
+}
