@@ -8,9 +8,11 @@
 ### Verified truth snapshot (generated)
 
 - Baseline: `tlsep` — **Implemented**.
-- PointNet++: **Experimental**, not promoted; no verified independent final-test gate.
+- PointNet++: **Experimental**, not promoted; reviewed evidence never changes the default automatically.
 - Wan 2021 held-out: Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`, accuracy `0.831`. The held-out loader was also used for best-epoch selection.
 - Demol isolated-tree validation (65 trees): DBH MAE `1.1673846154 cm`; Volume MAPE `18.7650916186%`. This is not an eight-stage or carbon validation.
+- Independent PointNet review: verdict `FAIL_METRICS`; candidate/baseline external macro Wood IoU `0.23728726507501768`/`0.1958779956856453`.
+- Independent downstream candidate/baseline: DBH MAE `1.1591405814498605`/`1.1339476465903928` cm; Height MAE `0.9508502244897976`/`0.5433234000000015` m; Volume MAPE `21.74924193798788`/`18.928262273343613`%; measurable trees `49`/`65`.
 - Deterministic core demo: `3` trees, `1320.39 kg C`, `4841.48 kg CO2e`; analyzed commit `b6fe198f3de5` with a clean worktree.
 - Species classification: **Stub**. Carbon stock/CO2e estimates are not certified credits.
 <!-- TREEQ_TRUTH_END -->
@@ -228,7 +230,7 @@ runner สร้าง fixture seed 42, รัน `tlsep` path สองคร�
 
 - ground step ไม่ใช่ CSF
 - CHM ไม่ใช่ full pit-free
-- PointNet++ ยัง Experimental และไม่มี promotion evidence ครบ
+- PointNet++ ยัง Experimental; reviewed verdict `FAIL_METRICS` จึงไม่ผ่าน promotion gate
 - QSM path ไม่มี branch-level model และใช้ taper volume
 - species classifier เป็น Stub
 - Demol geometry ไม่ validate carbon

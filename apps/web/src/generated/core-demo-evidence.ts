@@ -23,6 +23,23 @@ export const CORE_DEMO_EVIDENCE = {
       dbhMaeCm: 1.1673846154,
       volumeMapePct: 18.7650916186,
     },
+    pointnetIndependent: {
+      verdict: "FAIL_METRICS",
+      baseline: {
+        externalMacroWoodIoU: 0.1958779956856453,
+        dbhMaeCm: 1.1339476465903928,
+        heightMaeM: 0.5433234000000015,
+        volumeMapePct: 18.928262273343613,
+        measurableTrees: 65,
+      },
+      candidate: {
+        externalMacroWoodIoU: 0.23728726507501768,
+        dbhMaeCm: 1.1591405814498605,
+        heightMaeM: 0.9508502244897976,
+        volumeMapePct: 21.74924193798788,
+        measurableTrees: 49,
+      },
+    },
   },
   coreDemo: {
     reproducible: true,
