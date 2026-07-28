@@ -609,11 +609,11 @@ try {
     $bundle = Test-TreeQFrozenBundle
     Write-TreeQMessage "Frozen evidence verified: manifest and 3 artifact hashes."
 
-    $standaloneServer = Get-TreeQStandaloneServer -RepoRoot $script:RepoRoot
-    if ($null -eq $standaloneServer) {
+    $webServerEntry = Get-TreeQWebServerEntry -RepoRoot $script:RepoRoot
+    if ($null -eq $webServerEntry) {
         throw (
-            'Standalone server is missing. Run the reviewed web build before the demo; ' +
-            'the launcher never builds or deploys.'
+            'No reviewed web build was found. Run "npm run build" in apps/web before ' +
+            'the demo; the launcher never builds or deploys.'
         )
     }
     $nodePath = Resolve-TreeQNode
@@ -632,21 +632,19 @@ try {
         )
     }
 
-    $standaloneSync = Sync-TreeQStandaloneAssets `
-        -RepoRoot $script:RepoRoot `
-        -ServerPath $standaloneServer
+    $webBuild = Test-TreeQWebBuild -RepoRoot $script:RepoRoot
     $web = Start-TreeQWeb `
         -NodePath $nodePath `
-        -ServerPath $standaloneServer `
-        -ServerRoot $standaloneSync.ServerRoot
+        -ServerPath $webServerEntry `
+        -ServerRoot $webBuild.ServerRoot
     $webReady = Test-TreeQWebReady `
         -Web $web `
         -Bundle $bundle
     if ($webReady) {
-        Write-TreeQMessage 'Standalone web readiness passed.'
+        Write-TreeQMessage 'Web readiness passed.'
     }
     else {
-        Write-TreeQMessage 'Standalone web readiness failed.'
+        Write-TreeQMessage 'Web readiness failed.'
     }
 
     $token = $null

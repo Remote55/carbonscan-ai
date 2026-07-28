@@ -11,14 +11,20 @@ launcher.
   the correct challenge HMAC. Otherwise it falls back to Local or Frozen.
 - `Local` starts only the local web and authenticated API. It never starts a
   tunnel.
-- `Frozen` starts only the standalone web. It never starts Python, the API, or
+- `Frozen` starts only the web server. It never starts Python, the API, or
   cloudflared, and prints `NOT A LIVE RUN`.
 
+The web server is the existing production build served with `next start`, via
+the reviewed in-repo entry point `apps/web/demo-server.cjs`. The launcher never
+builds, so run `npm run build` in `apps/web` beforehand. Standalone output is
+deliberately not used: it symlinks `node_modules`, which needs Administrator
+rights or Developer Mode on Windows and pins the bundle to whichever pnpm store
+resolved at build time.
+
 All modes verify the tracked public manifest and every frozen artifact hash
-before starting a process. They also reject a mixed standalone build by
-checking `BUILD_ID`, server manifests, the `/demo` route, and referenced static
-files. The runtime copy of `public` and `.next/static` is cleared, copied, then
-verified against the source file set, sizes, and SHA-256 hashes. Local and
+before starting a process. They also reject an incomplete build by checking
+`BUILD_ID`, server manifests, the `/demo` route, and referenced static
+files. Local and
 production Frozen readiness fetch `/demo`, its manifest, and all three evidence
 artifacts without redirects and require byte-for-byte matches. The launcher
 never runs a build, Vercel command, or deployment.

@@ -366,6 +366,8 @@ function New-TestBuildFixture {
         -Path $manifestPath `
         -Text ($manifestData | ConvertTo-Json -Depth 6 -Compress)
     Write-TestFile -Path (Join-Path $standalone 'server.js') -Text '// fixture server'
+    # `next start` serves apps/web/public in place, so the fixture needs one.
+    Write-TestFile -Path (Join-Path $web 'public\demo\manifest.json') -Text '{"fixture":true}'
     Write-TestFile `
         -Path (Join-Path $standalone 'public\stale.txt') `
         -Text 'must be cleared'
@@ -523,36 +525,29 @@ try {
 
     $fixture = New-TestBuildFixture -Root $tempRoot
     try {
-        $syncResult = Sync-TreeQStandaloneAssets `
-            -RepoRoot $fixture.RepoRoot `
-            -ServerPath $fixture.ServerPath
-        Assert-True (-not (Test-Path -LiteralPath $fixture.StalePublic)) `
-            'standalone sync clears stale public files'
-        Assert-True (-not (Test-Path -LiteralPath $fixture.StaleStatic)) `
-            'standalone sync clears stale static files'
-        Assert-True $syncResult.Verified 'standalone sync verifies exact copied trees'
+        $buildResult = Test-TreeQWebBuild -RepoRoot $fixture.RepoRoot
+        Assert-True $buildResult.Verified 'web build verification accepts a complete build'
+        Assert-Equal $buildResult.ServerRoot (Join-Path $fixture.RepoRoot 'apps\web') `
+            'web build reports the apps/web server root'
+        Assert-Equal $buildResult.BuildId 'fixture-build-id' 'web build reports its build identity'
     }
     catch {
-        Assert-True $false 'standalone sync clears stale public files'
-        Assert-True $false 'standalone sync clears stale static files'
-        Assert-True $false 'standalone sync verifies exact copied trees'
+        Assert-True $false 'web build verification accepts a complete build'
+        Assert-True $false 'web build reports the apps/web server root'
+        Assert-True $false 'web build reports its build identity'
     }
-    if ($null -ne (Get-Command Sync-TreeQStandaloneAssets -ErrorAction SilentlyContinue)) {
-        Write-TestFile `
-            -Path (Join-Path $fixture.StandaloneBuildRoot 'BUILD_ID') `
-            -Text 'mixed-build-id'
-        Assert-Throws {
-            Sync-TreeQStandaloneAssets `
-                -RepoRoot $fixture.RepoRoot `
-                -ServerPath $fixture.ServerPath
-        } 'standalone sync rejects mixed build identity'
-        Write-TestFile `
-            -Path (Join-Path $fixture.StandaloneBuildRoot 'BUILD_ID') `
-            -Text 'fixture-build-id'
-    }
-    else {
-        Assert-True $false 'standalone sync rejects mixed build identity'
-    }
+    $demoHtml = Join-Path $fixture.BuildRoot 'server\app\demo.html'
+    $demoHtmlBackup = "$demoHtml.bak"
+    Move-Item -LiteralPath $demoHtml -Destination $demoHtmlBackup
+    Assert-Throws {
+        Test-TreeQWebBuild -RepoRoot $fixture.RepoRoot
+    } 'web build verification rejects a build missing the /demo output'
+    Move-Item -LiteralPath $demoHtmlBackup -Destination $demoHtml
+    Write-TestFile -Path (Join-Path $fixture.BuildRoot 'BUILD_ID') -Text 'not a valid id!'
+    Assert-Throws {
+        Test-TreeQWebBuild -RepoRoot $fixture.RepoRoot
+    } 'web build verification rejects a malformed build identity'
+    Write-TestFile -Path (Join-Path $fixture.BuildRoot 'BUILD_ID') -Text 'fixture-build-id'
 
     $nodePath = (Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
     foreach ($httpCase in @(
@@ -727,11 +722,11 @@ try {
         Get-TreeQSha256 -Path $manifestPath -Root (Join-Path $tempRoot 'other')
     } 'reject hash path outside allowed root'
 
-    $standalone = Get-TreeQStandaloneServer -RepoRoot $repoRoot
-    $expectedStandalone = Join-Path $repoRoot 'apps\web\.next\standalone\apps\web\server.js'
-    Assert-Equal $standalone $expectedStandalone 'resolve monorepo standalone server'
+    $webEntry = Get-TreeQWebServerEntry -RepoRoot $repoRoot
+    $expectedEntry = Join-Path $repoRoot 'apps\web\demo-server.cjs'
+    Assert-Equal $webEntry $expectedEntry 'resolve the next start entry point'
     Assert-Null (
-        Get-TreeQStandaloneServer -RepoRoot (Join-Path $tempRoot 'missing-root')
+        Get-TreeQWebServerEntry -RepoRoot (Join-Path $tempRoot 'missing-root')
     ) 'missing standalone returns null'
 
     $handoff = New-TreeQHandoffUrl `

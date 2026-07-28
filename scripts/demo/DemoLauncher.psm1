@@ -389,16 +389,24 @@ function Get-TreeQSha256 {
     return ([BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()
 }
 
-function Get-TreeQStandaloneServer {
+function Get-TreeQWebServerEntry {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
 
     if (-not (Test-Path -LiteralPath $RepoRoot -PathType Container)) {
         return $null
     }
+    # The launcher never builds. Refuse to resolve a server entry unless a
+    # completed production build is already present.
+    $buildId = Join-Path $RepoRoot 'apps\web\.next\BUILD_ID'
+    if (-not (Test-Path -LiteralPath $buildId -PathType Leaf)) {
+        return $null
+    }
+    # A reviewed in-repo entry point, not node_modules: pnpm materialises
+    # node_modules through junctions and this launcher refuses to execute
+    # anything reached through a reparse point.
     $candidates = @(
-        (Join-Path $RepoRoot 'apps\web\.next\standalone\apps\web\server.js'),
-        (Join-Path $RepoRoot 'apps\web\.next\standalone\server.js')
+        (Join-Path $RepoRoot 'apps\web\demo-server.cjs')
     )
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Leaf) {
@@ -995,18 +1003,15 @@ function Copy-TreeQExactDirectory {
     }
 }
 
-function Sync-TreeQStandaloneAssets {
+function Test-TreeQWebBuild {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)][string]$RepoRoot,
-        [Parameter(Mandatory = $true)][string]$ServerPath
+        [Parameter(Mandatory = $true)][string]$RepoRoot
     )
 
     $webRoot = Join-Path $RepoRoot 'apps\web'
     $buildRoot = Join-Path $webRoot '.next'
-    $serverRoot = Split-Path -Parent $ServerPath
-    $standaloneBuild = Join-Path $serverRoot '.next'
-    $coherenceFiles = @(
+    $requiredFiles = @(
         'BUILD_ID',
         'build-manifest.json',
         'app-build-manifest.json',
@@ -1017,15 +1022,8 @@ function Sync-TreeQStandaloneAssets {
         'required-server-files.json',
         'server\app-paths-manifest.json'
     )
-    foreach ($relative in $coherenceFiles) {
-        $source = Join-Path $buildRoot $relative
-        $standalone = Join-Path $standaloneBuild $relative
-        if (
-            (Get-TreeQSha256 -Path $source -Root $buildRoot) -cne
-            (Get-TreeQSha256 -Path $standalone -Root $standaloneBuild)
-        ) {
-            throw "Standalone build coherence failed: $relative"
-        }
+    foreach ($relative in $requiredFiles) {
+        [void](Get-TreeQContainedFile -Path (Join-Path $buildRoot $relative) -Root $buildRoot)
     }
     $buildId = [System.IO.File]::ReadAllText(
         (Join-Path $buildRoot 'BUILD_ID')
@@ -1038,7 +1036,7 @@ function Sync-TreeQStandaloneAssets {
     ) | ConvertFrom-Json
     $routePath = [string]$appPaths.'/demo/page'
     if ([string]::IsNullOrWhiteSpace($routePath)) {
-        throw 'Standalone build does not contain the /demo route'
+        throw 'Web build does not contain the /demo route'
     }
     $routeFiles = @(
         (Join-Path 'server' $routePath),
@@ -1049,14 +1047,7 @@ function Sync-TreeQStandaloneAssets {
         'server\app\demo.meta'
     )
     foreach ($relative in $routeFiles) {
-        if (
-            (Get-TreeQSha256 -Path (Join-Path $buildRoot $relative) -Root $buildRoot) -cne
-            (Get-TreeQSha256 `
-                -Path (Join-Path $standaloneBuild $relative) `
-                -Root $standaloneBuild)
-        ) {
-            throw "Standalone route bytes differ: $relative"
-        }
+        [void](Get-TreeQContainedFile -Path (Join-Path $buildRoot $relative) -Root $buildRoot)
     }
     $required = [System.IO.File]::ReadAllText(
         (Join-Path $buildRoot 'required-server-files.json')
@@ -1064,14 +1055,7 @@ function Sync-TreeQStandaloneAssets {
     foreach ($requiredPath in @($required.files)) {
         if (-not ([string]$requiredPath).StartsWith('.next\')) { continue }
         $relative = ([string]$requiredPath).Substring(6)
-        if (
-            (Get-TreeQSha256 -Path (Join-Path $buildRoot $relative) -Root $buildRoot) -cne
-            (Get-TreeQSha256 `
-                -Path (Join-Path $standaloneBuild $relative) `
-                -Root $standaloneBuild)
-        ) {
-            throw "Required server file differs: $relative"
-        }
+        [void](Get-TreeQContainedFile -Path (Join-Path $buildRoot $relative) -Root $buildRoot)
     }
 
     $referenceText = [System.IO.File]::ReadAllText(
@@ -1099,25 +1083,17 @@ function Sync-TreeQStandaloneAssets {
         [void](Get-TreeQContainedFile -Path (Join-Path $buildRoot $relative) -Root $buildRoot)
     }
 
+    # `next start` serves apps/web/public and .next/static in place, so there is
+    # no duplicated tree to reconcile. Read both so a truncated or unreadable
+    # asset tree still fails preflight rather than at the first judge click.
     $sourcePublic = Join-Path $webRoot 'public'
     $sourceStatic = Join-Path $buildRoot 'static'
-    $targetPublic = Join-Path $serverRoot 'public'
-    $targetStatic = Join-Path $standaloneBuild 'static'
-    $publicIdentity = Get-TreeQDirectoryIdentity -Path $sourcePublic -Root $sourcePublic
-    $staticIdentity = Get-TreeQDirectoryIdentity -Path $sourceStatic -Root $sourceStatic
-    Remove-TreeQContainedDirectory -Path $targetPublic -Root $serverRoot
-    Remove-TreeQContainedDirectory -Path $targetStatic -Root $serverRoot
-    Copy-TreeQExactDirectory -Source $sourcePublic -Destination $targetPublic
-    Copy-TreeQExactDirectory -Source $sourceStatic -Destination $targetStatic
-    Assert-TreeQDirectoryIdentity `
-        -Expected $publicIdentity `
-        -Actual (Get-TreeQDirectoryIdentity -Path $targetPublic -Root $targetPublic)
-    Assert-TreeQDirectoryIdentity `
-        -Expected $staticIdentity `
-        -Actual (Get-TreeQDirectoryIdentity -Path $targetStatic -Root $targetStatic)
+    [void](Get-TreeQDirectoryIdentity -Path $sourcePublic -Root $sourcePublic)
+    [void](Get-TreeQDirectoryIdentity -Path $sourceStatic -Root $sourceStatic)
     return [pscustomobject]@{
         Verified = $true
-        ServerRoot = $serverRoot
+        ServerRoot = $webRoot
+        BuildId = $buildId
         PagePath = Join-Path $buildRoot 'server\app\demo.html'
     }
 }
@@ -1216,7 +1192,7 @@ Export-ModuleMember -Function @(
     'Get-TreeQTunnelUrl',
     'Protect-TreeQLog',
     'Get-TreeQSha256',
-    'Get-TreeQStandaloneServer',
+    'Get-TreeQWebServerEntry',
     'New-TreeQHandoffUrl',
     'Test-TreeQOwnedProcess',
     'Stop-TreeQOwnedProcesses',
@@ -1227,6 +1203,6 @@ Export-ModuleMember -Function @(
     'Complete-TreeQManagedProcessLogs',
     'Get-TreeQManagedProcessLogText',
     'Stop-TreeQManagedProcesses',
-    'Sync-TreeQStandaloneAssets',
+    'Test-TreeQWebBuild',
     'Test-TreeQFrozenHttpBundle'
 )
