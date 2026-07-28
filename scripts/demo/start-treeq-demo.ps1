@@ -285,7 +285,11 @@ function Resolve-TreeQPython {
         $environmentName = 'TREEQ_API_PYTHON'
         $workingDirectory = Join-Path $script:RepoRoot 'services\api'
         $venvPath = Join-Path $workingDirectory '.venv\Scripts\python.exe'
-        $probe = 'from app.main import app; print("treeq-api-ok")'
+        # No quotes in the probe: PowerShell rewrites quoting when it builds a
+        # native command line, so `print("treeq-api-ok")` reached Python as
+        # `print(treeq-api-ok)` and every API probe died with a NameError. The
+        # ML probe only worked because it happens to need no string literal.
+        $probe = 'from app.main import app; print(app.version)'
     }
     else {
         $environmentName = 'TREEQ_ML_PYTHON'
@@ -321,7 +325,14 @@ function Resolve-TreeQPython {
             Write-TreeQMessage "$Role Python ready from $($candidate.Source)."
             return [System.IO.Path]::GetFullPath($path)
         }
-        $detail = [string]($probeOutput | Select-Object -Last 1)
+        # A captured traceback arrives as one multi-line record, so taking the
+        # last element reported "Traceback (most recent call last):" and hid the
+        # exception itself. Split first, then take the last meaningful line.
+        $detail = [string](
+            ($probeOutput | ForEach-Object { $_.ToString() -split "`r?`n" }) |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                Select-Object -Last 1
+        )
         if ([string]::IsNullOrWhiteSpace($detail)) {
             $detail = "exit $probeExit"
         }

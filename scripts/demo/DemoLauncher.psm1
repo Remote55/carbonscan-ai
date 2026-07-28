@@ -764,7 +764,12 @@ function Write-TreeQManagedRegistry {
             $stream.Dispose()
         }
         if (Test-Path -LiteralPath $safeRegistry) {
-            [System.IO.File]::Replace($temporaryPath, $safeRegistry, $null)
+            # [NullString]::Value, not $null: PowerShell converts $null to an
+            # empty string when binding to a String parameter, and File.Replace
+            # rejects "" as a backup path with "The path is not of a legal
+            # form." That made every registry write after the first one throw,
+            # so the launcher could never start a second process.
+            [System.IO.File]::Replace($temporaryPath, $safeRegistry, [NullString]::Value)
         }
         else {
             [System.IO.File]::Move($temporaryPath, $safeRegistry)
