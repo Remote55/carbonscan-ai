@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 from contextlib import contextmanager
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -203,19 +202,24 @@ def _isolated_pipeline_modules(source_ml_root: Path) -> Iterator[dict[str, Any]]
 
 
 def _result_payload(
-    result: Any, repo_state: dict[str, Any], source: dict[str, Any]
+    result: Any,
+    repo_state: dict[str, Any],
+    source: dict[str, Any],
+    pipeline_main: Any,
 ) -> dict[str, Any]:
+    """Serialize with the snapshot's own serializer, not the live checkout's."""
     metadata = dict(result.metadata)
     metadata["input_file"] = "input.ply"
     metadata["git_commit"] = repo_state["commit"]
     metadata["git_dirty"] = repo_state["dirty"]
     metadata["source_tree_sha256"] = source["tree_sha256"]
-    return {
-        "metadata": metadata,
-        "summary": result.summary,
-        "diagnostics": {"dataset": DATASET, "scope": SCOPE},
-        "trees": [asdict(tree) for tree in result.trees],
-    }
+    payload = pipeline_main.pipeline_result_to_dict(result)
+    payload["metadata"] = metadata
+    # Keep the fixture's dataset/scope labels alongside the pipeline's own
+    # exclusion diagnostics rather than letting either overwrite the other.
+    payload["diagnostics"]["dataset"] = DATASET
+    payload["diagnostics"]["scope"] = SCOPE
+    return payload
 
 
 def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, Any]:
@@ -255,7 +259,7 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
                     default_species="Tectona grandis",
                     segmented_ply_out=str(segmented_path),
                 )
-                payload = _result_payload(result, start_state, source)
+                payload = _result_payload(result, start_state, source, modules["main"])
                 payloads.append(payload)
                 result_bytes.append(_json_bytes(payload))
                 segmented_paths.append(segmented_path)

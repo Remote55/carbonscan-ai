@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -32,11 +31,9 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _pipeline_payload(result: Any) -> dict[str, Any]:
-    return {
-        "metadata": result.metadata,
-        "summary": result.summary,
-        "trees": [asdict(tree) for tree in result.trees],
-    }
+    from pipeline.main import pipeline_result_to_dict
+
+    return pipeline_result_to_dict(result)
 
 
 def _evidence(
