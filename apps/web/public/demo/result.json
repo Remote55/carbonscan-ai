@@ -1,0 +1,91 @@
+{
+  "diagnostics": {
+    "dataset": "deterministic_synthetic_plot_seed_42",
+    "scope": "deterministic_fixture_not_accuracy_or_credit_validation"
+  },
+  "metadata": {
+    "algorithms": {
+      "allometric": "species_db_or_chave_fallback",
+      "chm": "max_z_morphology",
+      "ground_segmentation": "percentile_grid",
+      "height_normalization": "knn_idw",
+      "qsm": "ransac_dbh_maxz_height_taper_volume",
+      "species": "stub",
+      "tree_segmentation": "watershed",
+      "wood_leaf": "tlsep"
+    },
+    "candidate_status": "candidate_not_evaluated",
+    "checkpoint_sha256": null,
+    "evidence_status": "baseline",
+    "git_commit": "32bbfebcc14f43c5443e07323845f5e659dd7795",
+    "git_dirty": false,
+    "input_file": "input.ply",
+    "input_sha256": "26ac0d87081f2c5b12eb0cf4fa5ff072fab7b7399fc38ddd9391d9b27b5ae6cf",
+    "n_input_points": 145123,
+    "pipeline_version": "0.3.0",
+    "source_tree_sha256": "b6fa08f8de52f0011d42d7cbf3e1fd73169ca3bbe1674b738d9778f76810ce4e",
+    "status": "ok",
+    "wood_leaf_backend": "tlsep"
+  },
+  "summary": {
+    "total_carbon_kg": 1289.74,
+    "total_co2eq_kg": 4729.06,
+    "total_trees": 3
+  },
+  "trees": [
+    {
+      "biomass_kg": 1030.1,
+      "carbon_kg": 484.15,
+      "co2eq_kg": 1775.21,
+      "crown_radius_m": null,
+      "dbh_cm": 33.62,
+      "height_m": 21.35,
+      "location": {
+        "x": 2.963,
+        "y": 17.373
+      },
+      "point_count": 51564,
+      "species_confidence": null,
+      "species_sci": "Tectona grandis",
+      "tree_id": 2,
+      "volume_m3": 0.9476,
+      "wood_leaf_iou": null
+    },
+    {
+      "biomass_kg": 419.79,
+      "carbon_kg": 197.3,
+      "co2eq_kg": 723.44,
+      "crown_radius_m": null,
+      "dbh_cm": 23.83,
+      "height_m": 17.04,
+      "location": {
+        "x": 6.347,
+        "y": 4.661
+      },
+      "point_count": 29958,
+      "species_confidence": null,
+      "species_sci": "Tectona grandis",
+      "tree_id": 3,
+      "volume_m3": 0.38,
+      "wood_leaf_iou": null
+    },
+    {
+      "biomass_kg": 1294.24,
+      "carbon_kg": 608.29,
+      "co2eq_kg": 2230.41,
+      "crown_radius_m": null,
+      "dbh_cm": 40.52,
+      "height_m": 16.67,
+      "location": {
+        "x": 16.801,
+        "y": 5.993
+      },
+      "point_count": 43944,
+      "species_confidence": null,
+      "species_sci": "Tectona grandis",
+      "tree_id": 5,
+      "volume_m3": 1.0748,
+      "wood_leaf_iou": null
+    }
+  ]
+}

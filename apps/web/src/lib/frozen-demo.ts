@@ -1,0 +1,270 @@
+import { JUDGE_DEMO_EVIDENCE } from '../generated/judge-demo-evidence';
+
+export interface FrozenDemoArtifactIdentity {
+  path: string;
+  sha256: string;
+  size_bytes: number;
+}
+
+export interface FrozenDemoManifest {
+  schema_version: number;
+  analyzed_commit: string;
+  git_dirty: boolean;
+  artifacts: {
+    input: FrozenDemoArtifactIdentity;
+    result: FrozenDemoArtifactIdentity;
+    segmented: FrozenDemoArtifactIdentity;
+  };
+  pipeline: {
+    backend: string;
+    species: string;
+    version: string;
+  };
+  release: {
+    status: string;
+  };
+}
+
+export interface FrozenDemoTreeResult {
+  tree_id: number;
+  dbh_cm: number;
+  height_m: number;
+  carbon_kg: number;
+  co2eq_kg: number;
+}
+
+export interface FrozenDemoResult {
+  metadata: {
+    algorithms: {
+      species: string;
+      wood_leaf: string;
+    };
+    git_commit: string;
+    git_dirty: boolean;
+    pipeline_version: string;
+    status: string;
+    wood_leaf_backend: string;
+  };
+  summary: {
+    total_carbon_kg: number;
+    total_co2eq_kg: number;
+    total_trees: number;
+  };
+  trees: FrozenDemoTreeResult[];
+}
+
+export interface FrozenDemoBundle {
+  mode: 'frozen';
+  manifest: FrozenDemoManifest;
+  result: FrozenDemoResult;
+  input: Uint8Array;
+  segmented: Uint8Array;
+}
+
+export interface FrozenDemoResponse {
+  ok: boolean;
+  status: number;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+export type FrozenDemoFetcher = (resource: string | URL) => Promise<FrozenDemoResponse>;
+
+const SHA256 = /^[0-9a-f]{64}$/i;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseArtifact(value: unknown, expectedPath: string): FrozenDemoArtifactIdentity {
+  if (
+    !isRecord(value) ||
+    value.path !== expectedPath ||
+    typeof value.sha256 !== 'string' ||
+    !SHA256.test(value.sha256) ||
+    typeof value.size_bytes !== 'number' ||
+    !Number.isSafeInteger(value.size_bytes) ||
+    value.size_bytes < 0
+  ) {
+    throw new Error('Frozen demo manifest is invalid');
+  }
+  return {
+    path: value.path,
+    sha256: value.sha256.toLowerCase(),
+    size_bytes: value.size_bytes,
+  };
+}
+
+function parseManifest(value: unknown): FrozenDemoManifest {
+  if (
+    !isRecord(value) ||
+    value.schema_version !== 1 ||
+    typeof value.analyzed_commit !== 'string' ||
+    !/^[0-9a-f]{40}$/i.test(value.analyzed_commit) ||
+    typeof value.git_dirty !== 'boolean' ||
+    !isRecord(value.artifacts) ||
+    !isRecord(value.pipeline) ||
+    typeof value.pipeline.backend !== 'string' ||
+    typeof value.pipeline.species !== 'string' ||
+    typeof value.pipeline.version !== 'string' ||
+    !isRecord(value.release) ||
+    typeof value.release.status !== 'string'
+  ) {
+    throw new Error('Frozen demo manifest is invalid');
+  }
+
+  return {
+    schema_version: value.schema_version,
+    analyzed_commit: value.analyzed_commit,
+    git_dirty: value.git_dirty,
+    artifacts: {
+      input: parseArtifact(value.artifacts.input, JUDGE_DEMO_EVIDENCE.inputPath),
+      result: parseArtifact(value.artifacts.result, JUDGE_DEMO_EVIDENCE.resultPath),
+      segmented: parseArtifact(value.artifacts.segmented, JUDGE_DEMO_EVIDENCE.segmentedPath),
+    },
+    pipeline: {
+      backend: value.pipeline.backend,
+      species: value.pipeline.species,
+      version: value.pipeline.version,
+    },
+    release: { status: value.release.status },
+  };
+}
+
+function parseResult(value: unknown): FrozenDemoResult {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.metadata) ||
+    !isRecord(value.metadata.algorithms) ||
+    typeof value.metadata.algorithms.species !== 'string' ||
+    typeof value.metadata.algorithms.wood_leaf !== 'string' ||
+    typeof value.metadata.git_commit !== 'string' ||
+    typeof value.metadata.git_dirty !== 'boolean' ||
+    typeof value.metadata.pipeline_version !== 'string' ||
+    typeof value.metadata.status !== 'string' ||
+    typeof value.metadata.wood_leaf_backend !== 'string' ||
+    !isRecord(value.summary) ||
+    typeof value.summary.total_carbon_kg !== 'number' ||
+    typeof value.summary.total_co2eq_kg !== 'number' ||
+    typeof value.summary.total_trees !== 'number' ||
+    !Array.isArray(value.trees)
+  ) {
+    throw new Error('Frozen demo result is invalid');
+  }
+
+  const trees = value.trees.map((tree) => {
+    if (
+      !isRecord(tree) ||
+      typeof tree.tree_id !== 'number' ||
+      typeof tree.dbh_cm !== 'number' ||
+      typeof tree.height_m !== 'number' ||
+      typeof tree.carbon_kg !== 'number' ||
+      typeof tree.co2eq_kg !== 'number'
+    ) {
+      throw new Error('Frozen demo result is invalid');
+    }
+    return {
+      tree_id: tree.tree_id,
+      dbh_cm: tree.dbh_cm,
+      height_m: tree.height_m,
+      carbon_kg: tree.carbon_kg,
+      co2eq_kg: tree.co2eq_kg,
+    };
+  });
+
+  return {
+    metadata: {
+      algorithms: {
+        species: value.metadata.algorithms.species,
+        wood_leaf: value.metadata.algorithms.wood_leaf,
+      },
+      git_commit: value.metadata.git_commit,
+      git_dirty: value.metadata.git_dirty,
+      pipeline_version: value.metadata.pipeline_version,
+      status: value.metadata.status,
+      wood_leaf_backend: value.metadata.wood_leaf_backend,
+    },
+    summary: {
+      total_carbon_kg: value.summary.total_carbon_kg,
+      total_co2eq_kg: value.summary.total_co2eq_kg,
+      total_trees: value.summary.total_trees,
+    },
+    trees,
+  };
+}
+
+function copyToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', copyToArrayBuffer(bytes));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function fetchBytes(fetcher: FrozenDemoFetcher, resourcePath: string): Promise<Uint8Array> {
+  const response = await fetcher(resourcePath);
+  if (!response.ok) throw new Error(`Frozen demo loading failed (${response.status})`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function verifyBytes(
+  label: string,
+  bytes: Uint8Array,
+  identity: FrozenDemoArtifactIdentity,
+): Promise<void> {
+  if (bytes.byteLength !== identity.size_bytes || (await sha256(bytes)) !== identity.sha256) {
+    throw new Error(`Frozen demo ${label} hash mismatch`);
+  }
+}
+
+const browserFetcher: FrozenDemoFetcher = (resource) => fetch(resource);
+
+export async function loadFrozenDemo(
+  fetcher: FrozenDemoFetcher = browserFetcher,
+  expectedManifestSha256: string = JUDGE_DEMO_EVIDENCE.manifestSha256,
+): Promise<FrozenDemoBundle> {
+  if (!SHA256.test(expectedManifestSha256)) {
+    throw new Error('Frozen demo expected manifest hash is invalid');
+  }
+
+  const manifestBytes = await fetchBytes(fetcher, JUDGE_DEMO_EVIDENCE.manifestPath);
+  if ((await sha256(manifestBytes)) !== expectedManifestSha256.toLowerCase()) {
+    throw new Error('Frozen demo manifest hash mismatch');
+  }
+
+  let manifestValue: unknown;
+  try {
+    manifestValue = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(manifestBytes));
+  } catch {
+    throw new Error('Frozen demo manifest is invalid');
+  }
+  const manifest = parseManifest(manifestValue);
+
+  const [resultBytes, input, segmented] = await Promise.all([
+    fetchBytes(fetcher, manifest.artifacts.result.path),
+    fetchBytes(fetcher, manifest.artifacts.input.path),
+    fetchBytes(fetcher, manifest.artifacts.segmented.path),
+  ]);
+  await Promise.all([
+    verifyBytes('result', resultBytes, manifest.artifacts.result),
+    verifyBytes('input', input, manifest.artifacts.input),
+    verifyBytes('segmented', segmented, manifest.artifacts.segmented),
+  ]);
+
+  let resultValue: unknown;
+  try {
+    resultValue = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(resultBytes));
+  } catch {
+    throw new Error('Frozen demo result is invalid');
+  }
+
+  return {
+    mode: 'frozen',
+    manifest,
+    result: parseResult(resultValue),
+    input,
+    segmented,
+  };
+}
