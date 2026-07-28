@@ -68,6 +68,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch evidence-cited history
+        # Evidence manifests record the commit an evaluation actually ran at.
+        # Squash-merging leaves those commits only on their feature branch, and a
+        # pull-request checkout fetches just the PR ref, so `git cat-file -e <sha>`
+        # cannot resolve them and the integrity check fails on a missing object
+        # rather than on real tampering. Fetch every branch and tag so the check
+        # can do its job. This does not relax the check itself.
+        run: git fetch --quiet --tags origin "+refs/heads/*:refs/remotes/origin/*"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
