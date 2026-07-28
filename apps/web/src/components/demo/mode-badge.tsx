@@ -1,4 +1,6 @@
-import type { DemoModeState } from '@/lib/demo-mode';
+import React from 'react';
+
+import type { DemoModeState } from '../../lib/demo-mode';
 
 export const FROZEN_EVIDENCE_LABEL = 'FROZEN EVIDENCE — NOT A LIVE RUN';
 

@@ -1,20 +1,36 @@
 'use client';
 
-import { useEffect, useReducer, useState } from 'react';
+import React, { useEffect, useReducer, useState } from 'react';
 
-import { createDemoApiClient } from '@/lib/demo-api';
-import { demoModeReducer, type DemoModeState } from '@/lib/demo-mode';
-import { consumeRuntimeHandoff } from '@/lib/demo-runtime';
-import { loadFrozenDemo, type FrozenDemoBundle } from '@/lib/frozen-demo';
+import { createDemoApiClient } from '../../lib/demo-api';
+import { demoModeReducer, type DemoModeState } from '../../lib/demo-mode';
+import { consumeRuntimeHandoff } from '../../lib/demo-runtime';
+import { loadFrozenDemo, type FrozenDemoBundle } from '../../lib/frozen-demo';
 import { ModeBadge } from './mode-badge';
 
 const initialMode: DemoModeState = { kind: 'booting' };
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
 
-export function DemoShell() {
+export type FrozenDemoLoadState =
+  | { kind: 'loading' }
+  | { kind: 'ready'; bundle: FrozenDemoBundle }
+  | { kind: 'failed' };
+
+export type FrozenDemoLoader = () => Promise<FrozenDemoBundle>;
+
+export async function resolveFrozenDemoLoad(
+  loader: FrozenDemoLoader = loadFrozenDemo,
+): Promise<FrozenDemoLoadState> {
+  try {
+    return { kind: 'ready', bundle: await loader() };
+  } catch {
+    return { kind: 'failed' };
+  }
+}
+
+export function DemoShellController() {
   const [mode, dispatch] = useReducer(demoModeReducer, initialMode);
-  const [bundle, setBundle] = useState<FrozenDemoBundle | null>(null);
-  const [loadingFailed, setLoadingFailed] = useState(false);
+  const [frozenLoad, setFrozenLoad] = useState<FrozenDemoLoadState>({ kind: 'loading' });
 
   useEffect(() => {
     const hadHandoff = window.location.hash.length > 0;
@@ -49,20 +65,33 @@ export function DemoShell() {
   useEffect(() => {
     if (mode.kind !== 'frozen') return;
     let cancelled = false;
-    setBundle(null);
-    setLoadingFailed(false);
-    loadFrozenDemo()
-      .then((verifiedBundle) => {
-        if (!cancelled) setBundle(verifiedBundle);
-      })
-      .catch(() => {
-        if (!cancelled) setLoadingFailed(true);
-      });
+    setFrozenLoad({ kind: 'loading' });
+    resolveFrozenDemoLoad().then((nextLoad) => {
+      if (!cancelled) setFrozenLoad(nextLoad);
+    });
     return () => {
       cancelled = true;
     };
   }, [mode]);
 
+  return (
+    <DemoShell
+      mode={mode}
+      frozenLoad={frozenLoad}
+      onUseFrozen={() => dispatch({ type: 'USE_FROZEN' })}
+    />
+  );
+}
+
+export function DemoShell({
+  mode,
+  frozenLoad,
+  onUseFrozen,
+}: {
+  mode: DemoModeState;
+  frozenLoad: FrozenDemoLoadState;
+  onUseFrozen: () => void;
+}) {
   if (mode.kind === 'booting') {
     return <main className="min-h-screen bg-[#f5f2e9]" aria-busy="true" />;
   }
@@ -90,7 +119,7 @@ export function DemoShell() {
           <button
             type="button"
             className="mt-8 rounded-full bg-emerald-950 px-5 py-2.5 text-sm font-semibold text-white"
-            onClick={() => dispatch({ type: 'USE_FROZEN' })}
+            onClick={onUseFrozen}
           >
             View verified frozen evidence
           </button>
@@ -118,37 +147,37 @@ export function DemoShell() {
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <ModeBadge state={mode} />
 
-          {loadingFailed ? (
+          {frozenLoad.kind === 'failed' ? (
             <p className="mt-8 font-mono text-sm font-semibold text-red-800">loading failed</p>
-          ) : !bundle ? (
+          ) : frozenLoad.kind === 'loading' ? (
             <p className="mt-8 text-sm text-slate-600">Verifying every evidence byte…</p>
           ) : (
             <>
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
                 <EvidenceMetric
                   label="Detected trees"
-                  value={number.format(bundle.result.summary.total_trees)}
+                  value={number.format(frozenLoad.bundle.result.summary.total_trees)}
                 />
                 <EvidenceMetric
                   label="Carbon stock estimate"
-                  value={`${number.format(bundle.result.summary.total_carbon_kg)} kg C`}
+                  value={`${number.format(frozenLoad.bundle.result.summary.total_carbon_kg)} kg C`}
                 />
                 <EvidenceMetric
                   label="CO₂e estimate"
-                  value={`${number.format(bundle.result.summary.total_co2eq_kg)} kg CO₂e`}
+                  value={`${number.format(frozenLoad.bundle.result.summary.total_co2eq_kg)} kg CO₂e`}
                 />
               </div>
 
               <div className="mt-8 grid gap-3 border-t border-slate-200 pt-6 text-sm sm:grid-cols-2">
                 <EvidenceFact
                   label="Wood/leaf backend"
-                  value={`${bundle.result.metadata.wood_leaf_backend} · default baseline`}
+                  value={`${frozenLoad.bundle.result.metadata.wood_leaf_backend} · default baseline`}
                 />
                 <EvidenceFact label="PointNet++" value="Experimental · not promoted" />
                 <EvidenceFact label="Species classification" value="Stub" />
                 <EvidenceFact
                   label="Analyzed commit"
-                  value={bundle.manifest.analyzed_commit.slice(0, 12)}
+                  value={frozenLoad.bundle.manifest.analyzed_commit.slice(0, 12)}
                   mono
                 />
               </div>
