@@ -6,7 +6,12 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // No `output: 'standalone'`. Standalone tracing symlinks node_modules, which
+  // needs Administrator rights or Developer Mode on Windows, so `next build`
+  // fails on the team's own laptops. It also links into whichever pnpm store
+  // resolved at build time, including git worktrees, so the bundle breaks when
+  // that worktree is removed. The demo launcher serves the normal build with
+  // `next start`, which needs neither.
   reactStrictMode: true,
   swcMinify: true,
   poweredByHeader: false,
