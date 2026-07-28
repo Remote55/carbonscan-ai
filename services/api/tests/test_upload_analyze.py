@@ -5,9 +5,24 @@ mock ``run_pipeline`` so the test exercises the HTTP plumbing + validation only,
 with no heavy ML deps and no real subprocess.
 """
 
+import logging
+import subprocess
+
 import pytest
 
+from app.core.config import settings
 from app.schemas.analyze import AnalyzeMetadata, AnalyzeResponse
+from app.services.pipeline_runner import PipelineError, probe_pipeline_runtime, run_pipeline
+
+MINIMAL_ASCII_PLY = b"""ply
+format ascii 1.0
+element vertex 1
+property float x
+property float y
+property float z
+end_header
+0 0 0
+"""
 
 FAKE_RESULT = {
     "metadata": {
@@ -82,3 +97,105 @@ async def test_analyze_rejects_bad_extension(client):
         files={"file": ("photo.jpg", b"x", "image/jpeg")},
     )
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_demo_analyze_rejects_malformed_ply_before_pipeline(client, monkeypatch):
+    import app.api.v1.upload as upload_mod
+
+    token = "f" * 64
+    monkeypatch.setattr(settings, "TREEQ_DEMO_MODE", True)
+    monkeypatch.setattr(settings, "TREEQ_DEMO_TOKEN", token)
+    monkeypatch.setattr(settings, "RATE_LIMIT_UPLOAD", 100)
+
+    def pipeline_must_not_run(*args, **kwargs):
+        raise AssertionError("pipeline must not run for malformed PLY")
+
+    monkeypatch.setattr(upload_mod, "run_pipeline", pipeline_must_not_run)
+    response = await client.post(
+        "/api/v1/upload/analyze",
+        headers={"X-TreeQ-Demo-Token": token},
+        files={"file": ("tree.ply", b"not a ply", "application/octet-stream")},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_demo_analyze_rejects_oversize_stream_before_pipeline(client, monkeypatch):
+    import app.api.v1.upload as upload_mod
+
+    token = "1" * 64
+    monkeypatch.setattr(settings, "TREEQ_DEMO_MODE", True)
+    monkeypatch.setattr(settings, "TREEQ_DEMO_TOKEN", token)
+    monkeypatch.setattr(settings, "TREEQ_DEMO_MAX_UPLOAD_SIZE_MB", 0)
+    monkeypatch.setattr(settings, "RATE_LIMIT_UPLOAD", 100)
+
+    def pipeline_must_not_run(*args, **kwargs):
+        raise AssertionError("pipeline must not run for oversized input")
+
+    monkeypatch.setattr(upload_mod, "run_pipeline", pipeline_must_not_run)
+    response = await client.post(
+        "/api/v1/upload/analyze",
+        headers={"X-TreeQ-Demo-Token": token},
+        files={"file": ("tree.ply", MINIMAL_ASCII_PLY, "application/octet-stream")},
+    )
+    assert response.status_code == 413
+    assert response.json() == {"detail": "File too large"}
+
+
+@pytest.mark.asyncio
+async def test_pipeline_failure_response_hides_operator_detail(client, monkeypatch, caplog):
+    import app.api.v1.upload as upload_mod
+
+    operator_detail = r"C:\Users\judge\AppData\Local\Temp\tree.ply: raw private stderr"
+
+    def fail_pipeline(*args, **kwargs):
+        raise PipelineError(operator_detail=operator_detail)
+
+    monkeypatch.setattr(upload_mod, "run_pipeline", fail_pipeline)
+    with caplog.at_level(logging.ERROR, logger=upload_mod.__name__):
+        response = await client.post(
+            "/api/v1/upload/analyze",
+            files={"file": ("tree.ply", MINIMAL_ASCII_PLY, "application/octet-stream")},
+        )
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Pipeline execution failed"}
+    assert "raw private stderr" not in response.text
+    assert r"C:\Users\judge" not in response.text
+    assert r"C:\Users\judge\AppData\Local\Temp" not in caplog.text
+
+
+def test_run_pipeline_strips_secrets_from_subprocess_env(tmp_path, monkeypatch):
+    captured_env: dict[str, str] = {}
+    monkeypatch.setenv("TREEQ_DEMO_TOKEN", "demo-secret")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "service-secret")
+
+    def completed_run(cmd, **kwargs):
+        captured_env.update(kwargs["env"])
+        output_path = cmd[cmd.index("--output") + 1]
+        with open(output_path, "w", encoding="utf-8") as output_file:
+            output_file.write("{}")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("app.services.pipeline_runner.subprocess.run", completed_run)
+    result = run_pipeline(tmp_path / "tree.ply")
+
+    assert result == {}
+    assert "TREEQ_DEMO_TOKEN" not in captured_env
+    assert "SUPABASE_SERVICE_KEY" not in captured_env
+
+
+def test_probe_pipeline_runtime_returns_version_and_strips_secrets(monkeypatch):
+    captured_env: dict[str, str] = {}
+    monkeypatch.setenv("TREEQ_DEMO_TOKEN", "demo-secret")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "service-secret")
+
+    def completed_run(cmd, **kwargs):
+        captured_env.update(kwargs["env"])
+        return subprocess.CompletedProcess(cmd, 0, stdout="0.3.0\n", stderr="")
+
+    monkeypatch.setattr("app.services.pipeline_runner.subprocess.run", completed_run)
+    assert probe_pipeline_runtime(timeout=7) == "0.3.0"
+    assert "TREEQ_DEMO_TOKEN" not in captured_env
+    assert "SUPABASE_SERVICE_KEY" not in captured_env

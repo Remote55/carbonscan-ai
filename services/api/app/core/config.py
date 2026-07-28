@@ -31,9 +31,22 @@ class Settings(BaseSettings):
     # --- CORS (comma-separated list) ---
     CORS_ORIGINS: str = "http://localhost:3000"
 
+    # --- Ephemeral judge demo ---
+    TREEQ_DEMO_MODE: bool = False
+    TREEQ_DEMO_TOKEN: str = ""
+    TREEQ_DEMO_MAX_UPLOAD_SIZE_MB: int = 100
+    TREEQ_DEMO_MAX_POINTS: int = 2_000_000
+    TREEQ_DEMO_ALLOWED_ORIGINS: str = (
+        "https://treeqcarbon.vercel.app,http://127.0.0.1:3000,http://localhost:3000"
+    )
+
     @property
     def CORS_ORIGINS_LIST(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES(self) -> int:
+        return self.TREEQ_DEMO_MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
     # --- Database ---
     DATABASE_URL: str = Field(

@@ -7,17 +7,20 @@ TODO Phase 1:
 - Create Job record + push to Queue
 """
 
+import logging
 import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
+from app.core.config import settings
 from app.schemas.analyze import AnalyzeResponse
-from app.services.pipeline_runner import PipelineError, run_pipeline
-from app.services.upload_validation import validate_upload
+from app.services.pipeline_runner import PipelineError, redact_operator_detail, run_pipeline
+from app.services.upload_validation import read_upload_limited, validate_upload
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _run_pipeline_on_bytes(data: bytes, ext: str) -> dict:
@@ -38,13 +41,19 @@ async def analyze_point_cloud(file: UploadFile = File(...)) -> AnalyzeResponse:
 
     Synchronous MVP (small files). Phase 2 moves heavy jobs to a queue + GPU worker.
     """
-    data = await file.read()
+    max_bytes = (
+        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES
+        if settings.TREEQ_DEMO_MODE
+        else settings.MAX_UPLOAD_SIZE_BYTES
+    )
+    data = await read_upload_limited(file, max_bytes)
     ext = validate_upload(file.filename, data)
 
     try:
         result = await run_in_threadpool(_run_pipeline_on_bytes, data, ext)
     except PipelineError as exc:
-        raise HTTPException(status_code=502, detail=f"Pipeline failed: {exc}") from exc
+        logger.error("Pipeline execution failed: %s", redact_operator_detail(exc.operator_detail))
+        raise HTTPException(status_code=502, detail=exc.public_message) from exc
 
     return AnalyzeResponse(**result)
 

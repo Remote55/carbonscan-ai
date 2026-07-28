@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.demo_security import DemoGuardMiddleware
 from app.core.exceptions import AppException
 
 
@@ -42,9 +43,20 @@ app = FastAPI(
 )
 
 # --- Middleware ---
+app.add_middleware(DemoGuardMiddleware)
+
+cors_origins = settings.CORS_ORIGINS_LIST
+if settings.TREEQ_DEMO_MODE:
+    demo_origins = [
+        origin.strip()
+        for origin in settings.TREEQ_DEMO_ALLOWED_ORIGINS.split(",")
+        if origin.strip()
+    ]
+    cors_origins = list(dict.fromkeys([*cors_origins, *demo_origins]))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS_LIST,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
