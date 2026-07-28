@@ -14,6 +14,13 @@
 
 ถ้าเอกสารขัดกับโค้ด ให้ยึดโค้ด; ถ้าเอกสารขัดกับตัวเลข/status ให้ยึด evidence manifest จนกว่าจะมี reviewed evidence ชุดใหม่
 
+When `validation.pointnet_independent` exists, its Git-tracked `result.json` and
+linked protocol/freeze/external manifests are the authority for the reviewed
+independent verdict. `scripts/sync_truth.py --check` re-hashes and cross-validates
+the committed bytes. A reviewed `PROMOTE_POINTNET` verdict records a passed gate,
+but never auto-promotes PointNet++ or changes the `tlsep` runtime default; that
+requires a separate reviewed default-switch decision.
+
 ## Mixed current/target — อ่าน banner ก่อนใช้
 
 - `services/api/README.md`, `services/ml/README.md`, `apps/web/README.md`, `apps/mobile/README.md`

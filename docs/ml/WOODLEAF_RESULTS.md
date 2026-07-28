@@ -3,14 +3,19 @@
 > เก็บผลทุก variant ตามที่รันทดลองจริง พร้อมแยก synthetic, zero-shot และ same-environment
 > ตัวเลข Wan ด้านล่างมาจาก spatial held-out loader แต่ loader เดียวกันถูกใช้เลือก best epoch
 > จึงไม่ใช่ independent final test สำหรับ promotion gate
+> Wan นี้คือ **spatially separated development split with a 2.5 m excluded band**;
+> native tree IDs are unavailable, and the same dev loader selected the epoch.
+> จึงไม่พิสูจน์ unseen-tree separation และไม่ใช่ promotion evidence
 
 <!-- TREEQ_TRUTH_START -->
 ### Verified truth snapshot (generated)
 
 - Baseline: `tlsep` — **Implemented**.
-- PointNet++: **Experimental**, not promoted; no verified independent final-test gate.
+- PointNet++: **Experimental**, not promoted; reviewed evidence never changes the default automatically.
 - Wan 2021 held-out: Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`, accuracy `0.831`. The held-out loader was also used for best-epoch selection.
 - Demol isolated-tree validation (65 trees): DBH MAE `1.1673846154 cm`; Volume MAPE `18.7650916186%`. This is not an eight-stage or carbon validation.
+- Independent PointNet review: verdict `FAIL_METRICS`; candidate/baseline external macro Wood IoU `0.23728726507501768`/`0.1958779956856453`.
+- Independent downstream candidate/baseline: DBH MAE `1.1591405814498605`/`1.1339476465903928` cm; Height MAE `0.9508502244897976`/`0.5433234000000015` m; Volume MAPE `21.74924193798788`/`18.928262273343613`%; measurable trees `49`/`65`.
 - Deterministic core demo: `3` trees, `1320.39 kg C`, `4841.48 kg CO2e`; analyzed commit `b6fe198f3de5` with a clean worktree.
 - Species classification: **Stub**. Carbon stock/CO2e estimates are not certified credits.
 <!-- TREEQ_TRUTH_END -->
@@ -19,8 +24,8 @@
 
 - `tlsep`: **Implemented baseline/default** เพราะไม่ต้องใช้ checkpoint และ core path รันซ้ำได้
 - PointNet++: **Experimental candidate** แม้มีผลดีกว่าบน synthetic และมี Wan training result
-- ยังไม่ promote PointNet++ เพราะไม่มี verified checkpoint + training provenance + independent real final test
-  ที่เปรียบเทียบ Wood IoU และ downstream DBH/height/volume กับ baseline ชุดเดียวกัน
+- ยังไม่ promote PointNet++ เพราะ reviewed independent verdict คือ `FAIL_METRICS`: external macro Wood IoU
+  point estimate สูงกว่า `tlsep` แต่ 95% CI ของ delta คร่อมศูนย์ และ formal downstream criteria ไม่ผ่าน
 
 ## Synthetic held-out benchmark
 
@@ -36,7 +41,7 @@
 
 ### Prior runs: synthetic-trained to real
 
-ค่าชุดนี้เป็น approximate historical runs:
+ค่าชุดนี้เป็น approximate historical development/zero-shot observations ไม่ใช่ promotion evidence:
 
 | Run | Init | Augment | Class weight | Wood IoU | Leaf IoU | Mean IoU |
 |---|---|---|---|---:|---:|---:|
@@ -46,7 +51,9 @@
 
 ### Same-environment matrix — Colab run 2026-06-29
 
-Split เป็น spatial held-out + buffer และ metrics เป็น pooled per-point IoU
+Split นี้เป็น spatially separated development split with a 2.5 m excluded band;
+native tree IDs are unavailable, and the same dev loader selected the epoch.
+Metrics เป็น pooled per-point IoU จึงไม่ใช่ independent final-test evidence.
 
 | # | Init | Synthetic augment | Class weight | Train tiles | Wood IoU | Leaf IoU | Mean IoU | Accuracy |
 |---|---|---:|---|---:|---:|---:|---:|---:|
@@ -55,8 +62,8 @@ Split เป็น spatial held-out + buffer และ metrics เป็น pool
 | **3** | scratch | 200 | none | 539 | **0.418** | **0.808** | **0.613** | **0.831** |
 | 4 | scratch | 200 | auto | 539 | 0.332 | 0.770 | 0.551 | 0.793 |
 
-Variant 3 เป็น best recorded run ใน matrix นี้ แต่คำว่า best หมายถึง best บน held-out loader ที่ใช้ระหว่าง
-best-epoch selection ด้วย ไม่ใช่ independent final-test performance
+Variant 3 เป็น best recorded run ใน matrix นี้ แต่คำว่า best หมายถึง best บน development loader เดียวกับที่ใช้
+best-epoch selection ด้วย ไม่ใช่ independent final-test performance หรือ promotion evidence
 
 ## Findings ที่รายงานได้
 
@@ -64,8 +71,10 @@ best-epoch selection ด้วย ไม่ใช่ independent final-test perf
 - Synthetic augmentation ใน matrix นี้เพิ่ม Wood IoU จาก `0.285` เป็น `0.418`
 - Auto class weighting ช่วย variant ที่ไม่มี augmentation (`0.285 → 0.381`) แต่ลดผลเมื่อใช้ augmentation
 - Wood IoU `0.418` ยังต่ำกว่า research target `0.70`
-- งานถัดไปคือ verify open dataset ที่มี per-point wood/leaf labels, สร้าง independent final split,
-  บันทึก tree IDs/checkpoint hash/training config และวัด downstream non-regression
+- งานถัดไปห้ามใช้ Cohort A ปัจจุบันหรือ Demol เพื่อ train, tune หรือ model selection; ต้อง freeze candidate/protocol
+  ก่อนเปิดผล แล้วใช้ independent final cohort/split ใหม่ที่ไม่เคยเปิดผลเป็น decisive gate รอบถัดไป
+- reviewed run ปัจจุบันมี checkpoint/training provenance ครบแต่ไม่ผ่าน downstream non-regression และต้องคงผล
+  Cohort A + Demol รอบนี้เป็น immutable historical evidence เท่านั้น
 
 ## สิ่งที่ห้ามสรุปจากผลนี้
 
@@ -81,5 +90,6 @@ best-epoch selection ด้วย ไม่ใช่ independent final-test perf
 synthetic Mean IoU 0.977625
 → real zero-shot approximate Mean IoU 0.33
 → Wan same-environment best recorded Mean IoU 0.613 / Wood IoU 0.418
-→ independent real-data + downstream evidence gate: pending
+→ reviewed independent external cohort (10 non-Thai TLS trees) + locked reused Demol downstream:
+  `FAIL_METRICS`, no promotion
 ```

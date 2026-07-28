@@ -6,6 +6,7 @@ on:
     paths:
       - "services/ml/**"
       - "docs/evidence/core_demo_manifest.json"
+      - "docs/evidence/pointnet_independent_eval/**"
       - "docs/CAPABILITY_MATRIX.md"
       - "docs/PROJECT_SPEC.md"
       - "docs/ml/PIPELINE.md"
@@ -14,6 +15,7 @@ on:
       - "README.md"
       - "AGENTS.md"
       - "scripts/sync_truth.py"
+      - "scripts/review_pointnet_evidence.py"
       - "scripts/build_truth_aligned_report.py"
       - "scripts/tests/**"
       - "docs/DOCUMENT_STATUS.md"
@@ -27,6 +29,7 @@ on:
     paths:
       - "services/ml/**"
       - "docs/evidence/core_demo_manifest.json"
+      - "docs/evidence/pointnet_independent_eval/**"
       - "docs/CAPABILITY_MATRIX.md"
       - "docs/PROJECT_SPEC.md"
       - "docs/ml/PIPELINE.md"
@@ -35,6 +38,7 @@ on:
       - "README.md"
       - "AGENTS.md"
       - "scripts/sync_truth.py"
+      - "scripts/review_pointnet_evidence.py"
       - "scripts/build_truth_aligned_report.py"
       - "scripts/tests/**"
       - "docs/DOCUMENT_STATUS.md"
@@ -61,6 +65,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -90,12 +96,12 @@ jobs:
 
       - name: Ruff lint
         working-directory: services/ml
-        run: ruff check pipeline/ photogrammetry/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
+        run: ruff check pipeline/ photogrammetry/ training/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
 
       - name: Ruff format check (advisory)
         working-directory: services/ml
         # Phase 1: re-enable strict after running `ruff format .` locally.
-        run: ruff format --check --diff pipeline/ photogrammetry/ tests/ || echo "::warning::Ruff format drift"
+        run: ruff format --check --diff pipeline/ photogrammetry/ training/ tests/ || echo "::warning::Ruff format drift"
 
       - name: Run allometric tests
         working-directory: services/ml

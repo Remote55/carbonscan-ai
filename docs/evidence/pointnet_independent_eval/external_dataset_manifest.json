@@ -1,0 +1,207 @@
+{
+  "checkpoint_sha256": "9a21f8ee167d7511a55e5b2c835fab5b6d3ac95b0027340900982eff68a675f1",
+  "experiment_id": "pointnet-independent-eval-2026-07-16",
+  "files": [
+    {
+      "filename": "15_avec_feuilles_space0.03_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "4f8388dc4b6e4ad8f4b03b6c20e7e0b9",
+      "publisher_size_bytes": 8549878,
+      "sha256": "af40702656809102476a83ccc5336c226eb10f0f650f14ee265452c951db9171",
+      "size_bytes": 8549878,
+      "tree_id": "15_avec_feuilles_space0.03_man"
+    },
+    {
+      "filename": "15_avec_feuilles_space0.03_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "3d40533d282b1853af4ace6e80fe00a6",
+      "publisher_size_bytes": 789988,
+      "sha256": "bf551cc0560e3a74eec9158784bda1b875b3521dca51a0d8bcb304e2e3e1cfcd",
+      "size_bytes": 789988,
+      "tree_id": "15_avec_feuilles_space0.03_man"
+    },
+    {
+      "filename": "1_avec_feuilles_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "35a6a955fbc4023f8c783485dbeebc98",
+      "publisher_size_bytes": 1893014,
+      "sha256": "305995f772bd92884edec057ee1953051102749289f5480869470f7f065c1a7f",
+      "size_bytes": 1893014,
+      "tree_id": "1_avec_feuilles_man"
+    },
+    {
+      "filename": "1_avec_feuilles_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "d29cc18447b83294413d6816d02823b9",
+      "publisher_size_bytes": 484308,
+      "sha256": "c265d247e83bef8f67df843c160b5ebcd9bdd560b6fe596fe1f901f1189a2d12",
+      "size_bytes": 484308,
+      "tree_id": "1_avec_feuilles_man"
+    },
+    {
+      "filename": "63_avec_feuilles_sor_space0.05_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "3e9a32a8c1e2b543d0b40c0910441b2a",
+      "publisher_size_bytes": 6209398,
+      "sha256": "8ebda0082dd05d68ed048b3ce29389220875cafb2c521b3ddcdd5f086802c80d",
+      "size_bytes": 6209398,
+      "tree_id": "63_avec_feuilles_sor_space0.05_man"
+    },
+    {
+      "filename": "63_avec_feuilles_sor_space0.05_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "0cd7e46513836594797c035c4f7b873f",
+      "publisher_size_bytes": 1197876,
+      "sha256": "30063ba1c32d4c238d0c48df2b487dab951a4ea89fe4017b9f864acbb7337338",
+      "size_bytes": 1197876,
+      "tree_id": "63_avec_feuilles_sor_space0.05_man"
+    },
+    {
+      "filename": "66_avec_feuilles_space0.02_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "9f483d816330acea81e6801d72918331",
+      "publisher_size_bytes": 11189158,
+      "sha256": "d07fcd6beb07ad50489a87c1a729381f048ac0da6a5840d8a3acf24b1fa74122",
+      "size_bytes": 11189158,
+      "tree_id": "66_avec_feuilles_space0.02_man"
+    },
+    {
+      "filename": "66_avec_feuilles_space0.02_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "f0fc0f91e7298619b79308ef74c22ef5",
+      "publisher_size_bytes": 2308582,
+      "sha256": "a256954afacabca88b9891c26d099c14cb11880e7a8cc41a987be8e06b15afad",
+      "size_bytes": 2308582,
+      "tree_id": "66_avec_feuilles_space0.02_man"
+    },
+    {
+      "filename": "AcePse_KA09_T049_2019-08-20_q2_TLS-on_divi50_sor_trans_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "a281d6b7676b86e57fb1cbf78f0ba32a",
+      "publisher_size_bytes": 5050134,
+      "sha256": "4a48f6e368f13efffb0a297619ac8fbb19c1ea79e260df2bc8448b96a441fa67",
+      "size_bytes": 5050134,
+      "tree_id": "AcePse_KA09_T049_2019-08-20_q2_TLS-on_divi50_sor_trans_man"
+    },
+    {
+      "filename": "AcePse_KA09_T049_2019-08-20_q2_TLS-on_divi50_sor_trans_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "4a914adfa3e10713cebd5b8a8d5a040c",
+      "publisher_size_bytes": 1431300,
+      "sha256": "d428876c305405529cc14c0b589e89bb13a1cdf5e3c76f6d08fca11e1e639b6b",
+      "size_bytes": 1431300,
+      "tree_id": "AcePse_KA09_T049_2019-08-20_q2_TLS-on_divi50_sor_trans_man"
+    },
+    {
+      "filename": "Cinnamomum camphor_SOR_space0.005_manual_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "55e827fbb2b256a3c204274a2d22fd40",
+      "publisher_size_bytes": 11333452,
+      "sha256": "065b5cd8ccb7c7c216ab6d0bd8aa0fd0f7f109db73eab42a1614deaa80cbc3a1",
+      "size_bytes": 11333452,
+      "tree_id": "Cinnamomum camphor_SOR_space0.005_manual"
+    },
+    {
+      "filename": "Cinnamomum camphor_SOR_space0.005_manual_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "405acbd3bb44bfc2b035cd0bb507a696",
+      "publisher_size_bytes": 1561650,
+      "sha256": "e4d5d4e089cf914b269fc5b5abbcc57c9d78540926f917bb1aff21eaf2903a2c",
+      "size_bytes": 1561650,
+      "tree_id": "Cinnamomum camphor_SOR_space0.005_manual"
+    },
+    {
+      "filename": "Magnolia grandiflora_SOR_space0.005_manual_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "20898b9366fae13622433d9f529a8fa0",
+      "publisher_size_bytes": 10201092,
+      "sha256": "8b2509e802033d23fc8e20bf4cbb829b4ec9d574bb142507fd4504598502009f",
+      "size_bytes": 10201092,
+      "tree_id": "Magnolia grandiflora_SOR_space0.005_manual"
+    },
+    {
+      "filename": "Magnolia grandiflora_SOR_space0.005_manual_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "acac8673955248e6325bfa84409a997f",
+      "publisher_size_bytes": 1878490,
+      "sha256": "b589efd13b05e9ff34bc2b7ff4abb4bc7633ae38f8a81fe4b61e821b97e59615",
+      "size_bytes": 1878490,
+      "tree_id": "Magnolia grandiflora_SOR_space0.005_manual"
+    },
+    {
+      "filename": "PicAbi_KA09_T035_2019-08-20_q2_TLS-on_divi50_sor_space0.02_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "d9b2753bdda98d575845a5ffce32c653",
+      "publisher_size_bytes": 4087846,
+      "sha256": "ee090eec0cb96d853daf7277df2ebc7928080b76455153cda5258d7835c70a53",
+      "size_bytes": 4087846,
+      "tree_id": "PicAbi_KA09_T035_2019-08-20_q2_TLS-on_divi50_sor_space0.02_man"
+    },
+    {
+      "filename": "PicAbi_KA09_T035_2019-08-20_q2_TLS-on_divi50_sor_space0.02_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "044f2720eb40b934ee070ec1cd520710",
+      "publisher_size_bytes": 1438324,
+      "sha256": "dd3bda37ef3773cefcd8824e30ad83f3b445ddf575f51f0fafb14f4a06015767",
+      "size_bytes": 1438324,
+      "tree_id": "PicAbi_KA09_T035_2019-08-20_q2_TLS-on_divi50_sor_space0.02_man"
+    },
+    {
+      "filename": "PinSyl_KA09_T048_2019-08-20_q1_TLS-on_divi50_sor_space0.02_trans_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "323005bbae5e33381f407844a64c6817",
+      "publisher_size_bytes": 7831910,
+      "sha256": "871bdaa20262caffb94a04549b5259121ae7348ca5c36f841b0765bcb56adacd",
+      "size_bytes": 7831910,
+      "tree_id": "PinSyl_KA09_T048_2019-08-20_q1_TLS-on_divi50_sor_space0.02_trans_man"
+    },
+    {
+      "filename": "PinSyl_KA09_T048_2019-08-20_q1_TLS-on_divi50_sor_space0.02_trans_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "cb360dc08a1a885ebe68e7b5dd740a41",
+      "publisher_size_bytes": 1293844,
+      "sha256": "33af58ca4d1eb345cfc5512d0ce0e38fa06ee79646d82d81f712c76a41e41451",
+      "size_bytes": 1293844,
+      "tree_id": "PinSyl_KA09_T048_2019-08-20_q1_TLS-on_divi50_sor_space0.02_trans_man"
+    },
+    {
+      "filename": "QueRub_KA09_T053_2019-08-20_q1_TLS-on_divi50_sor_space0.01_trans_man_leaf.pcd",
+      "part": "leaf",
+      "publisher_md5": "a2cfeeaf1139140d944a5cd8d0b23694",
+      "publisher_size_bytes": 4628006,
+      "sha256": "ad9cae9413da2568fe5feb7a840a3bd6b50578f01b13e8e8b2ef7a39cd6cc251",
+      "size_bytes": 4628006,
+      "tree_id": "QueRub_KA09_T053_2019-08-20_q1_TLS-on_divi50_sor_space0.01_trans_man"
+    },
+    {
+      "filename": "QueRub_KA09_T053_2019-08-20_q1_TLS-on_divi50_sor_space0.01_trans_man_wood.pcd",
+      "part": "wood",
+      "publisher_md5": "76ba042a78e55a546dff93ce7cd13d17",
+      "publisher_size_bytes": 718804,
+      "sha256": "9caa0de8f78b59bb223a3de0fd1e045133e1de55cf01b17ad61890ef109f60ad",
+      "size_bytes": 718804,
+      "tree_id": "QueRub_KA09_T053_2019-08-20_q1_TLS-on_divi50_sor_space0.01_trans_man"
+    }
+  ],
+  "freeze_manifest_sha256": "c52f99deef1122ba10a6ee91a62aafee5c425fd34d04541c4b01452ce9dcc370",
+  "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+  "record": {
+    "doi": "10.5281/zenodo.6831378",
+    "license": "CC-BY-4.0",
+    "provider": "Zenodo",
+    "record_id": 6831378
+  },
+  "schema_version": "1",
+  "tree_ids": [
+    "15_avec_feuilles_space0.03_man",
+    "1_avec_feuilles_man",
+    "63_avec_feuilles_sor_space0.05_man",
+    "66_avec_feuilles_space0.02_man",
+    "AcePse_KA09_T049_2019-08-20_q2_TLS-on_divi50_sor_trans_man",
+    "Cinnamomum camphor_SOR_space0.005_manual",
+    "Magnolia grandiflora_SOR_space0.005_manual",
+    "PicAbi_KA09_T035_2019-08-20_q2_TLS-on_divi50_sor_space0.02_man",
+    "PinSyl_KA09_T048_2019-08-20_q1_TLS-on_divi50_sor_space0.02_trans_man",
+    "QueRub_KA09_T053_2019-08-20_q1_TLS-on_divi50_sor_space0.01_trans_man"
+  ]
+}

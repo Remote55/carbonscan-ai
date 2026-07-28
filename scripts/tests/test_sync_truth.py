@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 from scripts.sync_truth import (
+    PROMOTION_POLICY,
     load_manifest,
     render_capability_matrix,
     render_typescript,
@@ -44,6 +46,70 @@ STATUS_BANNER_DOCS = (
     Path("apps/mobile/README.md"),
 )
 
+WAN_DEVELOPMENT_DOCS = (
+    Path("docs/ml/FINETUNE_REALDATA.md"),
+    Path("docs/ml/WOODLEAF_RESULTS.md"),
+    Path("docs/ml/PIPELINE.md"),
+)
+
+CONTROLLED_WAN_METRIC_DOCS = (
+    Path("docs/ml/WOODLEAF_RESULTS.md"),
+    Path("docs/ml/PIPELINE.md"),
+)
+
+
+UNSUPPORTED_WAN_POSITIVE_CLAIMS = (
+    re.compile(
+        r"\b(?:is|provides|uses)\s+(?:a\s+)?leakage[- ]free\s+(?:held[- ]out|split)\b"
+    ),
+    re.compile(
+        r"\b(?:is|constitutes|provides)\s+(?:an?\s+)?real\s+(?:tls\s+)?test(?:\s+set)?\b"
+    ),
+    re.compile(
+        r"\b(?:is|constitutes|provides)\s+(?:an?\s+)?independent\s+final\s+test\b"
+    ),
+    re.compile(
+        r"\b(?:wan\s+)?(?:figures|evidence)\s+(?:are|constitute|provide)\s+"
+        r"independent\s+real\s+tls/(?:final[- ]test)\s+evidence\b"
+    ),
+    re.compile(
+        r"\bper[- ]epoch\s+validation\s+is\s+(?:the\s+)?honest\s+"
+        r"independent\s+test\s+number(?:\s+to\s+report)?\b"
+    ),
+    re.compile(
+        r"\b(?:the\s+)?split\s+(?:guarantees|ensures|proves|confirms|shows)\s+"
+        r"(?:that\s+)?no\s+shared\s+trees?\b"
+    ),
+    re.compile(
+        r"(?<!not )(?<!cannot )(?<!does not )\b(?:guarantees|ensures|proves|confirms|shows)\s+"
+        r"(?:\w+\s+){0,4}unseen\s+trees?\b"
+    ),
+    re.compile(
+        r"\btrain\s*(?:/|and)\s*(?:test|development)\b[^.\n]{0,60}\bnever\s+share(?:s)?\s+"
+        r"(?:a\s+)?tree\b"
+    ),
+)
+
+
+def _without_generated_truth_blocks(text: str) -> str:
+    """Return prose that authors, rather than sync_truth, control."""
+    start = "<!-- TREEQ_TRUTH_START -->"
+    end = "<!-- TREEQ_TRUTH_END -->"
+    while start in text:
+        block_end = text.index(end, text.index(start)) + len(end)
+        text = text[: text.index(start)] + text[block_end:]
+    return text
+
+
+def _unsupported_wan_positive_claims(prose: str) -> tuple[str, ...]:
+    """Find only affirmative, unsupported Wan split claims in author prose."""
+    lowered = " ".join(prose.lower().split())
+    return tuple(
+        pattern.pattern
+        for pattern in UNSUPPORTED_WAN_POSITIVE_CLAIMS
+        if pattern.search(lowered)
+    )
+
 
 def _manifest(tmp_path: Path) -> Path:
     path = tmp_path / "manifest.json"
@@ -61,6 +127,7 @@ def _manifest(tmp_path: Path) -> Path:
                     "promotion_evidence": {
                         "all_passed": False,
                         "failed_criteria": ["independent_real_test"],
+                        "policy": PROMOTION_POLICY,
                     },
                 },
                 "validation": {
@@ -110,6 +177,27 @@ def test_manifest_rejects_promoted_pointnet_without_gate(tmp_path: Path):
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ValueError, match="promotion evidence"):
         load_manifest(path)
+
+
+def test_manifest_rejects_incomplete_promotion_policy(tmp_path: Path):
+    path = _manifest(tmp_path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["candidate"]["promotion_evidence"]["policy"] = (
+        "Promote only when Wood IoU improves on an independent real test while DBH "
+        "and volume do not regress."
+    )
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="promotion policy"):
+        load_manifest(path)
+
+
+def test_checked_in_manifest_uses_canonical_promotion_policy():
+    manifest = load_manifest(
+        Path("docs/evidence/core_demo_manifest.json"), repo_root=Path.cwd()
+    )
+
+    assert manifest["candidate"]["promotion_evidence"]["policy"] == PROMOTION_POLICY
 
 
 def test_manifest_rejects_dirty_core_demo(tmp_path: Path):
@@ -175,6 +263,19 @@ def test_ml_ci_does_not_swallow_test_failures():
     assert "scripts/sync_truth.py --check" in workflow
     assert "python-docx" in workflow
     assert "python -m pytest scripts/tests/" in workflow
+    assert workflow.count('"docs/evidence/pointnet_independent_eval/**"') == 2
+    assert "ruff check pipeline/ photogrammetry/ training/" in workflow
+
+
+def test_ml_ci_checkout_fetches_full_provenance_history():
+    workflow = Path(".github/workflows/ci-ml.yml").read_text(encoding="utf-8")
+    checkout_step = re.search(
+        r"(?ms)^\s+- name: Checkout\s*$.*?(?=^\s+- name: Setup Python\s*$)",
+        workflow,
+    )
+
+    assert checkout_step is not None
+    assert re.search(r"(?m)^\s+fetch-depth:\s*0\s*$", checkout_step.group())
 
 
 def test_current_claim_documents_share_exact_evidence():
@@ -197,6 +298,96 @@ def test_current_claim_documents_share_exact_evidence():
 
     assert "wood IoU = 0.42" not in combined
     assert "PointNet++ เป็น production default" not in combined
+
+
+@pytest.mark.parametrize("path", WAN_DEVELOPMENT_DOCS)
+def test_wan_development_prose_states_split_limits(path: Path):
+    prose = " ".join(
+        _without_generated_truth_blocks(path.read_text(encoding="utf-8")).split()
+    ).lower()
+
+    for fact in (
+        "spatially separated development split",
+        "2.5 m excluded band",
+        "native tree ids are unavailable",
+        "same dev loader selected the epoch",
+    ):
+        assert fact in prose, (path, fact)
+
+    assert not _unsupported_wan_positive_claims(prose), path
+
+
+@pytest.mark.parametrize(
+    "honest_prose",
+    (
+        "This development split does not prove unseen trees.",
+        "The current evidence is not an independent final test.",
+        "A future independent final test is required before promotion.",
+    ),
+)
+def test_wan_positive_claim_detector_accepts_honest_limitations(honest_prose: str):
+    assert not _unsupported_wan_positive_claims(honest_prose)
+
+
+@pytest.mark.parametrize(
+    "unsupported_prose",
+    (
+        "This is a leakage-free split.",
+        "The Wan evaluation is a real test set.",
+        "The split guarantees no shared trees.",
+        "The split guarantees unseen trees.",
+        "Train/test never share a tree.",
+        "The Wan evaluation is an independent final test.",
+        "The Wan figures are independent real TLS/final-test evidence.",
+        "Per-epoch validation is the honest independent test number to report.",
+    ),
+)
+def test_wan_positive_claim_detector_rejects_unsupported_claims(unsupported_prose: str):
+    assert _unsupported_wan_positive_claims(unsupported_prose)
+
+
+def test_wan_converter_legacy_test_names_are_disclosed():
+    text = Path("docs/ml/FINETUNE_REALDATA.md").read_text(encoding="utf-8").lower()
+    assert "--out-test" in text
+    assert "wan_test.npz" in text
+    assert "legacy names for the development/validation split" in text
+
+
+def test_wan_same_environment_section_uses_development_not_test_framing():
+    text = Path("docs/ml/FINETUNE_REALDATA.md").read_text(encoding="utf-8")
+    lowered = text.lower()
+
+    assert "same-environment experiments (train+development on real wan" in lowered
+    assert "train+test on real wan" not in lowered
+    assert "train/test on the **same real environment**" not in lowered
+
+    held_out_index = lowered.index("[held-out]")
+    nearby = lowered[held_out_index : held_out_index + 300]
+    assert "legacy output label" in nearby
+    assert "not an independent or final test" in nearby
+
+
+@pytest.mark.parametrize("path", CONTROLLED_WAN_METRIC_DOCS)
+def test_controlled_wan_documents_retain_exact_recorded_metrics(path: Path):
+    text = path.read_text(encoding="utf-8")
+    for metric in ("0.418", "0.808", "0.613", "0.831"):
+        assert metric in text, (path, metric)
+
+
+def test_g3_is_confounded_historical_comparison_not_promotion_evidence():
+    source = Path("services/ml/notebooks/experiment_g3_pointnet_volume.py").read_text(
+        encoding="utf-8"
+    )
+    lowered = source.lower()
+
+    assert "confounded historical experiment" in source
+    assert "not promotion evidence" in source
+    assert "both segmentation and volume method changed" in lowered
+    assert "within-script historical comparison only" in lowered
+    assert "not an adoption or promotion decision" in lowered
+    assert "adopt sectional" not in lowered
+    assert "~18.8% mape" in lowered
+    assert "~18.8% mae" not in lowered
 
 
 @pytest.mark.parametrize("path", STATUS_BANNER_DOCS)

@@ -106,6 +106,7 @@ Desktop.ini
 # Temporary
 tmp/
 temp/
+.worktrees/
 *.tmp
 
 # Auto-generated

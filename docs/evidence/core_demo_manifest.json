@@ -13,12 +13,12 @@
     "promotion_evidence": {
       "all_passed": false,
       "failed_criteria": [
-        "independent_real_test_not_recorded",
-        "verified_checkpoint_not_available",
-        "dbh_non_regression_not_tested",
-        "volume_non_regression_not_tested"
+        "dbh_mae_non_regression",
+        "height_mae_non_regression",
+        "volume_mape_non_regression",
+        "measurable_tree_count"
       ],
-      "policy": "Promote only when Wood IoU improves on an independent real test while DBH and volume do not regress."
+      "policy": "Promote only after verified checkpoint and training provenance, a reproducible independent real-data evaluation, improved Wood IoU, non-regressing DBH/height/volume errors, and a candidate measurable-tree count at least as high as the baseline."
     }
   },
   "validation": {
@@ -61,6 +61,48 @@
       "volume_worst_pct": 58.113609,
       "scope": "Isolated-tree inputs capped at 20,000 points, min-Z normalization, tlsep wood/leaf separation, and QSM-derived geometry only.",
       "excludes": "This does not validate full-pipeline stages 1-4, species classification, allometric biomass, carbon stock, CO2e, or certified credits."
+    },
+    "pointnet_independent": {
+      "result_path": "docs/evidence/pointnet_independent_eval/result.json",
+      "result_sha256": "58921ee2bc38af67d6d5a9c080840e83ca59439cb4ac151cf26c59e059534096",
+      "verdict": "FAIL_METRICS",
+      "baseline": {
+        "external_macro_wood_iou": 0.1958779956856453,
+        "dbh_mae_cm": 1.1339476465903928,
+        "height_mae_m": 0.5433234000000015,
+        "volume_mape_pct": 18.928262273343613,
+        "measurable_trees": 65
+      },
+      "candidate": {
+        "external_macro_wood_iou": 0.23728726507501768,
+        "dbh_mae_cm": 1.1591405814498605,
+        "height_mae_m": 0.9508502244897976,
+        "volume_mape_pct": 21.74924193798788,
+        "measurable_trees": 49
+      },
+      "provenance": {
+        "experiment_id": "pointnet-independent-eval-2026-07-16",
+        "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+        "freeze_manifest_sha256": "c52f99deef1122ba10a6ee91a62aafee5c425fd34d04541c4b01452ce9dcc370",
+        "external_manifest_sha256": "35aec2f4f2cdf954a041e4589550810788437108edfdf2ba1277494b0764aa02",
+        "checkpoint_sha256": "9a21f8ee167d7511a55e5b2c835fab5b6d3ac95b0027340900982eff68a675f1",
+        "evaluation_git_commit": "c498739a1c5881c2ecd653faf8c959f9391b4d3c",
+        "external_opened_after_commit": "a4f441bd8ac9b112b04defb5eecd1e728f1effbb"
+      },
+      "failed_criteria": [
+        "dbh_mae_non_regression",
+        "height_mae_non_regression",
+        "volume_mape_non_regression",
+        "measurable_tree_count"
+      ],
+      "limitations": [
+        "Cohort A contains only 10 individual non-Thai TLS trees, so confidence intervals may be wide.",
+        "Wan development data is not an independent final test.",
+        "Demol is a locked reused benchmark, not a newly blind cohort.",
+        "Downstream evidence validates only DBH, height, and taper-volume measurements.",
+        "This evaluation does not validate species classification, allometric carbon, carbon credits, or deployment.",
+        "This result does not automatically change the production default."
+      ]
     }
   },
   "capabilities": [
@@ -103,8 +145,8 @@
       "name": "5b. PointNet++ wood/leaf candidate",
       "status": "Experimental",
       "implementation": "PointNet++ backend exists but is not the promoted default",
-      "evidence": "services/ml/pipeline/wood_leaf_separation.py; services/ml/training/pointnet2_seg.py; docs/ml/WOODLEAF_RESULTS.md",
-      "claim": "Wan held-out Wood IoU 0.418 and Mean IoU 0.613, with selection/provenance limitations; not production-promoted."
+      "evidence": "docs/evidence/pointnet_independent_eval/result.json; SHA-256 58921ee2bc38af67d6d5a9c080840e83ca59439cb4ac151cf26c59e059534096",
+      "claim": "Reviewed independent verdict FAIL_METRICS; candidate external macro Wood IoU 0.23728726507501768; remains Experimental and not default-promoted."
     },
     {
       "name": "6. QSM-derived geometry",
