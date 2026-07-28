@@ -36,7 +36,9 @@ export function validateDemoEndpoint(rawEndpoint: string): string | null {
     endpoint.port === '' &&
     DEMO_TUNNEL_HOST.test(endpoint.hostname);
   const isLocal =
-    endpoint.protocol === 'http:' && endpoint.hostname === '127.0.0.1' && endpoint.port === '8000';
+    endpoint.protocol === 'http:' &&
+    (endpoint.hostname === '127.0.0.1' || endpoint.hostname === 'localhost') &&
+    endpoint.port === '8000';
 
   return isTunnel || isLocal ? endpoint.origin : null;
 }

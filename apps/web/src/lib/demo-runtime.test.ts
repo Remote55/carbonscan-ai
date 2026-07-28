@@ -22,6 +22,7 @@ describe('validateDemoEndpoint', () => {
     );
     expect(validateDemoEndpoint('https://evil.trycloudflare.com.attacker.test')).toBeNull();
     expect(validateDemoEndpoint('http://127.0.0.1:8000')).toBe('http://127.0.0.1:8000');
+    expect(validateDemoEndpoint('http://localhost:8000')).toBe('http://localhost:8000');
     expect(validateDemoEndpoint('http://127.0.0.1:9000')).toBeNull();
   });
 

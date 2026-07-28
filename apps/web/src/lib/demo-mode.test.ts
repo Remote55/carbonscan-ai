@@ -12,6 +12,11 @@ const localCredentials: RuntimeCredentials = {
   token: 'b'.repeat(64),
 };
 
+const localhostCredentials: RuntimeCredentials = {
+  endpoint: 'http://localhost:8000',
+  token: 'c'.repeat(64),
+};
+
 describe('demoModeReducer', () => {
   it('uses frozen sample-first mode when no handoff was supplied', () => {
     const state = demoModeReducer(
@@ -71,6 +76,27 @@ describe('demoModeReducer', () => {
     expect(state).toEqual({
       kind: 'local-live',
       credentials: localCredentials,
+      pipelineVersion: 'tlsep-v1',
+    });
+  });
+
+  it('promotes verified localhost readiness to local-live', () => {
+    const checking = demoModeReducer(
+      { kind: 'booting' },
+      {
+        type: 'BOOT',
+        credentials: localhostCredentials,
+        invalidHandoff: false,
+      },
+    );
+    const state = demoModeReducer(checking, {
+      type: 'READINESS_OK',
+      pipelineVersion: 'tlsep-v1',
+    });
+
+    expect(state).toEqual({
+      kind: 'local-live',
+      credentials: localhostCredentials,
       pipelineVersion: 'tlsep-v1',
     });
   });

@@ -15,6 +15,8 @@ export type DemoModeEvent =
   | { type: 'READINESS_FAILED' }
   | { type: 'USE_FROZEN' };
 
+const LOCAL_DEMO_ENDPOINTS = new Set(['http://127.0.0.1:8000', 'http://localhost:8000']);
+
 export function demoModeReducer(state: DemoModeState, event: DemoModeEvent): DemoModeState {
   if (state.kind === 'booting' && event.type === 'BOOT') {
     if (event.credentials) return { kind: 'checking', credentials: event.credentials };
@@ -25,7 +27,7 @@ export function demoModeReducer(state: DemoModeState, event: DemoModeEvent): Dem
     if (event.type === 'READINESS_FAILED') return { kind: 'frozen', reason: 'unreachable' };
     if (event.type === 'USE_FROZEN') return { kind: 'frozen', reason: 'manual' };
     if (event.type === 'READINESS_OK') {
-      return state.credentials.endpoint === 'http://127.0.0.1:8000'
+      return LOCAL_DEMO_ENDPOINTS.has(state.credentials.endpoint)
         ? {
             kind: 'local-live',
             credentials: state.credentials,
