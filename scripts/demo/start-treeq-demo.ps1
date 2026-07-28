@@ -23,7 +23,7 @@ Import-Module $modulePath -Force -ErrorAction Stop
 $script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $script:RuntimeRoot = Join-Path $script:RepoRoot 'temp\demo-runtime'
 $script:RegistryPath = Join-Path $script:RuntimeRoot 'processes.json'
-$script:OwnedEntries = New-Object System.Collections.ArrayList
+$script:ManagedProcesses = New-Object System.Collections.ArrayList
 $script:LogSecrets = New-Object System.Collections.ArrayList
 $script:ExitCode = 0
 
@@ -81,40 +81,6 @@ function Initialize-TreeQRuntime {
     Assert-TreeQDirectorySafe -Path $script:RuntimeRoot -Root $script:RepoRoot
 }
 
-function Save-TreeQRegistry {
-    $payload = [ordered]@{
-        schema_version = 1
-        processes = @($script:OwnedEntries)
-    } | ConvertTo-Json -Depth 5
-    $temporaryPath = Join-Path $script:RuntimeRoot (
-        'processes.{0}.tmp' -f [Guid]::NewGuid().ToString('N')
-    )
-    [System.IO.File]::WriteAllText(
-        $temporaryPath,
-        $payload,
-        [System.Text.UTF8Encoding]::new($false)
-    )
-    Move-Item -LiteralPath $temporaryPath -Destination $script:RegistryPath -Force
-}
-
-function Register-TreeQProcess {
-    param(
-        [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
-        [Parameter(Mandatory = $true)][string]$Role
-    )
-
-    $Process.Refresh()
-    $entry = [pscustomobject][ordered]@{
-        pid = $Process.Id
-        executable_path = $Process.Path
-        start_time_utc = $Process.StartTime.ToUniversalTime().ToString('o')
-        role = $Role
-    }
-    [void]$script:OwnedEntries.Add($entry)
-    Save-TreeQRegistry
-    return $entry
-}
-
 function Repair-TreeQDuplicatePathEnvironment {
     $preservedPath = [Environment]::GetEnvironmentVariable(
         'Path',
@@ -137,101 +103,6 @@ function Repair-TreeQDuplicatePathEnvironment {
             [EnvironmentVariableTarget]::Process
         )
     }
-}
-
-function Start-TreeQProcess {
-    param(
-        [Parameter(Mandatory = $true)][string]$FilePath,
-        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
-        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
-        [Parameter(Mandatory = $true)][string]$StandardOutputPath,
-        [Parameter(Mandatory = $true)][string]$StandardErrorPath
-    )
-
-    $arguments = @{
-        FilePath = $FilePath
-        ArgumentList = $ArgumentList
-        WorkingDirectory = $WorkingDirectory
-        RedirectStandardOutput = $StandardOutputPath
-        RedirectStandardError = $StandardErrorPath
-        WindowStyle = 'Hidden'
-        PassThru = $true
-    }
-    try {
-        return Start-Process @arguments
-    }
-    catch {
-        if ($_.Exception.Message -notmatch "Key in dictionary: 'Path'.*'PATH'") {
-            throw
-        }
-        Repair-TreeQDuplicatePathEnvironment
-        return Start-Process @arguments
-    }
-}
-
-function Get-TreeQSharedFileText {
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        return ''
-    }
-    $stream = [System.IO.File]::Open(
-        $Path,
-        [System.IO.FileMode]::Open,
-        [System.IO.FileAccess]::Read,
-        [System.IO.FileShare]::ReadWrite
-    )
-    $reader = New-Object System.IO.StreamReader($stream)
-    try {
-        return $reader.ReadToEnd()
-    }
-    finally {
-        $reader.Dispose()
-        $stream.Dispose()
-    }
-}
-
-function Get-TreeQHttpBytes {
-    param(
-        [Parameter(Mandatory = $true)][string]$Url,
-        [Parameter(Mandatory = $false)][int]$TimeoutMs = 3000
-    )
-
-    $request = [System.Net.HttpWebRequest]::Create($Url)
-    $request.Timeout = $TimeoutMs
-    $request.ReadWriteTimeout = $TimeoutMs
-    $request.AllowAutoRedirect = $true
-    $request.Proxy = $null
-    $response = $request.GetResponse()
-    try {
-        if ([int]$response.StatusCode -ne 200) {
-            throw "HTTP response was not 200"
-        }
-        $memory = New-Object System.IO.MemoryStream
-        try {
-            $response.GetResponseStream().CopyTo($memory)
-            return $memory.ToArray()
-        }
-        finally {
-            $memory.Dispose()
-        }
-    }
-    finally {
-        $response.Dispose()
-    }
-}
-
-function Get-TreeQBytesSha256 {
-    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
-
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $hash = $sha.ComputeHash($Bytes)
-    }
-    finally {
-        $sha.Dispose()
-    }
-    return ([BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()
 }
 
 function Test-TreeQFrozenBundle {
@@ -279,6 +150,7 @@ function Test-TreeQFrozenBundle {
         result = '/demo/result.json'
         segmented = '/demo/segmented.ply'
     }
+    $verifiedArtifacts = New-Object System.Collections.ArrayList
     foreach ($name in $expectedPaths.Keys) {
         $artifact = $manifest.artifacts.$name
         if (
@@ -302,77 +174,39 @@ function Test-TreeQFrozenBundle {
         ) {
             throw "Frozen $name artifact verification failed"
         }
+        [void]$verifiedArtifacts.Add([pscustomobject]@{
+            Name = $name
+            UrlPath = [string]$artifact.path
+            FilePath = $artifactPath
+            Sha256 = [string]$artifact.sha256
+            Size = [long]$artifact.size_bytes
+        })
+    }
+    $pagePath = Join-Path $script:RepoRoot 'apps\web\.next\server\app\demo.html'
+    $pageItem = Get-Item -LiteralPath $pagePath -Force -ErrorAction Stop
+    if (
+        $pageItem.PSIsContainer -or
+        ($pageItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    ) {
+        throw 'Tracked Frozen page is not a regular build file'
     }
     return [pscustomobject]@{
         ManifestHash = $actualManifestHash
         ManifestPath = $manifestPath
-    }
-}
-
-function Copy-TreeQDirectoryContents {
-    param(
-        [Parameter(Mandatory = $true)][string]$Source,
-        [Parameter(Mandatory = $true)][string]$Destination
-    )
-
-    $sourceItem = Get-Item -LiteralPath $Source -Force -ErrorAction Stop
-    if (
-        -not $sourceItem.PSIsContainer -or
-        ($sourceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
-    ) {
-        throw "Standalone asset source is unsafe"
-    }
-    if (Test-Path -LiteralPath $Destination) {
-        $destinationItem = Get-Item -LiteralPath $Destination -Force
-        if (
-            -not $destinationItem.PSIsContainer -or
-            ($destinationItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
-        ) {
-            throw "Standalone asset destination is unsafe"
+        Page = [pscustomobject]@{
+            UrlPath = '/demo'
+            FilePath = $pagePath
+            Sha256 = Get-TreeQSha256 -Path $pagePath -Root $script:RepoRoot
+            Size = $pageItem.Length
         }
+        Manifest = [pscustomobject]@{
+            UrlPath = '/demo/manifest.json'
+            FilePath = $manifestPath
+            Sha256 = $actualManifestHash
+            Size = (Get-Item -LiteralPath $manifestPath).Length
+        }
+        Artifacts = @($verifiedArtifacts)
     }
-    else {
-        [void](New-Item -ItemType Directory -Path $Destination)
-    }
-    foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
-        Copy-Item `
-            -LiteralPath $item.FullName `
-            -Destination $Destination `
-            -Recurse `
-            -Force |
-            Out-Null
-    }
-}
-
-function Prepare-TreeQStandalone {
-    param(
-        [Parameter(Mandatory = $true)][string]$ServerPath,
-        [Parameter(Mandatory = $true)][string]$ManifestHash
-    )
-
-    $serverRoot = Split-Path -Parent $ServerPath
-    if (-not (Test-TreeQPathContained -Path $serverRoot -Root $script:RepoRoot)) {
-        throw "Standalone server is outside the repository"
-    }
-    $sourcePublic = Join-Path $script:RepoRoot 'apps\web\public'
-    $sourceStatic = Join-Path $script:RepoRoot 'apps\web\.next\static'
-    $targetPublic = Join-Path $serverRoot 'public'
-    $targetNext = Join-Path $serverRoot '.next'
-    $targetStatic = Join-Path $targetNext 'static'
-    if (-not (Test-Path -LiteralPath $targetNext)) {
-        [void](New-Item -ItemType Directory -Path $targetNext)
-    }
-    Copy-TreeQDirectoryContents -Source $sourcePublic -Destination $targetPublic
-    Copy-TreeQDirectoryContents -Source $sourceStatic -Destination $targetStatic
-
-    $copiedManifest = Join-Path $targetPublic 'demo\manifest.json'
-    if (
-        (Get-TreeQSha256 -Path $copiedManifest -Root $serverRoot) -cne
-        $ManifestHash
-    ) {
-        throw "Standalone frozen manifest copy failed verification"
-    }
-    return $serverRoot
 }
 
 function Resolve-TreeQNode {
@@ -513,26 +347,30 @@ function Start-TreeQWeb {
     try {
         [Environment]::SetEnvironmentVariable('PORT', '3000', 'Process')
         [Environment]::SetEnvironmentVariable('HOSTNAME', '127.0.0.1', 'Process')
-        $process = Start-TreeQProcess `
+        $managed = Start-TreeQManagedProcess `
             -FilePath $NodePath `
             -ArgumentList @($ServerPath) `
             -WorkingDirectory $ServerRoot `
             -StandardOutputPath (Join-Path $script:RuntimeRoot 'web.stdout.log') `
-            -StandardErrorPath (Join-Path $script:RuntimeRoot 'web.stderr.log')
+            -StandardErrorPath (Join-Path $script:RuntimeRoot 'web.stderr.log') `
+            -Secrets @($script:LogSecrets) `
+            -OwnedProcesses $script:ManagedProcesses `
+            -RegistryPath $script:RegistryPath `
+            -AllowedRoot $script:RuntimeRoot `
+            -Role 'web'
     }
     finally {
         [Environment]::SetEnvironmentVariable('PORT', $oldPort, 'Process')
         [Environment]::SetEnvironmentVariable('HOSTNAME', $oldHostname, 'Process')
     }
-    $entry = Register-TreeQProcess -Process $process -Role 'web'
-    Write-TreeQMessage "Started web process PID $($process.Id)"
-    return [pscustomobject]@{ Process = $process; Entry = $entry }
+    Write-TreeQMessage "Started web process PID $($managed.Process.Id)"
+    return $managed
 }
 
 function Test-TreeQWebReady {
     param(
         [Parameter(Mandatory = $true)]$Web,
-        [Parameter(Mandatory = $true)][string]$ManifestHash,
+        [Parameter(Mandatory = $true)]$Bundle,
         [Parameter(Mandatory = $false)][int]$TimeoutSec = 30
     )
 
@@ -541,18 +379,11 @@ function Test-TreeQWebReady {
         if (-not (Test-TreeQOwnedProcess -Entry $Web.Entry)) {
             return $false
         }
-        try {
-            $pageBytes = Get-TreeQHttpBytes -Url 'http://127.0.0.1:3000/demo'
-            $manifestBytes = Get-TreeQHttpBytes `
-                -Url 'http://127.0.0.1:3000/demo/manifest.json'
-            if (
-                $pageBytes.Length -gt 0 -and
-                (Get-TreeQBytesSha256 -Bytes $manifestBytes) -ceq $ManifestHash
-            ) {
-                return $true
-            }
-        }
-        catch {
+        if (Test-TreeQFrozenHttpBundle `
+            -BaseUrl 'http://127.0.0.1:3000' `
+            -Bundle $Bundle `
+            -TimeoutMs 3000) {
+            return $true
         }
         Start-Sleep -Milliseconds 250
     }
@@ -589,7 +420,7 @@ function Start-TreeQApi {
         [Environment]::SetEnvironmentVariable('ML_PYTHON', $MlPython, 'Process')
         [Environment]::SetEnvironmentVariable('APP_DEBUG', 'false', 'Process')
         [Environment]::SetEnvironmentVariable('PYTHONIOENCODING', 'utf-8', 'Process')
-        $process = Start-TreeQProcess `
+        $managed = Start-TreeQManagedProcess `
             -FilePath $ApiPython `
             -ArgumentList @(
                 '-m', 'uvicorn', 'app.main:app',
@@ -598,7 +429,12 @@ function Start-TreeQApi {
             ) `
             -WorkingDirectory (Join-Path $script:RepoRoot 'services\api') `
             -StandardOutputPath (Join-Path $script:RuntimeRoot 'api.stdout.log') `
-            -StandardErrorPath (Join-Path $script:RuntimeRoot 'api.stderr.log')
+            -StandardErrorPath (Join-Path $script:RuntimeRoot 'api.stderr.log') `
+            -Secrets @($Token) `
+            -OwnedProcesses $script:ManagedProcesses `
+            -RegistryPath $script:RegistryPath `
+            -AllowedRoot $script:RuntimeRoot `
+            -Role 'api'
     }
     finally {
         [Environment]::SetEnvironmentVariable('TREEQ_DEMO_TOKEN', $null, 'Process')
@@ -606,9 +442,8 @@ function Start-TreeQApi {
             [Environment]::SetEnvironmentVariable($name, $oldValues[$name], 'Process')
         }
     }
-    $entry = Register-TreeQProcess -Process $process -Role 'api'
-    Write-TreeQMessage "Started API process PID $($process.Id)"
-    return [pscustomobject]@{ Process = $process; Entry = $entry }
+    Write-TreeQMessage "Started API process PID $($managed.Process.Id)"
+    return $managed
 }
 
 function Wait-TreeQReadiness {
@@ -680,7 +515,7 @@ function Resolve-TreeQCloudflared {
 function Start-TreeQTunnel {
     param([Parameter(Mandatory = $true)][string]$ExecutablePath)
 
-    $process = Start-TreeQProcess `
+    $managed = Start-TreeQManagedProcess `
         -FilePath $ExecutablePath `
         -ArgumentList @(
             'tunnel',
@@ -689,10 +524,14 @@ function Start-TreeQTunnel {
         ) `
         -WorkingDirectory $script:RepoRoot `
         -StandardOutputPath (Join-Path $script:RuntimeRoot 'tunnel.stdout.log') `
-        -StandardErrorPath (Join-Path $script:RuntimeRoot 'tunnel.stderr.log')
-    $entry = Register-TreeQProcess -Process $process -Role 'tunnel'
-    Write-TreeQMessage "Started tunnel process PID $($process.Id)"
-    return [pscustomobject]@{ Process = $process; Entry = $entry }
+        -StandardErrorPath (Join-Path $script:RuntimeRoot 'tunnel.stderr.log') `
+        -Secrets @($script:LogSecrets) `
+        -OwnedProcesses $script:ManagedProcesses `
+        -RegistryPath $script:RegistryPath `
+        -AllowedRoot $script:RuntimeRoot `
+        -Role 'tunnel'
+    Write-TreeQMessage "Started tunnel process PID $($managed.Process.Id)"
+    return $managed
 }
 
 function Wait-TreeQTunnelUrl {
@@ -706,11 +545,7 @@ function Wait-TreeQTunnelUrl {
         if (-not (Test-TreeQOwnedProcess -Entry $Tunnel.Entry)) {
             return $null
         }
-        $text = (
-            Get-TreeQSharedFileText (Join-Path $script:RuntimeRoot 'tunnel.stdout.log')
-        ) + "`n" + (
-            Get-TreeQSharedFileText (Join-Path $script:RuntimeRoot 'tunnel.stderr.log')
-        )
+        $text = Get-TreeQManagedProcessLogText -ManagedProcess $Tunnel
         $url = Get-TreeQTunnelUrl -Text $text
         if ($null -ne $url) {
             return $url
@@ -721,15 +556,12 @@ function Wait-TreeQTunnelUrl {
 }
 
 function Test-TreeQProductionFrozen {
-    try {
-        $bytes = Get-TreeQHttpBytes `
-            -Url 'https://treeqcarbon.vercel.app/demo' `
-            -TimeoutMs 5000
-        return $bytes.Length -gt 0
-    }
-    catch {
-        return $false
-    }
+    param([Parameter(Mandatory = $true)]$Bundle)
+
+    return Test-TreeQFrozenHttpBundle `
+        -BaseUrl 'https://treeqcarbon.vercel.app' `
+        -Bundle $Bundle `
+        -TimeoutMs 5000
 }
 
 function Open-TreeQBrowser {
@@ -748,16 +580,28 @@ function Open-TreeQBrowser {
 }
 
 function Stop-TreeQRegisteredProcesses {
-    if (-not (Test-Path -LiteralPath $script:RegistryPath -PathType Leaf)) {
-        return @()
+    $stopped = New-Object System.Collections.ArrayList
+    foreach ($processId in @(
+        Stop-TreeQManagedProcesses -OwnedProcesses $script:ManagedProcesses
+    )) {
+        [void]$stopped.Add($processId)
     }
-    $stopped = @(
-        Stop-TreeQOwnedProcesses `
+    if (Test-Path -LiteralPath $script:RegistryPath) {
+        [void](Assert-TreeQProcessRegistryPath `
             -RegistryPath $script:RegistryPath `
-            -AllowedRoot $script:RuntimeRoot
-    )
-    Remove-Item -LiteralPath $script:RegistryPath -Force
-    return $stopped
+            -AllowedRoot $script:RuntimeRoot)
+        foreach ($processId in @(
+            Stop-TreeQOwnedProcesses `
+                -RegistryPath $script:RegistryPath `
+                -AllowedRoot $script:RuntimeRoot
+        )) {
+            if (-not $stopped.Contains($processId)) {
+                [void]$stopped.Add($processId)
+            }
+        }
+        Remove-Item -LiteralPath $script:RegistryPath -Force
+    }
+    return @($stopped)
 }
 
 try {
@@ -778,23 +622,26 @@ try {
     }
 
     Initialize-TreeQRuntime
-    if (Test-Path -LiteralPath $script:RegistryPath -PathType Leaf) {
+    if (Test-Path -LiteralPath $script:RegistryPath) {
+        [void](Assert-TreeQProcessRegistryPath `
+            -RegistryPath $script:RegistryPath `
+            -AllowedRoot $script:RuntimeRoot)
         $staleStopped = @(Stop-TreeQRegisteredProcesses)
         Write-TreeQMessage (
             "Previous registry checked; stopped $($staleStopped.Count) verified owned process(es)."
         )
     }
 
-    $standaloneRoot = Prepare-TreeQStandalone `
-        -ServerPath $standaloneServer `
-        -ManifestHash $bundle.ManifestHash
+    $standaloneSync = Sync-TreeQStandaloneAssets `
+        -RepoRoot $script:RepoRoot `
+        -ServerPath $standaloneServer
     $web = Start-TreeQWeb `
         -NodePath $nodePath `
         -ServerPath $standaloneServer `
-        -ServerRoot $standaloneRoot
+        -ServerRoot $standaloneSync.ServerRoot
     $webReady = Test-TreeQWebReady `
         -Web $web `
-        -ManifestHash $bundle.ManifestHash
+        -Bundle $bundle
     if ($webReady) {
         Write-TreeQMessage 'Standalone web readiness passed.'
     }
@@ -879,7 +726,7 @@ try {
         if ($webReady) {
             $targetUrl = 'http://127.0.0.1:3000/demo'
         }
-        elseif (Test-TreeQProductionFrozen) {
+        elseif (Test-TreeQProductionFrozen -Bundle $bundle) {
             $targetUrl = 'https://treeqcarbon.vercel.app/demo'
         }
         else {

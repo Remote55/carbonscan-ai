@@ -255,6 +255,237 @@ finally {
     }
 }
 
+function Write-TestFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text
+    )
+
+    $parent = Split-Path -Parent $Path
+    if (-not (Test-Path -LiteralPath $parent)) {
+        [void](New-Item -ItemType Directory -Path $parent -Force)
+    }
+    [System.IO.File]::WriteAllText(
+        $Path,
+        $Text,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+}
+
+function Get-TestSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($stream)
+    }
+    finally {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+    return ([BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()
+}
+
+function New-TestBuildFixture {
+    param([Parameter(Mandatory = $true)][string]$Root)
+
+    $repo = Join-Path $Root 'fixture repo with spaces'
+    $web = Join-Path $repo 'apps\web'
+    $build = Join-Path $web '.next'
+    $standalone = Join-Path $build 'standalone\apps\web'
+    $standaloneBuild = Join-Path $standalone '.next'
+    $buildId = 'fixture-build-id'
+    $manifests = [ordered]@{
+        'BUILD_ID' = $buildId
+        'build-manifest.json' = '{"rootMainFiles":["static/chunks/root.js"],"pages":{}}'
+        'app-build-manifest.json' = '{"pages":{"/demo":["static/chunks/demo.js"]}}'
+        'app-path-routes-manifest.json' = '{"/demo/page":"/demo"}'
+        'routes-manifest.json' = '{"version":3,"staticRoutes":[{"page":"/demo"}]}'
+        'prerender-manifest.json' = '{"version":4,"routes":{"/demo":{"initialRevalidateSeconds":false}}}'
+        'react-loadable-manifest.json' = '{}'
+        'required-server-files.json' = '{"version":1,"files":[".next\\routes-manifest.json",".next\\server\\app-paths-manifest.json",".next\\build-manifest.json",".next\\prerender-manifest.json",".next\\app-path-routes-manifest.json",".next\\app-build-manifest.json",".next\\BUILD_ID"]}'
+        'server\app-paths-manifest.json' = '{"/demo/page":"app/demo/page.js"}'
+    }
+    foreach ($relative in $manifests.Keys) {
+        Write-TestFile -Path (Join-Path $build $relative) -Text $manifests[$relative]
+        Write-TestFile -Path (Join-Path $standaloneBuild $relative) -Text $manifests[$relative]
+    }
+
+    $page = '<!doctype html><html><body>fixture-build-id<script src="/_next/static/chunks/demo.js"></script></body></html>'
+    $routeFiles = [ordered]@{
+        'server\app\demo.html' = $page
+        'server\app\demo.rsc' = 'fixture-rsc'
+        'server\app\demo.meta' = '{}'
+        'server\app\demo\page.js' = 'module.exports = {}'
+        'server\app\demo\page.js.nft.json' = '{"version":1,"files":[]}'
+        'server\app\demo\page_client-reference-manifest.js' = 'globalThis.__fixture=true'
+    }
+    foreach ($relative in $routeFiles.Keys) {
+        Write-TestFile -Path (Join-Path $build $relative) -Text $routeFiles[$relative]
+        Write-TestFile -Path (Join-Path $standaloneBuild $relative) -Text $routeFiles[$relative]
+    }
+    Write-TestFile -Path (Join-Path $build 'static\chunks\root.js') -Text 'root-chunk'
+    Write-TestFile -Path (Join-Path $build 'static\chunks\demo.js') -Text 'demo-chunk'
+    Write-TestFile `
+        -Path (Join-Path $build "static\$buildId\_buildManifest.js") `
+        -Text 'build-manifest'
+    Write-TestFile `
+        -Path (Join-Path $build "static\$buildId\_ssgManifest.js") `
+        -Text 'ssg-manifest'
+
+    $publicDemo = Join-Path $web 'public\demo'
+    Write-TestFile -Path (Join-Path $publicDemo 'input.ply') -Text 'input-bytes'
+    Write-TestFile -Path (Join-Path $publicDemo 'result.json') -Text '{"ok":true}'
+    Write-TestFile -Path (Join-Path $publicDemo 'segmented.ply') -Text 'segmented-bytes'
+    $artifacts = New-Object System.Collections.ArrayList
+    foreach ($name in @('input', 'result', 'segmented')) {
+        $extension = if ($name -eq 'result') { '.json' } else { '.ply' }
+        $filePath = Join-Path $publicDemo "$name$extension"
+        [void]$artifacts.Add([pscustomobject]@{
+            Name = $name
+            UrlPath = "/demo/$name$extension"
+            FilePath = $filePath
+            Sha256 = Get-TestSha256 $filePath
+            Size = (Get-Item -LiteralPath $filePath).Length
+        })
+    }
+    $manifestData = [ordered]@{
+        schema_version = 1
+        artifacts = [ordered]@{}
+    }
+    foreach ($artifact in $artifacts) {
+        $manifestData.artifacts[$artifact.Name] = [ordered]@{
+            path = $artifact.UrlPath
+            sha256 = $artifact.Sha256
+            size_bytes = $artifact.Size
+        }
+    }
+    $manifestPath = Join-Path $publicDemo 'manifest.json'
+    Write-TestFile `
+        -Path $manifestPath `
+        -Text ($manifestData | ConvertTo-Json -Depth 6 -Compress)
+    Write-TestFile -Path (Join-Path $standalone 'server.js') -Text '// fixture server'
+    Write-TestFile `
+        -Path (Join-Path $standalone 'public\stale.txt') `
+        -Text 'must be cleared'
+    Write-TestFile `
+        -Path (Join-Path $standaloneBuild 'static\stale.js') `
+        -Text 'must be cleared'
+
+    return [pscustomobject]@{
+        RepoRoot = $repo
+        ServerPath = Join-Path $standalone 'server.js'
+        BuildRoot = $build
+        StandaloneBuildRoot = $standaloneBuild
+        StalePublic = Join-Path $standalone 'public\stale.txt'
+        StaleStatic = Join-Path $standaloneBuild 'static\stale.js'
+        Bundle = [pscustomobject]@{
+            Page = [pscustomobject]@{
+                UrlPath = '/demo'
+                FilePath = Join-Path $build 'server\app\demo.html'
+                Sha256 = Get-TestSha256 (Join-Path $build 'server\app\demo.html')
+                Size = (Get-Item -LiteralPath (Join-Path $build 'server\app\demo.html')).Length
+            }
+            Manifest = [pscustomobject]@{
+                UrlPath = '/demo/manifest.json'
+                FilePath = $manifestPath
+                Sha256 = Get-TestSha256 $manifestPath
+                Size = (Get-Item -LiteralPath $manifestPath).Length
+            }
+            Artifacts = @($artifacts)
+        }
+    }
+}
+
+function Start-TestFrozenServer {
+    param(
+        [Parameter(Mandatory = $true)][string]$NodePath,
+        [Parameter(Mandatory = $true)][string]$Directory,
+        [Parameter(Mandatory = $true)]$Fixture,
+        [Parameter(Mandatory = $true)][ValidateSet('Good', 'Redirect', 'Tamper')][string]$Mode
+    )
+
+    $port = Get-FreeTcpPort
+    $scriptPath = Join-Path $Directory 'frozen-http-server.js'
+    $readyPath = Join-Path $Directory ("frozen-http-ready-{0}" -f $port)
+    $serverSource = @'
+const fs = require('fs');
+const http = require('http');
+const path = require('path');
+const root = process.env.TREEQ_TEST_HTTP_ROOT;
+const mode = process.env.TREEQ_TEST_HTTP_MODE;
+const files = {
+  '/demo': path.join(root, 'apps', 'web', '.next', 'server', 'app', 'demo.html'),
+  '/else': path.join(root, 'apps', 'web', '.next', 'server', 'app', 'demo.html'),
+  '/demo/manifest.json': path.join(root, 'apps', 'web', 'public', 'demo', 'manifest.json'),
+  '/demo/input.ply': path.join(root, 'apps', 'web', 'public', 'demo', 'input.ply'),
+  '/demo/result.json': path.join(root, 'apps', 'web', 'public', 'demo', 'result.json'),
+  '/demo/segmented.ply': path.join(root, 'apps', 'web', 'public', 'demo', 'segmented.ply'),
+};
+const server = http.createServer((request, response) => {
+  if (mode === 'Redirect' && request.url === '/demo') {
+    response.writeHead(302, {Location: '/else'});
+    response.end();
+    return;
+  }
+  if (!(request.url in files)) {
+    response.writeHead(404);
+    response.end();
+    return;
+  }
+  const bytes = mode === 'Tamper' && request.url === '/demo/input.ply'
+    ? Buffer.from('tampered')
+    : fs.readFileSync(files[request.url]);
+  response.writeHead(200, {'Content-Length': bytes.length});
+  response.end(bytes);
+});
+server.listen(Number(process.env.TREEQ_TEST_HTTP_PORT), '127.0.0.1', () => {
+  fs.writeFileSync(process.env.TREEQ_TEST_HTTP_READY, 'ready');
+});
+'@
+    Write-TestFile -Path $scriptPath -Text $serverSource
+    $old = @{}
+    foreach ($name in @(
+        'TREEQ_TEST_HTTP_ROOT',
+        'TREEQ_TEST_HTTP_MODE',
+        'TREEQ_TEST_HTTP_PORT',
+        'TREEQ_TEST_HTTP_READY'
+    )) {
+        $old[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+    }
+    try {
+        [Environment]::SetEnvironmentVariable('TREEQ_TEST_HTTP_ROOT', $Fixture.RepoRoot, 'Process')
+        [Environment]::SetEnvironmentVariable('TREEQ_TEST_HTTP_MODE', $Mode, 'Process')
+        [Environment]::SetEnvironmentVariable('TREEQ_TEST_HTTP_PORT', [string]$port, 'Process')
+        [Environment]::SetEnvironmentVariable('TREEQ_TEST_HTTP_READY', $readyPath, 'Process')
+        $process = Start-TestProcess -StartProcessArguments @{
+            FilePath = $NodePath
+            ArgumentList = @($scriptPath)
+            WindowStyle = 'Hidden'
+            PassThru = $true
+        }
+    }
+    finally {
+        foreach ($name in $old.Keys) {
+            [Environment]::SetEnvironmentVariable($name, $old[$name], 'Process')
+        }
+    }
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (-not (Test-Path -LiteralPath $readyPath) -and [DateTime]::UtcNow -lt $deadline) {
+        if ($process.HasExited) { break }
+        Start-Sleep -Milliseconds 50
+    }
+    if (-not (Test-Path -LiteralPath $readyPath)) {
+        if (-not $process.HasExited) { $process.Kill() }
+        throw 'Frozen HTTP test server did not start'
+    }
+    return [pscustomobject]@{
+        Process = $process
+        BaseUrl = "http://127.0.0.1:$port"
+    }
+}
+
 $modulePath = Join-Path $PSScriptRoot '..\DemoLauncher.psm1'
 try {
     Import-Module $modulePath -Force -ErrorAction Stop
@@ -289,6 +520,193 @@ try {
     $redacted = Protect-TreeQLog -Text "token=$token" -Secrets @($token)
     Assert-True (-not $redacted.Contains($token)) 'redact token'
     Assert-True ($redacted.Contains('[REDACTED]')) 'redaction is explicit'
+
+    $fixture = New-TestBuildFixture -Root $tempRoot
+    try {
+        $syncResult = Sync-TreeQStandaloneAssets `
+            -RepoRoot $fixture.RepoRoot `
+            -ServerPath $fixture.ServerPath
+        Assert-True (-not (Test-Path -LiteralPath $fixture.StalePublic)) `
+            'standalone sync clears stale public files'
+        Assert-True (-not (Test-Path -LiteralPath $fixture.StaleStatic)) `
+            'standalone sync clears stale static files'
+        Assert-True $syncResult.Verified 'standalone sync verifies exact copied trees'
+    }
+    catch {
+        Assert-True $false 'standalone sync clears stale public files'
+        Assert-True $false 'standalone sync clears stale static files'
+        Assert-True $false 'standalone sync verifies exact copied trees'
+    }
+    if ($null -ne (Get-Command Sync-TreeQStandaloneAssets -ErrorAction SilentlyContinue)) {
+        Write-TestFile `
+            -Path (Join-Path $fixture.StandaloneBuildRoot 'BUILD_ID') `
+            -Text 'mixed-build-id'
+        Assert-Throws {
+            Sync-TreeQStandaloneAssets `
+                -RepoRoot $fixture.RepoRoot `
+                -ServerPath $fixture.ServerPath
+        } 'standalone sync rejects mixed build identity'
+        Write-TestFile `
+            -Path (Join-Path $fixture.StandaloneBuildRoot 'BUILD_ID') `
+            -Text 'fixture-build-id'
+    }
+    else {
+        Assert-True $false 'standalone sync rejects mixed build identity'
+    }
+
+    $nodePath = (Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
+    foreach ($httpCase in @(
+        [pscustomobject]@{ Mode = 'Good'; Expected = $true; Name = 'frozen HTTP verifies exact page and evidence bytes' },
+        [pscustomobject]@{ Mode = 'Redirect'; Expected = $false; Name = 'frozen HTTP rejects redirects' },
+        [pscustomobject]@{ Mode = 'Tamper'; Expected = $false; Name = 'frozen HTTP rejects artifact byte mismatch' }
+    )) {
+        $httpServer = Start-TestFrozenServer `
+            -NodePath $nodePath `
+            -Directory $tempRoot `
+            -Fixture $fixture `
+            -Mode $httpCase.Mode
+        try {
+            try {
+                $verified = Test-TreeQFrozenHttpBundle `
+                    -BaseUrl $httpServer.BaseUrl `
+                    -Bundle $fixture.Bundle `
+                    -TimeoutMs 3000
+                Assert-Equal $verified $httpCase.Expected $httpCase.Name
+            }
+            catch {
+                Assert-True $false $httpCase.Name
+            }
+        }
+        finally {
+            if (-not $httpServer.Process.HasExited) { $httpServer.Process.Kill() }
+            [void]$httpServer.Process.WaitForExit(5000)
+        }
+    }
+
+    $managedRoot = Join-Path $tempRoot 'managed process path with spaces'
+    [void](New-Item -ItemType Directory -Path $managedRoot)
+    $argumentOutput = Join-Path $managedRoot 'arguments.json'
+    $childScript = Join-Path $managedRoot 'child script with spaces.ps1'
+    $childSource = @'
+[System.IO.File]::WriteAllText(
+    $env:TREEQ_TEST_ARGUMENT_OUTPUT,
+    (ConvertTo-Json -InputObject ([object[]]$args) -Compress),
+    [System.Text.UTF8Encoding]::new($false)
+)
+[Console]::Out.WriteLine("stdout=" + $env:TREEQ_TEST_CHILD_SECRET)
+[Console]::Error.WriteLine("stderr=" + $env:TREEQ_TEST_CHILD_SECRET)
+'@
+    Write-TestFile -Path $childScript -Text $childSource
+    $managedRegistry = Join-Path $managedRoot 'processes.json'
+    $managedOut = Join-Path $managedRoot 'child.stdout.log'
+    $managedErr = Join-Path $managedRoot 'child.stderr.log'
+    $managedList = New-Object System.Collections.ArrayList
+    $oldArgumentOutput = $env:TREEQ_TEST_ARGUMENT_OUTPUT
+    $oldChildSecret = $env:TREEQ_TEST_CHILD_SECRET
+    try {
+        $env:TREEQ_TEST_ARGUMENT_OUTPUT = $argumentOutput
+        $env:TREEQ_TEST_CHILD_SECRET = $token
+        try {
+            $managed = Start-TreeQManagedProcess `
+                -FilePath $powerShellPath `
+                -ArgumentList @(
+                    '-NoProfile',
+                    '-ExecutionPolicy', 'Bypass',
+                    '-File', $childScript,
+                    'alpha beta',
+                    '',
+                    'tail\',
+                    'quote"value'
+                ) `
+                -WorkingDirectory $managedRoot `
+                -StandardOutputPath $managedOut `
+                -StandardErrorPath $managedErr `
+                -Secrets @($token) `
+                -OwnedProcesses $managedList `
+                -RegistryPath $managedRegistry `
+                -AllowedRoot $managedRoot `
+                -Role 'argument-test'
+            [void]$managed.Process.WaitForExit(10000)
+            Complete-TreeQManagedProcessLogs -ManagedProcess $managed
+            $parsedArguments = (
+                [System.IO.File]::ReadAllText($argumentOutput) | ConvertFrom-Json
+            )
+            $receivedArguments = @()
+            foreach ($argument in $parsedArguments) {
+                $receivedArguments += [string]$argument
+            }
+            Assert-Equal ($receivedArguments -join '|') `
+                'alpha beta||tail\|quote"value' `
+                'managed process preserves argument boundaries under spaces'
+            $capturedLogs = (
+                [System.IO.File]::ReadAllText($managedOut) +
+                [System.IO.File]::ReadAllText($managedErr)
+            )
+            Assert-True (-not $capturedLogs.Contains($token)) `
+                'managed child logs redact inherited secret'
+            Assert-True $capturedLogs.Contains('[REDACTED]') `
+                'managed child log redaction is explicit'
+        }
+        catch {
+            Assert-True $false 'managed process preserves argument boundaries under spaces'
+            Assert-True $false 'managed child logs redact inherited secret'
+            Assert-True $false 'managed child log redaction is explicit'
+        }
+    }
+    finally {
+        if ($null -eq $oldArgumentOutput) { Remove-Item Env:TREEQ_TEST_ARGUMENT_OUTPUT -ErrorAction SilentlyContinue }
+        else { $env:TREEQ_TEST_ARGUMENT_OUTPUT = $oldArgumentOutput }
+        if ($null -eq $oldChildSecret) { Remove-Item Env:TREEQ_TEST_CHILD_SECRET -ErrorAction SilentlyContinue }
+        else { $env:TREEQ_TEST_CHILD_SECRET = $oldChildSecret }
+    }
+
+    $directoryRegistry = Join-Path $managedRoot 'directory-processes.json'
+    [void](New-Item -ItemType Directory -Path $directoryRegistry)
+    if ($null -ne (Get-Command Assert-TreeQProcessRegistryPath -ErrorAction SilentlyContinue)) {
+        Assert-Throws {
+            Assert-TreeQProcessRegistryPath `
+                -RegistryPath $directoryRegistry `
+                -AllowedRoot $managedRoot
+        } 'directory process registry is rejected before launch'
+    }
+    else {
+        Assert-True $false 'directory process registry is rejected before launch'
+    }
+
+    $failureOwned = New-Object System.Collections.ArrayList
+    $failureCaught = $false
+    $failedChildPid = 0
+    try {
+        Start-TreeQManagedProcess `
+            -FilePath $powerShellPath `
+            -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 60') `
+            -WorkingDirectory $managedRoot `
+            -StandardOutputPath (Join-Path $managedRoot 'failure.stdout.log') `
+            -StandardErrorPath (Join-Path $managedRoot 'failure.stderr.log') `
+            -Secrets @() `
+            -OwnedProcesses $failureOwned `
+            -RegistryPath $directoryRegistry `
+            -AllowedRoot $managedRoot `
+            -Role 'registration-failure' |
+            Out-Null
+    }
+    catch {
+        $failureCaught = $true
+        if ($_.Exception.Data.Contains('TreeQProcessId')) {
+            $failedChildPid = [int]$_.Exception.Data['TreeQProcessId']
+        }
+    }
+    Assert-True $failureCaught 'registration persistence failure is surfaced'
+    Assert-True ($failedChildPid -gt 0) 'registration failure reports created child identity'
+    if ($failedChildPid -gt 0) {
+        Assert-Null (
+            Get-Process -Id $failedChildPid -ErrorAction SilentlyContinue
+        ) 'registration failure synchronously stops created child'
+    }
+    else {
+        Assert-True $false 'registration failure synchronously stops created child'
+    }
+    Assert-Equal $failureOwned.Count 0 'registration failure removes in-memory ownership entry'
 
     $manifestPath = Join-Path $repoRoot 'apps\web\public\demo\manifest.json'
     Assert-Equal (

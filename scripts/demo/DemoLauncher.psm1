@@ -1,5 +1,124 @@
 Set-StrictMode -Version Latest
 
+if ($null -eq ('TreeQProcessCapture' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+public sealed class TreeQProcessCapture
+{
+    private readonly string[] secrets;
+    private readonly StreamWriter stdoutWriter;
+    private readonly StreamWriter stderrWriter;
+    private readonly StringBuilder stdout = new StringBuilder();
+    private readonly StringBuilder stderr = new StringBuilder();
+    private readonly object stdoutGate = new object();
+    private readonly object stderrGate = new object();
+    private Task stdoutTask;
+    private Task stderrTask;
+    private bool completed;
+
+    public TreeQProcessCapture(string stdoutPath, string stderrPath, string[] secrets)
+    {
+        this.secrets = secrets ?? new string[0];
+        stdoutWriter = NewWriter(stdoutPath);
+        stderrWriter = NewWriter(stderrPath);
+    }
+
+    private static StreamWriter NewWriter(string path)
+    {
+        FileStream stream = new FileStream(
+            path,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.Read
+        );
+        return new StreamWriter(stream, new UTF8Encoding(false));
+    }
+
+    public void Start(Process process)
+    {
+        stdoutTask = StartDrain(process.StandardOutput, stdoutWriter, stdout, stdoutGate);
+        stderrTask = StartDrain(process.StandardError, stderrWriter, stderr, stderrGate);
+    }
+
+    private Task StartDrain(
+        StreamReader reader,
+        StreamWriter writer,
+        StringBuilder buffer,
+        object gate
+    )
+    {
+        return Task.Factory.StartNew(
+            () => Drain(reader, writer, buffer, gate),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default
+        );
+    }
+
+    private void Drain(
+        StreamReader reader,
+        StreamWriter writer,
+        StringBuilder buffer,
+        object gate
+    )
+    {
+        string line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            string safe = Redact(line);
+            lock (gate)
+            {
+                buffer.AppendLine(safe);
+                writer.WriteLine(safe);
+                writer.Flush();
+            }
+        }
+    }
+
+    private string Redact(string text)
+    {
+        string safe = text;
+        foreach (string secret in secrets)
+        {
+            if (!String.IsNullOrEmpty(secret))
+            {
+                safe = safe.Replace(secret, "[REDACTED]");
+            }
+        }
+        return safe;
+    }
+
+    public string Snapshot()
+    {
+        string first;
+        string second;
+        lock (stdoutGate) { first = stdout.ToString(); }
+        lock (stderrGate) { second = stderr.ToString(); }
+        return first + second;
+    }
+
+    public void Complete(int timeoutMilliseconds)
+    {
+        if (completed) { return; }
+        Task[] tasks = new Task[] { stdoutTask, stderrTask };
+        if (!Task.WaitAll(tasks, timeoutMilliseconds))
+        {
+            throw new TimeoutException("Child output pipes did not drain");
+        }
+        stdoutWriter.Dispose();
+        stderrWriter.Dispose();
+        completed = true;
+    }
+}
+'@
+}
+
 function Get-TreeQContainedFile {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -497,6 +616,601 @@ function Test-TreeQReadiness {
     }
 }
 
+function ConvertTo-TreeQWindowsArgument {
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Argument)
+
+    $builder = New-Object System.Text.StringBuilder
+    [void]$builder.Append('"')
+    $backslashes = 0
+    foreach ($character in $Argument.ToCharArray()) {
+        if ($character -eq '\') {
+            $backslashes++
+            continue
+        }
+        if ($character -eq '"') {
+            [void]$builder.Append(('\' * (($backslashes * 2) + 1)))
+            [void]$builder.Append('"')
+            $backslashes = 0
+            continue
+        }
+        if ($backslashes -gt 0) {
+            [void]$builder.Append(('\' * $backslashes))
+            $backslashes = 0
+        }
+        [void]$builder.Append($character)
+    }
+    if ($backslashes -gt 0) {
+        [void]$builder.Append(('\' * ($backslashes * 2)))
+    }
+    [void]$builder.Append('"')
+    return $builder.ToString()
+}
+
+function ConvertTo-TreeQWindowsCommandLine {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [string[]]$ArgumentList
+    )
+
+    return (@(
+        $ArgumentList | ForEach-Object { ConvertTo-TreeQWindowsArgument -Argument $_ }
+    ) -join ' ')
+}
+
+function Assert-TreeQProcessRegistryPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$RegistryPath,
+        [Parameter(Mandatory = $true)][string]$AllowedRoot
+    )
+
+    $rootItem = Get-Item -LiteralPath $AllowedRoot -Force -ErrorAction Stop
+    if (
+        -not $rootItem.PSIsContainer -or
+        ($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    ) {
+        throw 'Process registry root is unsafe'
+    }
+    $rootFull = [System.IO.Path]::GetFullPath($rootItem.FullName).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $registryFull = [System.IO.Path]::GetFullPath($RegistryPath)
+    if (-not $registryFull.StartsWith(
+        $rootFull + [System.IO.Path]::DirectorySeparatorChar,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )) {
+        throw 'Process registry is outside the allowed root'
+    }
+
+    $parent = Get-Item -LiteralPath (Split-Path -Parent $registryFull) -Force -ErrorAction Stop
+    while ($null -ne $parent) {
+        if (($parent.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'Process registry ancestors cannot be reparse points'
+        }
+        if ($parent.FullName.Equals(
+            $rootFull,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )) {
+            break
+        }
+        $parent = $parent.Parent
+    }
+    if (Test-Path -LiteralPath $registryFull) {
+        $item = Get-Item -LiteralPath $registryFull -Force
+        if (
+            $item.PSIsContainer -or
+            ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+        ) {
+            throw 'Process registry must be a regular file'
+        }
+    }
+    return $registryFull
+}
+
+function Write-TreeQManagedRegistry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.ArrayList]$OwnedProcesses,
+        [Parameter(Mandatory = $true)][string]$RegistryPath,
+        [Parameter(Mandatory = $true)][string]$AllowedRoot
+    )
+
+    $safeRegistry = Assert-TreeQProcessRegistryPath `
+        -RegistryPath $RegistryPath `
+        -AllowedRoot $AllowedRoot
+    $entries = @(
+        $OwnedProcesses |
+            Where-Object { $null -ne $_.Entry } |
+            ForEach-Object { $_.Entry }
+    )
+    $payload = [ordered]@{
+        schema_version = 1
+        processes = $entries
+    } | ConvertTo-Json -Depth 5
+    $temporaryPath = Join-Path $AllowedRoot (
+        'processes.{0}.tmp' -f [Guid]::NewGuid().ToString('N')
+    )
+    try {
+        $stream = New-Object System.IO.FileStream(
+            $temporaryPath,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None
+        )
+        $writer = New-Object System.IO.StreamWriter(
+            $stream,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        try {
+            $writer.Write($payload)
+            $writer.Flush()
+            $stream.Flush()
+        }
+        finally {
+            $writer.Dispose()
+            $stream.Dispose()
+        }
+        if (Test-Path -LiteralPath $safeRegistry) {
+            [System.IO.File]::Replace($temporaryPath, $safeRegistry, $null)
+        }
+        else {
+            [System.IO.File]::Move($temporaryPath, $safeRegistry)
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryPath -Force
+        }
+    }
+}
+
+function Complete-TreeQManagedProcessLogs {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$ManagedProcess)
+
+    if (-not $ManagedProcess.LogsCompleted) {
+        $ManagedProcess.Capture.Complete(10000)
+        $ManagedProcess.LogsCompleted = $true
+    }
+}
+
+function Get-TreeQManagedProcessLogText {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$ManagedProcess)
+
+    return $ManagedProcess.Capture.Snapshot()
+}
+
+function Start-TreeQManagedProcess {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$StandardOutputPath,
+        [Parameter(Mandatory = $true)][string]$StandardErrorPath,
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyCollection()]
+        [string[]]$Secrets = @(),
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.ArrayList]$OwnedProcesses,
+        [Parameter(Mandatory = $true)][string]$RegistryPath,
+        [Parameter(Mandatory = $true)][string]$AllowedRoot,
+        [Parameter(Mandatory = $true)][string]$Role
+    )
+
+    $process = $null
+    $managed = $null
+    $createdPid = 0
+    try {
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = [System.IO.Path]::GetFullPath($FilePath)
+        $startInfo.Arguments = ConvertTo-TreeQWindowsCommandLine -ArgumentList $ArgumentList
+        $startInfo.WorkingDirectory = [System.IO.Path]::GetFullPath($WorkingDirectory)
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $startInfo
+        if (-not $process.Start()) {
+            throw 'Child process did not start'
+        }
+        $createdPid = $process.Id
+        $managed = [pscustomobject]@{
+            Process = $process
+            Entry = $null
+            Capture = $null
+            LogsCompleted = $false
+        }
+        [void]$OwnedProcesses.Add($managed)
+
+        $capture = New-Object TreeQProcessCapture(
+            [System.IO.Path]::GetFullPath($StandardOutputPath),
+            [System.IO.Path]::GetFullPath($StandardErrorPath),
+            @($Secrets)
+        )
+        $managed.Capture = $capture
+        $capture.Start($process)
+        $process.Refresh()
+        $managed.Entry = [pscustomobject][ordered]@{
+            pid = $process.Id
+            executable_path = $process.Path
+            start_time_utc = $process.StartTime.ToUniversalTime().ToString('o')
+            role = $Role
+        }
+        Write-TreeQManagedRegistry `
+            -OwnedProcesses $OwnedProcesses `
+            -RegistryPath $RegistryPath `
+            -AllowedRoot $AllowedRoot
+        return $managed
+    }
+    catch {
+        $failure = $_.Exception
+        if ($createdPid -gt 0) {
+            $failure.Data['TreeQProcessId'] = $createdPid
+        }
+        if ($null -ne $process) {
+            try {
+                if (-not $process.HasExited) {
+                    $process.Kill()
+                }
+                [void]$process.WaitForExit(5000)
+            }
+            catch {
+            }
+        }
+        if ($null -ne $managed -and $null -ne $managed.Capture) {
+            try { Complete-TreeQManagedProcessLogs -ManagedProcess $managed } catch { }
+        }
+        if ($null -ne $managed) {
+            [void]$OwnedProcesses.Remove($managed)
+        }
+        throw $failure
+    }
+}
+
+function Stop-TreeQManagedProcesses {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.ArrayList]$OwnedProcesses
+    )
+
+    $stopped = New-Object System.Collections.ArrayList
+    foreach ($managed in @($OwnedProcesses)) {
+        try {
+            if (
+                $null -ne $managed.Entry -and
+                -not $managed.Process.HasExited -and
+                (Test-TreeQOwnedProcess -Entry $managed.Entry)
+            ) {
+                $managed.Process.Kill()
+                [void]$managed.Process.WaitForExit(5000)
+                [void]$stopped.Add([int]$managed.Entry.pid)
+            }
+            elseif (-not $managed.Process.HasExited) {
+                [void]$managed.Process.WaitForExit(5000)
+            }
+            Complete-TreeQManagedProcessLogs -ManagedProcess $managed
+        }
+        finally {
+            [void]$OwnedProcesses.Remove($managed)
+        }
+    }
+    return @($stopped)
+}
+
+function Get-TreeQDirectoryIdentity {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+
+    $identity = @{}
+    foreach ($item in Get-ChildItem -LiteralPath $Path -Recurse -Force) {
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'Asset trees cannot contain reparse points'
+        }
+        if (-not $item.PSIsContainer) {
+            $relative = $item.FullName.Substring($Path.Length).TrimStart('\', '/')
+            $identity[$relative] = [pscustomobject]@{
+                Size = $item.Length
+                Sha256 = Get-TreeQSha256 -Path $item.FullName -Root $Root
+            }
+        }
+    }
+    return $identity
+}
+
+function Assert-TreeQDirectoryIdentity {
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$Expected,
+        [Parameter(Mandatory = $true)][hashtable]$Actual
+    )
+
+    if ($Expected.Count -ne $Actual.Count) {
+        throw 'Copied asset file set differs from source'
+    }
+    foreach ($relative in $Expected.Keys) {
+        if (
+            -not $Actual.ContainsKey($relative) -or
+            $Actual[$relative].Size -ne $Expected[$relative].Size -or
+            $Actual[$relative].Sha256 -cne $Expected[$relative].Sha256
+        ) {
+            throw 'Copied asset bytes differ from source'
+        }
+    }
+}
+
+function Remove-TreeQContainedDirectory {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $pathFull = [System.IO.Path]::GetFullPath($Path)
+    if (-not $pathFull.StartsWith(
+        $rootFull + [System.IO.Path]::DirectorySeparatorChar,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )) {
+        throw 'Runtime-copy destination escapes the standalone root'
+    }
+    $item = Get-Item -LiteralPath $pathFull -Force
+    if (
+        -not $item.PSIsContainer -or
+        ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    ) {
+        throw 'Runtime-copy destination is unsafe'
+    }
+    foreach ($child in Get-ChildItem -LiteralPath $pathFull -Recurse -Force) {
+        if (($child.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'Runtime-copy destination contains a reparse point'
+        }
+    }
+    Remove-Item -LiteralPath $pathFull -Recurse -Force
+}
+
+function Copy-TreeQExactDirectory {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
+    [void](New-Item -ItemType Directory -Path $Destination)
+    foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
+        Copy-Item -LiteralPath $item.FullName -Destination $Destination -Recurse -Force | Out-Null
+    }
+}
+
+function Sync-TreeQStandaloneAssets {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$ServerPath
+    )
+
+    $webRoot = Join-Path $RepoRoot 'apps\web'
+    $buildRoot = Join-Path $webRoot '.next'
+    $serverRoot = Split-Path -Parent $ServerPath
+    $standaloneBuild = Join-Path $serverRoot '.next'
+    $coherenceFiles = @(
+        'BUILD_ID',
+        'build-manifest.json',
+        'app-build-manifest.json',
+        'app-path-routes-manifest.json',
+        'routes-manifest.json',
+        'prerender-manifest.json',
+        'react-loadable-manifest.json',
+        'required-server-files.json',
+        'server\app-paths-manifest.json'
+    )
+    foreach ($relative in $coherenceFiles) {
+        $source = Join-Path $buildRoot $relative
+        $standalone = Join-Path $standaloneBuild $relative
+        if (
+            (Get-TreeQSha256 -Path $source -Root $buildRoot) -cne
+            (Get-TreeQSha256 -Path $standalone -Root $standaloneBuild)
+        ) {
+            throw "Standalone build coherence failed: $relative"
+        }
+    }
+    $buildId = [System.IO.File]::ReadAllText(
+        (Join-Path $buildRoot 'BUILD_ID')
+    ).Trim()
+    if ($buildId -cnotmatch '^[A-Za-z0-9_-]{1,128}$') {
+        throw 'BUILD_ID is invalid'
+    }
+    $appPaths = [System.IO.File]::ReadAllText(
+        (Join-Path $buildRoot 'server\app-paths-manifest.json')
+    ) | ConvertFrom-Json
+    $routePath = [string]$appPaths.'/demo/page'
+    if ([string]::IsNullOrWhiteSpace($routePath)) {
+        throw 'Standalone build does not contain the /demo route'
+    }
+    $routeFiles = @(
+        (Join-Path 'server' $routePath),
+        'server\app\demo\page.js.nft.json',
+        'server\app\demo\page_client-reference-manifest.js',
+        'server\app\demo.html',
+        'server\app\demo.rsc',
+        'server\app\demo.meta'
+    )
+    foreach ($relative in $routeFiles) {
+        if (
+            (Get-TreeQSha256 -Path (Join-Path $buildRoot $relative) -Root $buildRoot) -cne
+            (Get-TreeQSha256 `
+                -Path (Join-Path $standaloneBuild $relative) `
+                -Root $standaloneBuild)
+        ) {
+            throw "Standalone route bytes differ: $relative"
+        }
+    }
+    $required = [System.IO.File]::ReadAllText(
+        (Join-Path $buildRoot 'required-server-files.json')
+    ) | ConvertFrom-Json
+    foreach ($requiredPath in @($required.files)) {
+        if (-not ([string]$requiredPath).StartsWith('.next\')) { continue }
+        $relative = ([string]$requiredPath).Substring(6)
+        if (
+            (Get-TreeQSha256 -Path (Join-Path $buildRoot $relative) -Root $buildRoot) -cne
+            (Get-TreeQSha256 `
+                -Path (Join-Path $standaloneBuild $relative) `
+                -Root $standaloneBuild)
+        ) {
+            throw "Required server file differs: $relative"
+        }
+    }
+
+    $referenceText = [System.IO.File]::ReadAllText(
+        (Join-Path $buildRoot 'build-manifest.json')
+    ) + [System.IO.File]::ReadAllText(
+        (Join-Path $buildRoot 'app-build-manifest.json')
+    ) + [System.IO.File]::ReadAllText(
+        (Join-Path $buildRoot 'server\app\demo.html')
+    )
+    $staticReferences = New-Object System.Collections.ArrayList
+    foreach ($match in [regex]::Matches(
+        $referenceText,
+        '(?:/_next/)?static/[A-Za-z0-9_./-]+'
+    )) {
+        $relative = $match.Value
+        if ($relative.StartsWith('/_next/')) { $relative = $relative.Substring(7) }
+        $relative = $relative.Replace('/', '\')
+        if (-not $relative.EndsWith('\')) {
+            [void]$staticReferences.Add($relative)
+        }
+    }
+    [void]$staticReferences.Add("static\$buildId\_buildManifest.js")
+    [void]$staticReferences.Add("static\$buildId\_ssgManifest.js")
+    foreach ($relative in @($staticReferences | Select-Object -Unique)) {
+        [void](Get-TreeQContainedFile -Path (Join-Path $buildRoot $relative) -Root $buildRoot)
+    }
+
+    $sourcePublic = Join-Path $webRoot 'public'
+    $sourceStatic = Join-Path $buildRoot 'static'
+    $targetPublic = Join-Path $serverRoot 'public'
+    $targetStatic = Join-Path $standaloneBuild 'static'
+    $publicIdentity = Get-TreeQDirectoryIdentity -Path $sourcePublic -Root $sourcePublic
+    $staticIdentity = Get-TreeQDirectoryIdentity -Path $sourceStatic -Root $sourceStatic
+    Remove-TreeQContainedDirectory -Path $targetPublic -Root $serverRoot
+    Remove-TreeQContainedDirectory -Path $targetStatic -Root $serverRoot
+    Copy-TreeQExactDirectory -Source $sourcePublic -Destination $targetPublic
+    Copy-TreeQExactDirectory -Source $sourceStatic -Destination $targetStatic
+    Assert-TreeQDirectoryIdentity `
+        -Expected $publicIdentity `
+        -Actual (Get-TreeQDirectoryIdentity -Path $targetPublic -Root $targetPublic)
+    Assert-TreeQDirectoryIdentity `
+        -Expected $staticIdentity `
+        -Actual (Get-TreeQDirectoryIdentity -Path $targetStatic -Root $targetStatic)
+    return [pscustomobject]@{
+        Verified = $true
+        ServerRoot = $serverRoot
+        PagePath = Join-Path $buildRoot 'server\app\demo.html'
+    }
+}
+
+function Get-TreeQExactHttpBytes {
+    param(
+        [Parameter(Mandatory = $true)][string]$Url,
+        [Parameter(Mandatory = $true)][int]$TimeoutMs
+    )
+
+    $requestUri = [Uri]$Url
+    $request = [System.Net.HttpWebRequest]::Create($requestUri)
+    $request.Timeout = $TimeoutMs
+    $request.ReadWriteTimeout = $TimeoutMs
+    $request.AllowAutoRedirect = $false
+    $request.Proxy = $null
+    $response = $request.GetResponse()
+    try {
+        if (
+            [int]$response.StatusCode -ne 200 -or
+            $response.ResponseUri.AbsoluteUri -cne $requestUri.AbsoluteUri
+        ) {
+            throw 'Frozen response origin, path, or status is invalid'
+        }
+        $memory = New-Object System.IO.MemoryStream
+        try {
+            $response.GetResponseStream().CopyTo($memory)
+            return ,$memory.ToArray()
+        }
+        finally {
+            $memory.Dispose()
+        }
+    }
+    finally {
+        $response.Dispose()
+    }
+}
+
+function Test-TreeQFrozenHttpBundle {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$BaseUrl,
+        [Parameter(Mandatory = $true)]$Bundle,
+        [Parameter(Mandatory = $false)][ValidateRange(100, 30000)][int]$TimeoutMs = 5000
+    )
+
+    try {
+        $baseUri = [Uri]$BaseUrl
+        if (
+            -not $baseUri.IsAbsoluteUri -or
+            $baseUri.UserInfo -or
+            $baseUri.Query -or
+            $baseUri.Fragment -or
+            $baseUri.AbsolutePath -ne '/'
+        ) {
+            return $false
+        }
+        $isLocal = (
+            $baseUri.Scheme -eq 'http' -and
+            ($baseUri.DnsSafeHost -eq '127.0.0.1' -or $baseUri.DnsSafeHost -eq 'localhost')
+        )
+        $isProduction = (
+            $baseUri.Scheme -eq 'https' -and
+            $baseUri.IsDefaultPort -and
+            $baseUri.DnsSafeHost -eq 'treeqcarbon.vercel.app'
+        )
+        if (-not ($isLocal -or $isProduction)) { return $false }
+        foreach ($expected in @($Bundle.Page, $Bundle.Manifest) + @($Bundle.Artifacts)) {
+            $url = ([Uri]::new($baseUri, [string]$expected.UrlPath)).AbsoluteUri
+            $bytes = Get-TreeQExactHttpBytes -Url $url -TimeoutMs $TimeoutMs
+            $sourceBytes = [System.IO.File]::ReadAllBytes([string]$expected.FilePath)
+            if (
+                $bytes.Length -ne [long]$expected.Size -or
+                -not [System.Collections.StructuralComparisons]::StructuralEqualityComparer.Equals(
+                    $bytes,
+                    $sourceBytes
+                )
+            ) {
+                return $false
+            }
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            try { $actualHash = $sha.ComputeHash($bytes) }
+            finally { $sha.Dispose() }
+            $actualHex = ([BitConverter]::ToString($actualHash)).Replace('-', '').ToLowerInvariant()
+            if ($actualHex -cne [string]$expected.Sha256) { return $false }
+        }
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
 Export-ModuleMember -Function @(
     'New-TreeQDemoToken',
     'Get-TreeQTunnelUrl',
@@ -506,5 +1220,13 @@ Export-ModuleMember -Function @(
     'New-TreeQHandoffUrl',
     'Test-TreeQOwnedProcess',
     'Stop-TreeQOwnedProcesses',
-    'Test-TreeQReadiness'
+    'Test-TreeQReadiness',
+    'ConvertTo-TreeQWindowsCommandLine',
+    'Assert-TreeQProcessRegistryPath',
+    'Start-TreeQManagedProcess',
+    'Complete-TreeQManagedProcessLogs',
+    'Get-TreeQManagedProcessLogText',
+    'Stop-TreeQManagedProcesses',
+    'Sync-TreeQStandaloneAssets',
+    'Test-TreeQFrozenHttpBundle'
 )

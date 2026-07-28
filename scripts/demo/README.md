@@ -15,8 +15,13 @@ launcher.
   cloudflared, and prints `NOT A LIVE RUN`.
 
 All modes verify the tracked public manifest and every frozen artifact hash
-before starting a process. The launcher never runs a build, Vercel command, or
-deployment.
+before starting a process. They also reject a mixed standalone build by
+checking `BUILD_ID`, server manifests, the `/demo` route, and referenced static
+files. The runtime copy of `public` and `.next/static` is cleared, copied, then
+verified against the source file set, sizes, and SHA-256 hashes. Local and
+production Frozen readiness fetch `/demo`, its manifest, and all three evidence
+artifacts without redirects and require byte-for-byte matches. The launcher
+never runs a build, Vercel command, or deployment.
 
 ```powershell
 scripts\demo\TreeQ-Demo-Start.bat
@@ -74,4 +79,8 @@ Cleanup rechecks both executable path and process start time; a stale PID,
 foreign port occupant, or unrelated process is never killed. The 64-character
 lowercase demo token is inherited by the API only, removed from the launcher
 environment immediately, handed to the web in the URL fragment (never query),
-and redacted from console output.
+and redacted while child stdout and stderr are drained into log files. Child
+arguments are launched directly with Windows command-line quoting, preserving
+empty values, spaces, quotes, and trailing backslashes. The registry must be a
+regular file; if persistence fails after launch, the new child is synchronously
+stopped and removed from the in-memory ownership list.
