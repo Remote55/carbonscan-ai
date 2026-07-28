@@ -127,3 +127,9 @@ notes/personal/
 services/ml/data/realdata/
 .vercel
 .env*
+
+# Local tool state. The judge demo refuses to run against a dirty worktree and
+# counts untracked files as dirty, so leaving these visible blocks artifact
+# regeneration on any machine that has run pnpm or the plugin.
+.pnpm-store/
+.superpowers/
