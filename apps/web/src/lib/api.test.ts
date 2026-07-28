@@ -1,6 +1,67 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { AnalyzeResponse } from "./api";
 import { analyzePointCloud, getJob, pollJobUntilDone, submitAnalyzeJob } from "./api";
+
+describe("analyze diagnostics contract", () => {
+  const base = {
+    metadata: { status: "ok" },
+    trees: [],
+  } as unknown as AnalyzeResponse;
+
+  it("carries excluded segments and counts that reconcile", () => {
+    const result: AnalyzeResponse = {
+      ...base,
+      summary: {
+        total_trees: 2,
+        total_carbon_kg: 123.45,
+        total_co2eq_kg: 452.6,
+        detected_trees: 4,
+        measured_trees: 2,
+        excluded_trees: 2,
+      },
+      diagnostics: {
+        excluded_segments: [
+          { tree_id: 3, stage: "wood_leaf", reason_code: "WOOD_EMPTY" },
+          { tree_id: 4, stage: "qsm", reason_code: "QSM_INVALID" },
+        ],
+      },
+    };
+
+    expect(result.summary.detected_trees).toBe(
+      (result.summary.measured_trees ?? 0) + (result.summary.excluded_trees ?? 0),
+    );
+    expect(result.diagnostics?.excluded_segments).toHaveLength(
+      result.summary.excluded_trees ?? 0,
+    );
+  });
+
+  it("distinguishes a pre-0.4.0 result from one with nothing excluded", () => {
+    const legacy: AnalyzeResponse = {
+      ...base,
+      summary: { total_trees: 2, total_carbon_kg: 123.45, total_co2eq_kg: 452.6 },
+    };
+    const nothingExcluded: AnalyzeResponse = {
+      ...base,
+      summary: {
+        total_trees: 2,
+        total_carbon_kg: 123.45,
+        total_co2eq_kg: 452.6,
+        detected_trees: 2,
+        measured_trees: 2,
+        excluded_trees: 0,
+      },
+      diagnostics: { excluded_segments: [] },
+    };
+
+    // Absent must stay absent: rendering it as 0 would claim an old run
+    // excluded nothing, which it never reported either way.
+    expect(legacy.summary.excluded_trees ?? null).toBeNull();
+    expect(legacy.diagnostics ?? null).toBeNull();
+    expect(nothingExcluded.summary.excluded_trees).toBe(0);
+    expect(nothingExcluded.diagnostics?.excluded_segments).toEqual([]);
+  });
+});
 
 describe("analyzePointCloud", () => {
   afterEach(() => {

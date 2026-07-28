@@ -7,7 +7,9 @@ wood/leaf backend is selectable (PCA default; PointNet++ when a model exists).
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from pipeline import synthetic
@@ -51,6 +53,71 @@ def test_process_points_records_auditable_provenance(synth_points):
     assert metadata["algorithms"]["species"] == "stub"
     assert metadata["evidence_status"] == "baseline"
     assert metadata["candidate_status"] == "candidate_not_evaluated"
+
+
+def test_counts_reconcile_on_a_normal_run(synth_points):
+    result = process_points(synth_points, wood_leaf_backend="tlsep")
+    summary = result.summary
+
+    assert summary["detected_trees"] == summary["measured_trees"] + summary["excluded_trees"]
+    assert summary["measured_trees"] == len(result.trees)
+    # total_trees stays the measured count so existing consumers keep working.
+    assert summary["total_trees"] == summary["measured_trees"]
+    assert len(result.diagnostics.excluded_segments) == summary["excluded_trees"]
+
+
+def test_empty_wood_is_reported_not_silently_dropped(synth_points, monkeypatch):
+    from pipeline import wood_leaf_separation
+
+    monkeypatch.setattr(
+        wood_leaf_separation.WoodLeafSegmenter,
+        "segment",
+        lambda self, points: np.full(len(points), wood_leaf_separation.LEAF, dtype=np.uint8),
+    )
+    result = process_points(synth_points, wood_leaf_backend="tlsep")
+    summary = result.summary
+
+    assert summary["detected_trees"] > 0
+    assert summary["measured_trees"] == 0
+    assert summary["excluded_trees"] == summary["detected_trees"]
+    excluded = result.diagnostics.excluded_segments
+    assert {item.reason_code for item in excluded} == {"WOOD_EMPTY"}
+    assert {item.stage for item in excluded} == {"wood_leaf"}
+
+
+def test_invalid_qsm_is_reported_not_silently_dropped(synth_points, monkeypatch):
+    from pipeline import qsm, wood_leaf_separation
+
+    monkeypatch.setattr(
+        wood_leaf_separation.WoodLeafSegmenter,
+        "segment",
+        lambda self, points: np.full(len(points), wood_leaf_separation.WOOD, dtype=np.uint8),
+    )
+    monkeypatch.setattr(
+        qsm,
+        "compute_qsm",
+        lambda wood, *, seed: SimpleNamespace(dbh_cm=0.0, height_m=5.0, total_volume_m3=1.0),
+    )
+    result = process_points(synth_points, wood_leaf_backend="tlsep")
+    summary = result.summary
+
+    assert summary["measured_trees"] == 0
+    assert summary["excluded_trees"] == summary["detected_trees"]
+    excluded = result.diagnostics.excluded_segments
+    assert {item.reason_code for item in excluded} == {"QSM_INVALID"}
+    assert {item.stage for item in excluded} == {"qsm"}
+
+
+def test_unexpected_segmenter_error_fails_the_run(synth_points, monkeypatch):
+    """An unexpected fault must fail loudly, never become an excluded segment."""
+    from pipeline import wood_leaf_separation
+
+    def fail(self, points):
+        raise RuntimeError("segmenter exploded")
+
+    monkeypatch.setattr(wood_leaf_separation.WoodLeafSegmenter, "segment", fail)
+    with pytest.raises(RuntimeError, match="segmenter exploded"):
+        process_points(synth_points, wood_leaf_backend="tlsep")
 
 
 def test_process_points_pointnet_backend(synth_points):

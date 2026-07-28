@@ -5,6 +5,7 @@ mock ``run_pipeline`` so the test exercises the HTTP plumbing + validation only,
 with no heavy ML deps and no real subprocess.
 """
 
+import copy
 import logging
 import subprocess
 
@@ -65,6 +66,52 @@ FAKE_RESULT = {
 
 def test_analyze_response_uses_typed_metadata_schema():
     assert AnalyzeResponse.model_fields["metadata"].annotation is AnalyzeMetadata
+
+
+def _result_with_diagnostics() -> dict:
+    result = copy.deepcopy(FAKE_RESULT)
+    result["summary"].update(
+        {"total_trees": 2, "detected_trees": 4, "measured_trees": 2, "excluded_trees": 2}
+    )
+    result["diagnostics"] = {
+        "excluded_segments": [
+            {"tree_id": 3, "stage": "wood_leaf", "reason_code": "WOOD_EMPTY"},
+            {"tree_id": 4, "stage": "qsm", "reason_code": "QSM_INVALID"},
+        ]
+    }
+    return result
+
+
+def test_analyze_contract_preserves_count_invariants():
+    result = AnalyzeResponse.model_validate(_result_with_diagnostics())
+
+    assert result.summary.total_trees == result.summary.measured_trees == 2
+    assert result.summary.detected_trees == 4
+    assert (
+        result.summary.detected_trees
+        == result.summary.measured_trees + result.summary.excluded_trees
+    )
+    assert len(result.diagnostics.excluded_segments) == result.summary.excluded_trees
+    assert [item.reason_code for item in result.diagnostics.excluded_segments] == [
+        "WOOD_EMPTY",
+        "QSM_INVALID",
+    ]
+    assert [item.stage for item in result.diagnostics.excluded_segments] == [
+        "wood_leaf",
+        "qsm",
+    ]
+
+
+def test_analyze_contract_still_reads_results_stored_before_diagnostics():
+    """Async-job rows written by pipeline 0.3.0 must keep deserialising."""
+    result = AnalyzeResponse.model_validate(FAKE_RESULT)
+
+    assert result.summary.total_trees == 2
+    # Absent rather than invented: callers must not read a zero as "none excluded".
+    assert result.summary.detected_trees is None
+    assert result.summary.measured_trees is None
+    assert result.summary.excluded_trees is None
+    assert result.diagnostics is None
 
 
 @pytest.mark.asyncio

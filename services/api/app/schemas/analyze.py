@@ -1,5 +1,7 @@
 """Schemas for the synchronous point-cloud analyze endpoint."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -18,12 +20,35 @@ class AnalyzeTree(BaseModel):
     point_count: int = 0
 
 
+class AnalyzeExcludedSegment(BaseModel):
+    """A detected segment the pipeline could not measure, and why."""
+
+    tree_id: int
+    stage: Literal["wood_leaf", "qsm"]
+    reason_code: Literal["WOOD_EMPTY", "QSM_INVALID"]
+
+
+class AnalyzeDiagnostics(BaseModel):
+    """Why the measured tree count differs from the detected tree count."""
+
+    excluded_segments: list[AnalyzeExcludedSegment] = Field(default_factory=list)
+
+
 class AnalyzeSummary(BaseModel):
-    """Plot-level totals."""
+    """Plot-level totals.
+
+    The three count fields arrived with pipeline 0.4.0. They stay optional so
+    async-job rows stored by 0.3.0 keep deserialising, and they are ``None``
+    rather than ``0`` when absent so a caller cannot mistake an old result for
+    one where nothing was excluded.
+    """
 
     total_trees: int
     total_carbon_kg: float
     total_co2eq_kg: float
+    detected_trees: int | None = None
+    measured_trees: int | None = None
+    excluded_trees: int | None = None
 
 
 class AnalyzeMetadata(BaseModel):
@@ -49,3 +74,4 @@ class AnalyzeResponse(BaseModel):
     metadata: AnalyzeMetadata
     summary: AnalyzeSummary
     trees: list[AnalyzeTree]
+    diagnostics: AnalyzeDiagnostics | None = None

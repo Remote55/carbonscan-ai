@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import click
 import numpy as np
@@ -27,7 +27,7 @@ from pipeline.provenance import (
     resolve_git_commit,
 )
 
-PIPELINE_VERSION = "0.3.0"
+PIPELINE_VERSION = "0.4.0"
 
 
 @dataclass
@@ -49,6 +49,26 @@ class TreeResult:
     wood_leaf_iou: float | None = None
 
 
+@dataclass(frozen=True)
+class ExcludedSegment:
+    """A detected tree segment that produced no measurement, and why.
+
+    Segments used to be dropped silently, so a plot could report fewer trees
+    than it detected with no way to tell which ones vanished or why.
+    """
+
+    tree_id: int
+    stage: Literal["wood_leaf", "qsm"]
+    reason_code: Literal["WOOD_EMPTY", "QSM_INVALID"]
+
+
+@dataclass
+class PipelineDiagnostics:
+    """Why the measured tree count differs from the detected tree count."""
+
+    excluded_segments: list[ExcludedSegment] = field(default_factory=list)
+
+
 @dataclass
 class PipelineResult:
     """End-to-end pipeline output."""
@@ -56,6 +76,26 @@ class PipelineResult:
     metadata: dict[str, Any]
     summary: dict[str, Any]
     trees: list[TreeResult]
+    diagnostics: PipelineDiagnostics = field(default_factory=PipelineDiagnostics)
+
+
+def pipeline_result_to_dict(result: PipelineResult) -> dict[str, Any]:
+    """Serialize a result to the one JSON shape every runner and the API share.
+
+    Keeping this in one place stops the CLI, the core demo and the judge demo
+    from drifting apart, which is what let `diagnostics` be reported by some
+    paths and not others.
+    """
+    return {
+        "metadata": result.metadata,
+        "summary": result.summary,
+        "diagnostics": {
+            "excluded_segments": [
+                asdict(item) for item in result.diagnostics.excluded_segments
+            ]
+        },
+        "trees": [asdict(tree) for tree in result.trees],
+    }
 
 
 def process_points(
@@ -121,14 +161,23 @@ def process_points(
         segmenter.load()
 
     trees: list[TreeResult] = []
+    diagnostics = PipelineDiagnostics()
     for tid in sorted(tree_clouds):
         tree_pts = tree_clouds[tid]
         labels = segmenter.segment(tree_pts)
         wood = tree_pts[labels == wood_leaf_separation.WOOD]
         if len(wood) == 0:
+            # No stem points to measure. Record it; an unexpected fault must
+            # still propagate rather than be recorded as an exclusion.
+            diagnostics.excluded_segments.append(
+                ExcludedSegment(tree_id=int(tid), stage="wood_leaf", reason_code="WOOD_EMPTY")
+            )
             continue
         q = qsm.compute_qsm(wood, seed=tid)
         if q.dbh_cm <= 0 or q.height_m <= 0:
+            diagnostics.excluded_segments.append(
+                ExcludedSegment(tree_id=int(tid), stage="qsm", reason_code="QSM_INVALID")
+            )
             continue
         carbon = allometric.calculate_carbon(
             dbh_cm=q.dbh_cm, height_m=q.height_m, species_sci=default_species
@@ -165,6 +214,14 @@ def process_points(
 
     total_carbon = sum(t.carbon_kg or 0.0 for t in trees)
     total_co2 = sum(t.co2eq_kg or 0.0 for t in trees)
+    detected = len(tree_clouds)
+    measured = len(trees)
+    excluded = len(diagnostics.excluded_segments)
+    if detected != measured + excluded:  # pragma: no cover - guards a coding error
+        raise RuntimeError(
+            f"tree counts do not reconcile: detected={detected} "
+            f"measured={measured} excluded={excluded}"
+        )
     algorithms = dict(ALGORITHM_MAP)
     algorithms["wood_leaf"] = wood_leaf_backend
     repo_root = Path(__file__).resolve().parents[3]
@@ -189,11 +246,16 @@ def process_points(
             "status": "ok",
         },
         summary={
-            "total_trees": len(trees),
+            # total_trees stays the measured count for backward compatibility.
+            "total_trees": measured,
+            "detected_trees": detected,
+            "measured_trees": measured,
+            "excluded_trees": excluded,
             "total_carbon_kg": round(total_carbon, 2),
             "total_co2eq_kg": round(total_co2, 2),
         },
         trees=trees,
+        diagnostics=diagnostics,
     )
 
 
@@ -239,11 +301,7 @@ def process_point_cloud(
     if output_path:
         Path(output_path).write_text(
             json.dumps(
-                {
-                    "metadata": result.metadata,
-                    "summary": result.summary,
-                    "trees": [asdict(t) for t in result.trees],
-                },
+                pipeline_result_to_dict(result),
                 indent=2,
                 ensure_ascii=False,
             ),

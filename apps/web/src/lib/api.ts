@@ -138,10 +138,31 @@ export interface AnalyzeTree {
   point_count: number;
 }
 
+/** Why a detected segment produced no measurement. */
+export type ExcludedReasonCode = 'WOOD_EMPTY' | 'QSM_INVALID';
+
+export interface AnalyzeExcludedSegment {
+  tree_id: number;
+  stage: 'wood_leaf' | 'qsm';
+  reason_code: ExcludedReasonCode;
+}
+
+export interface AnalyzeDiagnostics {
+  excluded_segments: AnalyzeExcludedSegment[];
+}
+
 export interface AnalyzeSummary {
   total_trees: number;
   total_carbon_kg: number;
   total_co2eq_kg: number;
+  /**
+   * Added in pipeline 0.4.0, so optional: results stored by 0.3.0 have no
+   * counts. Undefined means "this run did not report it" — never render it as
+   * zero, or an old result reads as though nothing was excluded.
+   */
+  detected_trees?: number | null;
+  measured_trees?: number | null;
+  excluded_trees?: number | null;
 }
 
 export interface AnalyzeMetadata {
@@ -163,6 +184,7 @@ export interface AnalyzeResponse {
   metadata: AnalyzeMetadata;
   summary: AnalyzeSummary;
   trees: AnalyzeTree[];
+  diagnostics?: AnalyzeDiagnostics | null;
 }
 
 /** Upload a point-cloud file to the backend, run the pipeline, get carbon results. */
