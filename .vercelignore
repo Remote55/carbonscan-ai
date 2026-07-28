@@ -1,0 +1,25 @@
+# Vercel does not read .gitignore, so anything local and heavy has to be listed
+# again here. Without this the CLI walks into .worktrees/*/.pytest_cache and the
+# deploy dies with "EPERM: operation not permitted, scandir", which leaves the
+# NEXT_PUBLIC_API_URL change unbuilt and the site pointing at a stale tunnel.
+
+# Local git worktrees: full second checkouts, each with node_modules and caches.
+.worktrees
+
+# Local tool state.
+.pnpm-store
+.superpowers
+temp
+.treeq-demo-runtime
+
+# Python environments and caches. None of this builds the web app.
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/htmlcov
+**/*.pyc
+
+# Datasets and model weights kept out of Git for size.
+services/ml/data/realdata
+**/*.npz
+**/*.pt
