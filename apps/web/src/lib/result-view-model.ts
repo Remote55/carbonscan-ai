@@ -30,6 +30,13 @@ export interface ResultForView {
     excluded_trees?: number | null;
   };
   diagnostics?: { excluded_segments?: AnalyzeExcludedSegment[] } | null;
+  trees?: Array<{
+    tree_id: number;
+    dbh_cm: number;
+    height_m: number;
+    carbon_kg?: number | null;
+    co2eq_kg?: number | null;
+  }>;
 }
 
 const REASON_LABELS_TH: Record<ExcludedReasonCode, string> = {
@@ -55,10 +62,19 @@ export interface ExcludedRow {
   reasonTh: string;
 }
 
+export interface MeasuredRow {
+  treeId: number;
+  dbhCm: number;
+  heightM: number;
+  carbonKg: number;
+  co2eqKg: number;
+}
+
 export interface ResultViewModel {
   counts: { detected: number | null; measured: number; excluded: number | null };
   countsLabel: typeof COUNT_LABELS_TH;
   diagnosticsStatus: 'available' | 'unavailable';
+  measuredRows: MeasuredRow[];
   excludedRows: ExcludedRow[];
   totalCarbonKg: number;
   totalCo2eqKg: number;
@@ -72,6 +88,13 @@ export function toResultViewModel(response: ResultForView): ResultViewModel {
   const detected = summary.detected_trees ?? null;
   const excluded = summary.excluded_trees ?? null;
   const segments = response.diagnostics?.excluded_segments ?? null;
+  const measuredRows: MeasuredRow[] = (response.trees ?? []).map((tree) => ({
+    treeId: tree.tree_id,
+    dbhCm: tree.dbh_cm,
+    heightM: tree.height_m,
+    carbonKg: tree.carbon_kg ?? 0,
+    co2eqKg: tree.co2eq_kg ?? 0,
+  }));
 
   // Trust the counts only when the run reported all three, they reconcile, and
   // the segment list matches the excluded count. Anything else is a contract
@@ -88,6 +111,7 @@ export function toResultViewModel(response: ResultForView): ResultViewModel {
       counts: { detected: null, measured, excluded: null },
       countsLabel: COUNT_LABELS_TH,
       diagnosticsStatus: 'unavailable',
+      measuredRows,
       excludedRows: [],
       totalCarbonKg: summary.total_carbon_kg,
       totalCo2eqKg: summary.total_co2eq_kg,
@@ -99,6 +123,7 @@ export function toResultViewModel(response: ResultForView): ResultViewModel {
     counts: { detected, measured, excluded },
     countsLabel: COUNT_LABELS_TH,
     diagnosticsStatus: 'available',
+    measuredRows,
     excludedRows: segments.map((segment) => ({
       treeId: segment.tree_id,
       stage: segment.stage,

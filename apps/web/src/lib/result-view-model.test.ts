@@ -118,6 +118,44 @@ describe("toResultViewModel", () => {
   });
 });
 
+describe("measured rows", () => {
+  it("exposes one row per measured tree, keeping the pipeline's own ids", () => {
+    const vm = toResultViewModel({
+      ...RESPONSE_WITH_DIAGNOSTICS,
+      trees: [
+        { tree_id: 2, dbh_cm: 33.62, height_m: 18.4, carbon_kg: 484.15, co2eq_kg: 1775.9 },
+        { tree_id: 3, dbh_cm: 23.83, height_m: 14.1, carbon_kg: 197.3, co2eq_kg: 723.8 },
+        { tree_id: 5, dbh_cm: 40.52, height_m: 21.7, carbon_kg: 608.29, co2eq_kg: 2231.7 },
+      ],
+    });
+
+    expect(vm.measuredRows.map((row) => row.treeId)).toEqual([2, 3, 5]);
+    expect(vm.measuredRows[0]).toEqual({
+      treeId: 2,
+      dbhCm: 33.62,
+      heightM: 18.4,
+      carbonKg: 484.15,
+      co2eqKg: 1775.9,
+    });
+  });
+
+  it("keeps the ids that are missing visible through the excluded rows", () => {
+    const vm = toResultViewModel({
+      ...RESPONSE_WITH_DIAGNOSTICS,
+      trees: [{ tree_id: 2, dbh_cm: 1, height_m: 1, carbon_kg: 1, co2eq_kg: 1 }],
+    });
+
+    // A judge asking "why does it jump?" must be able to read the answer off
+    // the same result, not infer it from a gap.
+    expect(vm.measuredRows.map((row) => row.treeId)).toEqual([2]);
+    expect(vm.excludedRows.map((row) => row.treeId)).toEqual([11, 17]);
+  });
+
+  it("has no rows when the run reported no trees", () => {
+    expect(toResultViewModel(LEGACY_RESPONSE).measuredRows).toEqual([]);
+  });
+});
+
 describe("reasonLabel", () => {
   it("maps only typed reason codes", () => {
     expect(reasonLabel("WOOD_EMPTY")).toContain("ไม่พบจุดลำต้น");
