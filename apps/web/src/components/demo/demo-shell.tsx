@@ -6,6 +6,7 @@ import { createDemoApiClient } from '../../lib/demo-api';
 import { demoModeReducer, type DemoModeState } from '../../lib/demo-mode';
 import { consumeRuntimeHandoff } from '../../lib/demo-runtime';
 import { loadFrozenDemo, type FrozenDemoBundle } from '../../lib/frozen-demo';
+import { toResultViewModel } from '../../lib/result-view-model';
 import { ModeBadge } from './mode-badge';
 
 const initialMode: DemoModeState = { kind: 'booting' };
@@ -153,20 +154,53 @@ export function DemoShell({
             <p className="mt-8 text-sm text-slate-600">Verifying every evidence byte…</p>
           ) : (
             <>
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <EvidenceMetric
-                  label="Detected trees"
-                  value={number.format(frozenLoad.bundle.result.summary.total_trees)}
-                />
-                <EvidenceMetric
-                  label="Carbon stock estimate"
-                  value={`${number.format(frozenLoad.bundle.result.summary.total_carbon_kg)} kg C`}
-                />
-                <EvidenceMetric
-                  label="CO₂e estimate"
-                  value={`${number.format(frozenLoad.bundle.result.summary.total_co2eq_kg)} kg CO₂e`}
-                />
-              </div>
+              {(() => {
+                const view = toResultViewModel(frozenLoad.bundle.result);
+                return (
+                  <>
+                    <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                      <EvidenceMetric
+                        label={view.countsLabel.measured}
+                        value={number.format(view.counts.measured)}
+                      />
+                      <EvidenceMetric
+                        label="Carbon stock estimate"
+                        value={`${number.format(view.totalCarbonKg)} kg C`}
+                      />
+                      <EvidenceMetric
+                        label="CO₂e estimate"
+                        value={`${number.format(view.totalCo2eqKg)} kg CO₂e`}
+                      />
+                    </div>
+
+                    {view.diagnosticsStatus === 'available' ? (
+                      <div className="mt-4 rounded-2xl border border-slate-200 p-4 text-sm">
+                        <p className="text-slate-700">
+                          {view.countsLabel.detected} {number.format(view.counts.detected ?? 0)} ·{' '}
+                          {view.countsLabel.measured} {number.format(view.counts.measured)} ·{' '}
+                          {view.countsLabel.excluded} {number.format(view.counts.excluded ?? 0)}
+                        </p>
+                        {view.excludedRows.length > 0 && (
+                          <ul className="mt-3 space-y-1 text-slate-600">
+                            {view.excludedRows.map((row) => (
+                              <li key={row.treeId} className="flex gap-2">
+                                <span className="font-mono text-xs text-slate-500">
+                                  #{row.treeId}
+                                </span>
+                                <span>{row.reasonTh}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        ไม่มี diagnostics จาก run นี้ — จำนวนที่ตรวจพบและที่ไม่รวมผลจึงแสดงไม่ได้
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
 
               <div className="mt-8 grid gap-3 border-t border-slate-200 pt-6 text-sm sm:grid-cols-2">
                 <EvidenceFact
