@@ -1,5 +1,5 @@
 {
-  "analyzed_commit": "32bbfebcc14f43c5443e07323845f5e659dd7795",
+  "analyzed_commit": "9aaf68d4f65c26d317b2cbe9174bf3f1efb032a0",
   "artifacts": {
     "input": {
       "path": "/demo/input.ply",
@@ -8,8 +8,8 @@
     },
     "result": {
       "path": "/demo/result.json",
-      "sha256": "6c1171aa66bd11296228c4ac8c578c478a1153a8d69c95f243fa6ef5227d44f0",
-      "size_bytes": 2425
+      "sha256": "2be7ee3e241a8d4e779cc59916eec85d67b1a476d763f54803038ca63cc4ec73",
+      "size_bytes": 2733
     },
     "segmented": {
       "path": "/demo/segmented.ply",
@@ -25,7 +25,7 @@
       "scope": "deterministic_fixture_not_accuracy_or_credit_validation"
     },
     "species": "stub",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "release": {
     "backup_video": null,
@@ -39,7 +39,7 @@
   "schema_version": 1,
   "source": {
     "core_manifest_path": "docs/evidence/core_demo_manifest.json",
-    "core_manifest_sha256": "744d4002afd4181415185fd82a45a63193dc2bc222e47cf2b5999587a08da932"
+    "core_manifest_sha256": "42db89cac6aae7e84d2a0c614bd82bc4fa12e5b533a5393abb1ccf6e451b607c"
   },
   "viewer": {
     "original": true,

@@ -703,10 +703,17 @@ try {
     }
     Assert-Equal $failureOwned.Count 0 'registration failure removes in-memory ownership entry'
 
+    # Pinned so a published manifest cannot change without someone re-sealing on
+    # purpose. Update only alongside a real reseal, and say why here.
+    #   68d8650: sealed from pipeline 0.3.0.
+    #   a3451b4: resealed from 0.4.0, which reports detected/measured/excluded.
+    #            The fixture measures the same three trees with byte-identical
+    #            carbon; it now also states that segments 1 and 4 were excluded
+    #            as QSM_INVALID instead of dropping them silently.
     $manifestPath = Join-Path $repoRoot 'apps\web\public\demo\manifest.json'
     Assert-Equal (
         Get-TreeQSha256 -Path $manifestPath -Root $repoRoot
-    ) '68d865aff59d07552221a9c5f42c9ec6242066269ce7eeb926fcb8152e7adc64' `
+    ) 'a3451b4917d21d302d17838a1632a439eab514118315cb78c509ad78d1264bd3' `
         'hash public frozen manifest bytes'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     foreach ($artifactName in @('input', 'result', 'segmented')) {

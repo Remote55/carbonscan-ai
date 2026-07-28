@@ -1,6 +1,18 @@
 {
   "diagnostics": {
     "dataset": "deterministic_synthetic_plot_seed_42",
+    "excluded_segments": [
+      {
+        "reason_code": "QSM_INVALID",
+        "stage": "qsm",
+        "tree_id": 1
+      },
+      {
+        "reason_code": "QSM_INVALID",
+        "stage": "qsm",
+        "tree_id": 4
+      }
+    ],
     "scope": "deterministic_fixture_not_accuracy_or_credit_validation"
   },
   "metadata": {
@@ -17,17 +29,20 @@
     "candidate_status": "candidate_not_evaluated",
     "checkpoint_sha256": null,
     "evidence_status": "baseline",
-    "git_commit": "32bbfebcc14f43c5443e07323845f5e659dd7795",
+    "git_commit": "9aaf68d4f65c26d317b2cbe9174bf3f1efb032a0",
     "git_dirty": false,
     "input_file": "input.ply",
     "input_sha256": "26ac0d87081f2c5b12eb0cf4fa5ff072fab7b7399fc38ddd9391d9b27b5ae6cf",
     "n_input_points": 145123,
-    "pipeline_version": "0.3.0",
-    "source_tree_sha256": "b6fa08f8de52f0011d42d7cbf3e1fd73169ca3bbe1674b738d9778f76810ce4e",
+    "pipeline_version": "0.4.0",
+    "source_tree_sha256": "5ff01ae29e4b3cba22b48982080ac0bde2b636244c6b5a7d967a8b5e7fa68d1f",
     "status": "ok",
     "wood_leaf_backend": "tlsep"
   },
   "summary": {
+    "detected_trees": 5,
+    "excluded_trees": 2,
+    "measured_trees": 3,
     "total_carbon_kg": 1289.74,
     "total_co2eq_kg": 4729.06,
     "total_trees": 3
