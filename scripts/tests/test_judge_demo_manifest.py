@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import struct
 import subprocess
 from pathlib import Path
 
@@ -33,6 +34,10 @@ def valid_candidate() -> dict:
         "git_dirty": False,
         "dataset": "deterministic_synthetic_plot_seed_42",
         "scope": "deterministic_fixture_not_accuracy_or_credit_validation",
+        "source": {
+            "tree_sha256": "e" * 64,
+            "tracked_files": ["services/ml/pipeline/main.py"],
+        },
         "reproducibility": {
             "run_count": 2,
             "result_sha256": ["b" * 64, "b" * 64],
@@ -73,6 +78,7 @@ def valid_result(candidate: dict) -> dict:
             "checkpoint_sha256": candidate["pipeline"]["checkpoint_sha256"],
             "algorithms": candidate["pipeline"]["algorithms"],
             "n_input_points": candidate["result"]["input_points"],
+            "source_tree_sha256": candidate["source"]["tree_sha256"],
         },
         "summary": {
             "total_trees": candidate["result"]["total_trees"],
@@ -84,18 +90,49 @@ def valid_result(candidate: dict) -> dict:
             "scope": candidate["scope"],
         },
         "trees": [
-            {"tree_id": index + 1}
+            {
+                "tree_id": index + 1,
+                "species_sci": "Tectona grandis",
+                "species_confidence": None,
+                "dbh_cm": 20.0,
+                "height_m": 10.0,
+                "crown_radius_m": None,
+                "volume_m3": 0.1,
+                "biomass_kg": candidate["result"]["total_carbon_kg"] / 0.47 / 3,
+                "carbon_kg": candidate["result"]["total_carbon_kg"] / 3,
+                "co2eq_kg": candidate["result"]["total_co2eq_kg"] / 3,
+                "location": {"x": float(index), "y": 0.0},
+                "point_count": 41,
+                "wood_leaf_iou": None,
+            }
             for index in range(candidate["result"]["total_trees"])
         ],
     }
 
 
+def minimal_ply(vertex_count: int, *, segmented: bool) -> bytes:
+    class_property = "property uchar class\n" if segmented else ""
+    header = (
+        "ply\n"
+        "format binary_little_endian 1.0\n"
+        f"element vertex {vertex_count}\n"
+        "property float x\n"
+        "property float y\n"
+        "property float z\n"
+        f"{class_property}"
+        "end_header\n"
+    ).encode("ascii")
+    point = struct.pack("<fff", 0.0, 0.0, 0.0)
+    body = (point + (b"\x00" if segmented else b"")) * vertex_count
+    return header + body
+
+
 def write_candidate_artifacts(candidate: dict, candidate_dir: Path) -> None:
     candidate_dir.mkdir(exist_ok=True)
     contents = {
-        "input": b"input.ply",
+        "input": minimal_ply(candidate["result"]["input_points"], segmented=False),
         "result": (json.dumps(valid_result(candidate), sort_keys=True) + "\n").encode(),
-        "segmented": b"segmented.ply",
+        "segmented": minimal_ply(candidate["result"]["input_points"], segmented=True),
     }
     for name, content in contents.items():
         artifact = candidate["artifacts"][name]
@@ -155,6 +192,16 @@ def init_clean_repo_and_candidate(
         json.dumps(candidate), encoding="utf-8"
     )
     return repo_root, candidate_dir, candidate, commit
+
+
+@pytest.fixture
+def allow_independent_reproduction(monkeypatch):
+    monkeypatch.setattr(
+        judge_demo_manifest,
+        "_require_independent_reproduction",
+        lambda _candidate, _staged, _repo_root: None,
+        raising=False,
+    )
 
 
 @pytest.mark.parametrize(
@@ -226,6 +273,38 @@ def test_candidate_check_rejects_result_totals_or_provenance_not_in_result(tmp_p
         check_candidate_artifacts(candidate, other_dir)
 
 
+def test_candidate_check_rejects_incomplete_tree_semantics(tmp_path):
+    candidate = valid_candidate()
+    write_candidate_artifacts(candidate, tmp_path)
+    result_path = tmp_path / "result.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["trees"][0] = {"tree_id": 1}
+    result_bytes = (json.dumps(result, sort_keys=True) + "\n").encode()
+    result_path.write_bytes(result_bytes)
+    result_hash = hashlib.sha256(result_bytes).hexdigest()
+    candidate["artifacts"]["result"].update(
+        {"sha256": result_hash, "size_bytes": len(result_bytes)}
+    )
+    candidate["reproducibility"]["result_sha256"] = [result_hash, result_hash]
+
+    with pytest.raises(ValueError, match="tree semantics"):
+        check_candidate_artifacts(candidate, tmp_path)
+
+
+def test_candidate_check_rejects_non_ply_artifact_even_with_matching_hashes(tmp_path):
+    candidate = valid_candidate()
+    write_candidate_artifacts(candidate, tmp_path)
+    invalid = b"not a point cloud"
+    input_path = tmp_path / "input.ply"
+    input_path.write_bytes(invalid)
+    candidate["artifacts"]["input"].update(
+        {"sha256": hashlib.sha256(invalid).hexdigest(), "size_bytes": len(invalid)}
+    )
+
+    with pytest.raises(ValueError, match="PLY"):
+        check_candidate_artifacts(candidate, tmp_path)
+
+
 @pytest.mark.parametrize("value", [True, -1, math.nan, math.inf, -math.inf])
 def test_candidate_rejects_invalid_numeric_facts(value):
     candidate = valid_candidate()
@@ -255,7 +334,9 @@ def test_typescript_identity_hashes_public_manifest_bytes(tmp_path):
     assert "resultPath: '/demo/result.json'" in generated
 
 
-def test_seal_finalize_and_check_preserve_analyzed_commit(tmp_path):
+def test_seal_finalize_and_check_preserve_analyzed_commit(
+    tmp_path, allow_independent_reproduction
+):
     repo_root, candidate_dir, candidate, commit = init_clean_repo_and_candidate(
         tmp_path
     )
@@ -275,7 +356,8 @@ def test_seal_finalize_and_check_preserve_analyzed_commit(tmp_path):
         "dataset": candidate["dataset"],
         "scope": candidate["scope"],
     }
-    check_manifest(repo_root, candidate_dir=candidate_dir)
+    checked = check_manifest(repo_root, candidate_dir=candidate_dir)
+    assert checked["_check"]["independent_reproduction"] == "unavailable"
 
     backup_video = tmp_path / "judge-backup.mp4"
     backup_video.write_bytes(b"video evidence")
@@ -300,7 +382,9 @@ def test_seal_finalize_and_check_preserve_analyzed_commit(tmp_path):
         check_manifest(repo_root)
 
 
-def test_seal_rejects_repository_change_during_staging(tmp_path, monkeypatch):
+def test_seal_rejects_repository_change_during_staging(
+    tmp_path, monkeypatch, allow_independent_reproduction
+):
     repo_root, candidate_dir, _, commit = init_clean_repo_and_candidate(tmp_path)
     states = iter(
         [
@@ -319,7 +403,34 @@ def test_seal_rejects_repository_change_during_staging(tmp_path, monkeypatch):
         seal_candidate(candidate_dir, repo_root)
 
 
-def test_seal_hashes_committed_core_manifest_blob_across_checkout_eol(tmp_path):
+def test_check_runs_independent_gate_for_matching_clean_checkout(
+    tmp_path, monkeypatch, allow_independent_reproduction
+):
+    repo_root, candidate_dir, candidate, commit = init_clean_repo_and_candidate(
+        tmp_path
+    )
+    seal_candidate(candidate_dir, repo_root)
+    calls = []
+    monkeypatch.setattr(
+        judge_demo_manifest,
+        "_repo_state",
+        lambda _repo_root: {"commit": commit, "dirty": False},
+    )
+    monkeypatch.setattr(
+        judge_demo_manifest,
+        "_require_independent_reproduction",
+        lambda checked_candidate, _staged, _repo_root: calls.append(checked_candidate),
+    )
+
+    checked = check_manifest(repo_root, candidate_dir=candidate_dir)
+
+    assert calls == [candidate]
+    assert checked["_check"]["independent_reproduction"] == "passed"
+
+
+def test_seal_hashes_committed_core_manifest_blob_across_checkout_eol(
+    tmp_path, allow_independent_reproduction
+):
     repo_root, candidate_dir, _, commit = init_clean_repo_and_candidate(
         tmp_path, autocrlf=True
     )
@@ -369,7 +480,9 @@ def test_candidate_check_rejects_reparse_directory(tmp_path):
         check_candidate_artifacts(candidate, candidate_dir)
 
 
-def test_seal_rejects_reparse_public_output_directory(tmp_path, monkeypatch):
+def test_seal_rejects_reparse_public_output_directory(
+    tmp_path, monkeypatch, allow_independent_reproduction
+):
     repo_root, candidate_dir, _, commit = init_clean_repo_and_candidate(tmp_path)
     external_dir = tmp_path / "private-public-output"
     external_dir.mkdir()
@@ -390,3 +503,24 @@ def test_seal_rejects_reparse_public_output_directory(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="symlink|reparse"):
         seal_candidate(candidate_dir, repo_root)
     assert list(external_dir.iterdir()) == []
+
+
+def test_seal_rejects_self_consistent_semantic_forgery(tmp_path, monkeypatch):
+    repo_root, trusted_dir, trusted, _ = init_clean_repo_and_candidate(tmp_path)
+    trusted_staged = {
+        name: (trusted_dir / artifact["filename"]).read_bytes()
+        for name, artifact in trusted["artifacts"].items()
+    }
+    forged = json.loads(json.dumps(trusted))
+    forged["result"]["total_co2eq_kg"] = 999.0
+    forged_dir = tmp_path / "forged"
+    write_candidate_artifacts(forged, forged_dir)
+    monkeypatch.setattr(
+        judge_demo_manifest,
+        "_generate_independent_candidate",
+        lambda _repo_root: (trusted, trusted_staged),
+        raising=False,
+    )
+
+    with pytest.raises(ValueError, match="independent reproduction"):
+        seal_candidate(forged_dir, repo_root)

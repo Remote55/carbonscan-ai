@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
+import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -13,13 +15,6 @@ import click
 
 ML_ROOT = Path(__file__).resolve().parents[1]
 RUNNER_REPO_ROOT = ML_ROOT.parents[1].resolve()
-if str(ML_ROOT) not in sys.path:
-    sys.path.insert(0, str(ML_ROOT))
-
-from pipeline.main import process_point_cloud  # noqa: E402
-from pipeline.ply_export import write_xyz_ply  # noqa: E402
-from pipeline.provenance import git_worktree_dirty, resolve_git_commit  # noqa: E402
-from pipeline.synthetic import generate_synthetic_plot  # noqa: E402
 
 DEMO_CONFIG = {
     "n_trees": 3,
@@ -47,17 +42,100 @@ def _artifact(filename: str, data: bytes) -> dict[str, Any]:
 
 
 def _repo_state(repo_root: Path) -> dict[str, Any]:
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=normal"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     return {
-        "commit": resolve_git_commit(repo_root),
-        "dirty": git_worktree_dirty(repo_root),
+        "commit": commit,
+        "dirty": bool(dirty),
     }
 
 
-def _result_payload(result: Any, repo_state: dict[str, Any]) -> dict[str, Any]:
+def _git_bytes(repo_root: Path, *args: str) -> bytes:
+    return subprocess.run(["git", *args], cwd=repo_root, check=True, capture_output=True).stdout
+
+
+def _source_identity(repo_root: Path, commit: str) -> dict[str, Any]:
+    listed = _git_bytes(
+        repo_root,
+        "ls-tree",
+        "-r",
+        "--name-only",
+        commit,
+        "--",
+        "services/ml/pipeline",
+        "services/ml/scripts/run_judge_demo.py",
+        "services/ml/data/species_db.csv",
+    ).decode("utf-8")
+    tracked_files = sorted(
+        path
+        for path in listed.splitlines()
+        if path.endswith(".py") or path == "services/ml/data/species_db.csv"
+    )
+    required = {
+        "services/ml/scripts/run_judge_demo.py",
+        "services/ml/pipeline/main.py",
+        "services/ml/pipeline/ply_export.py",
+        "services/ml/data/species_db.csv",
+    }
+    if not required.issubset(tracked_files):
+        raise RuntimeError("Required judge-demo source files are not tracked")
+
+    digest = hashlib.sha256()
+    for relative in tracked_files:
+        path = repo_root / relative
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(repo_root):
+            raise RuntimeError(f"Judge-demo source is not a contained regular file: {relative}")
+        committed_blob = _git_bytes(repo_root, "rev-parse", f"{commit}:{relative}").strip()
+        working_blob = _git_bytes(repo_root, "hash-object", f"--path={relative}", relative).strip()
+        if working_blob != committed_blob:
+            raise RuntimeError(f"Judge-demo source does not match analyzed commit: {relative}")
+        blob_bytes = _git_bytes(repo_root, "show", f"{commit}:{relative}")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(blob_bytes).digest())
+    return {"tree_sha256": digest.hexdigest(), "tracked_files": tracked_files}
+
+
+def _load_pipeline_modules() -> dict[str, Any]:
+    ml_root = str(ML_ROOT)
+    if ml_root in sys.path:
+        sys.path.remove(ml_root)
+    sys.path.insert(0, ml_root)
+    modules = {
+        name: importlib.import_module(module_name)
+        for name, module_name in {
+            "main": "pipeline.main",
+            "ply_export": "pipeline.ply_export",
+            "synthetic": "pipeline.synthetic",
+        }.items()
+    }
+    for name, module in modules.items():
+        origin = Path(module.__file__).resolve()
+        if not origin.is_relative_to(ML_ROOT):
+            raise RuntimeError(f"Pipeline module {name} came from another checkout: {origin}")
+    return modules
+
+
+def _result_payload(
+    result: Any, repo_state: dict[str, Any], source: dict[str, Any]
+) -> dict[str, Any]:
     metadata = dict(result.metadata)
     metadata["input_file"] = "input.ply"
     metadata["git_commit"] = repo_state["commit"]
     metadata["git_dirty"] = repo_state["dirty"]
+    metadata["source_tree_sha256"] = source["tree_sha256"]
     return {
         "metadata": metadata,
         "summary": result.summary,
@@ -81,9 +159,11 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
     start_state = _repo_state(repo_root)
     if start_state["dirty"]:
         raise ValueError("Judge demo requires a clean repository before analysis")
+    source = _source_identity(repo_root, start_state["commit"])
+    modules = _load_pipeline_modules()
 
-    points, _, _ = generate_synthetic_plot(**DEMO_CONFIG)
-    input_path = write_xyz_ply(points, output_dir / "input.ply")
+    points, _, _ = modules["synthetic"].generate_synthetic_plot(**DEMO_CONFIG)
+    input_path = modules["ply_export"].write_xyz_ply(points, output_dir / "input.ply")
     input_bytes = input_path.read_bytes()
 
     result_bytes: list[bytes] = []
@@ -92,17 +172,19 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
     payloads: list[dict[str, Any]] = []
     for run_number in (1, 2):
         segmented_path = output_dir / f"segmented-run-{run_number}.ply"
-        result = process_point_cloud(
+        result = modules["main"].process_point_cloud(
             input_path,
             wood_leaf_backend="tlsep",
             default_species="Tectona grandis",
             segmented_ply_out=str(segmented_path),
         )
-        payload = _result_payload(result, start_state)
+        payload = _result_payload(result, start_state, source)
         payloads.append(payload)
         result_bytes.append(_json_bytes(payload))
         segmented_paths.append(segmented_path)
         segmented_bytes.append(segmented_path.read_bytes())
+        if _source_identity(repo_root, start_state["commit"]) != source:
+            raise RuntimeError("Judge-demo source changed during analysis")
 
     result_hashes = [_sha256(data) for data in result_bytes]
     segmented_hashes = [_sha256(data) for data in segmented_bytes]
@@ -131,6 +213,7 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
         "git_dirty": metadata["git_dirty"],
         "dataset": DATASET,
         "scope": SCOPE,
+        "source": source,
         "reproducibility": {
             "run_count": 2,
             "result_sha256": result_hashes,

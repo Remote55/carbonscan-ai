@@ -28,6 +28,15 @@ def clean_repo_state(monkeypatch):
         lambda _repo_root: {"commit": commit, "dirty": False},
         raising=False,
     )
+    monkeypatch.setattr(
+        judge_runner,
+        "_source_identity",
+        lambda _repo_root, _commit: {
+            "tree_sha256": "a" * 64,
+            "tracked_files": ["services/ml/pipeline/main.py"],
+        },
+        raising=False,
+    )
 
 
 def test_judge_demo_is_reproducible_and_path_free(tmp_path, clean_repo_state):
@@ -49,6 +58,8 @@ def test_judge_demo_candidate_records_fixture_scope_and_real_artifacts(tmp_path,
     assert candidate["pipeline"]["backend"] == "tlsep"
     assert candidate["pipeline"]["checkpoint_sha256"] is None
     assert candidate["pipeline"]["algorithms"]["species"] == "stub"
+    assert candidate["source"]["tree_sha256"] == "a" * 64
+    assert candidate["source"]["tracked_files"] == ["services/ml/pipeline/main.py"]
     assert candidate["result"]["total_trees"] > 0
     assert candidate["result"]["total_co2eq_kg"] != 93135
     evidence = candidate["reproducibility"]
@@ -101,19 +112,63 @@ def test_judge_demo_rejects_repository_change_across_analysis(tmp_path, monkeypa
         ]
     )
     monkeypatch.setattr(judge_runner, "_repo_state", lambda _repo_root: next(states))
+    monkeypatch.setattr(
+        judge_runner,
+        "_source_identity",
+        lambda _repo_root, _commit: {
+            "tree_sha256": "a" * 64,
+            "tracked_files": ["services/ml/pipeline/main.py"],
+        },
+        raising=False,
+    )
 
     with pytest.raises(RuntimeError, match="changed"):
         judge_runner.run_judge_demo(tmp_path, REPO_ROOT)
 
 
+def test_judge_demo_rejects_transient_source_change(tmp_path, monkeypatch):
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    monkeypatch.setattr(
+        judge_runner,
+        "_repo_state",
+        lambda _repo_root: {"commit": commit, "dirty": False},
+    )
+    identities = iter(
+        [
+            {"tree_sha256": "a" * 64, "tracked_files": ["pipeline.py"]},
+            {"tree_sha256": "b" * 64, "tracked_files": ["pipeline.py"]},
+        ]
+    )
+    monkeypatch.setattr(
+        judge_runner,
+        "_source_identity",
+        lambda _repo_root, _commit: next(identities),
+        raising=False,
+    )
+
+    with pytest.raises(RuntimeError, match="source"):
+        judge_runner.run_judge_demo(tmp_path, REPO_ROOT)
+
+
 def test_judge_demo_cli_uses_pipeline_from_its_own_checkout(tmp_path):
     script = REPO_ROOT / "services" / "ml" / "scripts" / "run_judge_demo.py"
+    probe = (
+        "import importlib.util,json,pathlib;"
+        f"p=pathlib.Path({str(script)!r});"
+        "s=importlib.util.spec_from_file_location('judge_runner_probe',p);"
+        "m=importlib.util.module_from_spec(s);s.loader.exec_module(m);"
+        "mods=m._load_pipeline_modules();"
+        "print(json.dumps({k:str(pathlib.Path(v.__file__).resolve()) "
+        "for k,v in mods.items()}))"
+    )
     proc = subprocess.run(
-        [
-            sys.executable,
-            str(script),
-            "--help",
-        ],
+        [sys.executable, "-c", probe],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -121,4 +176,27 @@ def test_judge_demo_cli_uses_pipeline_from_its_own_checkout(tmp_path):
     )
 
     assert proc.returncode == 0, proc.stderr
-    assert "--output-dir" in proc.stdout
+    origins = json.loads(proc.stdout)
+    assert origins
+    assert all(
+        Path(path).is_relative_to(REPO_ROOT / "services" / "ml") for path in origins.values()
+    )
+
+    other_checkout = tmp_path / "other-checkout"
+    other_checkout.mkdir()
+    rejected = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--output-dir",
+            str(tmp_path / "candidate"),
+            "--repo-root",
+            str(other_checkout),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert rejected.returncode != 0
+    assert "checkout" in rejected.stderr

@@ -8,6 +8,8 @@ import json
 import math
 import stat
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -149,6 +151,21 @@ def validate_candidate(candidate: dict[str, Any]) -> None:
             "Candidate scope does not match the deterministic fixture contract"
         )
 
+    source = candidate.get("source")
+    if (
+        not isinstance(source, dict)
+        or set(source) != {"tree_sha256", "tracked_files"}
+        or not _is_hex(source["tree_sha256"], 64)
+        or not isinstance(source["tracked_files"], list)
+        or not source["tracked_files"]
+        or source["tracked_files"] != sorted(set(source["tracked_files"]))
+        or not all(
+            isinstance(path, str) and path.startswith("services/ml/")
+            for path in source["tracked_files"]
+        )
+    ):
+        raise ValueError("Candidate source-tree identity is invalid")
+
     reproducibility = candidate.get("reproducibility")
     if not isinstance(reproducibility, dict) or set(reproducibility) != {
         "run_count",
@@ -258,6 +275,7 @@ def _validate_result_payload(candidate: dict[str, Any], result_bytes: bytes) -> 
         "checkpoint_sha256": candidate["pipeline"]["checkpoint_sha256"],
         "algorithms": candidate["pipeline"]["algorithms"],
         "n_input_points": candidate["result"]["input_points"],
+        "source_tree_sha256": candidate["source"]["tree_sha256"],
     }
     for name, expected in expected_metadata.items():
         if metadata.get(name) != expected:
@@ -278,6 +296,111 @@ def _validate_result_payload(candidate: dict[str, Any], result_bytes: bytes) -> 
         raise ValueError("Candidate result scope does not match candidate")
     if not isinstance(trees, list) or len(trees) != candidate["result"]["total_trees"]:
         raise ValueError("Candidate result tree list does not match total_trees")
+    required_tree_fields = {
+        "tree_id",
+        "species_sci",
+        "species_confidence",
+        "dbh_cm",
+        "height_m",
+        "crown_radius_m",
+        "volume_m3",
+        "biomass_kg",
+        "carbon_kg",
+        "co2eq_kg",
+        "location",
+        "point_count",
+        "wood_leaf_iou",
+    }
+    tree_ids: set[int] = set()
+    for tree in trees:
+        if not isinstance(tree, dict) or set(tree) != required_tree_fields:
+            raise ValueError("Candidate result tree semantics are incomplete")
+        tree_id = tree["tree_id"]
+        if (
+            not isinstance(tree_id, int)
+            or isinstance(tree_id, bool)
+            or tree_id <= 0
+            or tree_id in tree_ids
+            or tree["species_sci"] != "Tectona grandis"
+            or not isinstance(tree["location"], dict)
+            or set(tree["location"]) != {"x", "y"}
+        ):
+            raise ValueError("Candidate result tree semantics are invalid")
+        tree_ids.add(tree_id)
+        for name in (
+            "dbh_cm",
+            "height_m",
+            "volume_m3",
+            "biomass_kg",
+            "carbon_kg",
+            "co2eq_kg",
+        ):
+            value = tree[name]
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+                or value < 0
+            ):
+                raise ValueError(
+                    "Candidate result tree semantics contain invalid numbers"
+                )
+        if tree["dbh_cm"] <= 0 or tree["height_m"] <= 0:
+            raise ValueError(
+                "Candidate result tree semantics require measurable geometry"
+            )
+        if (
+            not isinstance(tree["point_count"], int)
+            or isinstance(tree["point_count"], bool)
+            or tree["point_count"] <= 0
+        ):
+            raise ValueError("Candidate result tree semantics require point counts")
+        for coordinate in tree["location"].values():
+            if (
+                not isinstance(coordinate, (int, float))
+                or isinstance(coordinate, bool)
+                or not math.isfinite(coordinate)
+            ):
+                raise ValueError(
+                    "Candidate result tree semantics require finite locations"
+                )
+    if (
+        round(sum(tree["carbon_kg"] for tree in trees), 2)
+        != candidate["result"]["total_carbon_kg"]
+        or round(sum(tree["co2eq_kg"] for tree in trees), 2)
+        != candidate["result"]["total_co2eq_kg"]
+    ):
+        raise ValueError(
+            "Candidate result tree semantics do not sum to reported totals"
+        )
+
+
+def _validate_ply_bytes(
+    data: bytes, *, expected_vertices: int, segmented: bool
+) -> None:
+    marker = b"end_header\n"
+    header_end = data.find(marker)
+    if header_end < 0 or header_end > 4096:
+        raise ValueError("Candidate artifact is not a valid deterministic PLY")
+    try:
+        header = data[:header_end].decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Candidate PLY header must be ASCII") from exc
+    lines = header.splitlines()
+    if not lines or lines[0] != "ply" or "format binary_little_endian 1.0" not in lines:
+        raise ValueError("Candidate PLY must be binary little-endian")
+    vertex_lines = [line for line in lines if line.startswith("element vertex ")]
+    try:
+        vertex_count = int(vertex_lines[0].split()[-1])
+    except (IndexError, ValueError) as exc:
+        raise ValueError("Candidate PLY vertex count is invalid") from exc
+    has_class = "property uchar class" in lines
+    if vertex_count != expected_vertices or has_class != segmented:
+        raise ValueError("Candidate PLY semantic contract is invalid")
+    record_size = 13 if segmented else 12
+    body = data[header_end + len(marker) :]
+    if len(body) != expected_vertices * record_size:
+        raise ValueError("Candidate PLY body size is invalid")
 
 
 def _read_candidate_artifacts(
@@ -305,6 +428,16 @@ def _read_candidate_artifacts(
             )
         staged[name] = data
     _safe_regular_file(raw_dir, "candidate.json", "Candidate candidate.json")
+    _validate_ply_bytes(
+        staged["input"],
+        expected_vertices=candidate["result"]["input_points"],
+        segmented=False,
+    )
+    _validate_ply_bytes(
+        staged["segmented"],
+        expected_vertices=candidate["result"]["input_points"],
+        segmented=True,
+    )
     _validate_result_payload(candidate, staged["result"])
     return staged
 
@@ -314,6 +447,55 @@ def check_candidate_artifacts(
 ) -> None:
     """Verify candidate bytes, two-run evidence, and result provenance."""
     _read_candidate_artifacts(candidate, candidate_dir)
+
+
+def _generate_independent_candidate(
+    repo_root: Path,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
+    runner = _safe_repo_file(
+        repo_root,
+        Path("services/ml/scripts/run_judge_demo.py"),
+        "Trusted judge runner",
+    )
+    with tempfile.TemporaryDirectory(prefix="treeq-judge-reproduce-") as temp_dir:
+        output_dir = Path(temp_dir) / "candidate"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(runner),
+                "--output-dir",
+                str(output_dir),
+                "--repo-root",
+                str(repo_root),
+            ],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if proc.returncode != 0:
+            raise ValueError(
+                "Independent reproduction runner failed: " + proc.stderr.strip()
+            )
+        candidate_path = _safe_regular_file(
+            output_dir, "candidate.json", "Independent candidate.json"
+        )
+        candidate = _load_json(candidate_path)
+        staged = _read_candidate_artifacts(candidate, output_dir)
+        return candidate, staged
+
+
+def _require_independent_reproduction(
+    candidate: dict[str, Any], staged: dict[str, bytes], repo_root: Path
+) -> None:
+    reproduced, reproduced_staged = _generate_independent_candidate(repo_root)
+    if reproduced != candidate:
+        raise ValueError("Candidate facts differ from independent reproduction")
+    for name in ARTIFACT_FILENAMES:
+        if reproduced_staged[name] != staged[name]:
+            raise ValueError(
+                f"Candidate {name} bytes differ from independent reproduction"
+            )
 
 
 def build_manifest(
@@ -477,6 +659,7 @@ def seal_candidate(
     _safe_repo_file(repo_root, CORE_MANIFEST_PATH, "Core manifest")
     core_blob = _git_blob_bytes(repo_root, before["commit"], CORE_MANIFEST_PATH)
     manifest = build_manifest(candidate, _sha256_bytes(core_blob), status=status)
+    _require_independent_reproduction(candidate, staged, repo_root)
     after = _repo_state(repo_root)
     if after != before or after["dirty"]:
         raise RuntimeError("Repository changed while staging judge demo evidence")
@@ -586,7 +769,7 @@ def _validate_public_manifest(manifest: dict[str, Any]) -> None:
             raise ValueError("Public manifest backup video identity is invalid")
 
 
-def _validate_public_result(manifest: dict[str, Any], result_bytes: bytes) -> None:
+def _validate_public_result(manifest: dict[str, Any], result_bytes: bytes) -> int:
     try:
         payload = json.loads(
             result_bytes.decode("utf-8"), parse_constant=_reject_json_constant
@@ -612,6 +795,15 @@ def _validate_public_result(manifest: dict[str, Any], result_bytes: bytes) -> No
     for name, expected in expected_metadata.items():
         if metadata.get(name) != expected:
             raise ValueError(f"Public result metadata {name} is inconsistent")
+    if not _is_hex(metadata.get("source_tree_sha256"), 64):
+        raise ValueError("Public result source-tree identity is invalid")
+    input_points = metadata.get("n_input_points")
+    if (
+        not isinstance(input_points, int)
+        or isinstance(input_points, bool)
+        or input_points <= 0
+    ):
+        raise ValueError("Public result input point count is invalid")
     algorithms = metadata.get("algorithms")
     if (
         not isinstance(algorithms, dict)
@@ -629,6 +821,7 @@ def _validate_public_result(manifest: dict[str, Any], result_bytes: bytes) -> No
         raise ValueError("Public result scope is inconsistent")
     if not isinstance(trees, list) or len(trees) != manifest["result"]["total_trees"]:
         raise ValueError("Public result tree list is inconsistent")
+    return input_points
 
 
 def check_manifest(
@@ -665,7 +858,7 @@ def check_manifest(
     if manifest["viewer"] != {"original": True, "wood_leaf": True, "qsm": False}:
         raise ValueError("Viewer capability declaration is invalid")
 
-    public_result_bytes: bytes | None = None
+    public_artifacts: dict[str, bytes] = {}
     for name, expected_path in ARTIFACT_PATHS.items():
         artifact = manifest["artifacts"].get(name)
         if not isinstance(artifact, dict) or artifact.get("path") != expected_path:
@@ -681,10 +874,18 @@ def check_manifest(
         ) != _sha256_bytes(data):
             raise ValueError(f"Public artifact bytes changed: {expected_path}")
         if name == "result":
-            public_result_bytes = data
-    if public_result_bytes is None:
+            public_artifacts["result"] = data
+        else:
+            public_artifacts[name] = data
+    if "result" not in public_artifacts:
         raise ValueError("Public result.json is missing")
-    _validate_public_result(manifest, public_result_bytes)
+    input_points = _validate_public_result(manifest, public_artifacts["result"])
+    _validate_ply_bytes(
+        public_artifacts["input"], expected_vertices=input_points, segmented=False
+    )
+    _validate_ply_bytes(
+        public_artifacts["segmented"], expected_vertices=input_points, segmented=True
+    )
 
     ts_bytes = _safe_repo_file(
         repo_root, TYPESCRIPT_PATH, "TypeScript identity"
@@ -700,7 +901,7 @@ def check_manifest(
             raw_candidate_dir, "candidate.json", "Candidate candidate.json"
         )
         candidate = _load_json(candidate_path)
-        check_candidate_artifacts(candidate, raw_candidate_dir)
+        staged = _read_candidate_artifacts(candidate, raw_candidate_dir)
         expected = build_manifest(candidate, manifest["source"]["core_manifest_sha256"])
         for name in (
             "analyzed_commit",
@@ -713,6 +914,21 @@ def check_manifest(
         ):
             if expected[name] != manifest[name]:
                 raise ValueError(f"Candidate {name} differs from the sealed manifest")
+        current = _repo_state(repo_root)
+        reproduction_status = "unavailable"
+        if current == {"commit": candidate["analyzed_commit"], "dirty": False}:
+            _require_independent_reproduction(candidate, staged, repo_root)
+            reproduction_status = "passed"
+        checked = dict(manifest)
+        checked["_check"] = {
+            "independent_reproduction": reproduction_status,
+            "reason": (
+                None
+                if reproduction_status == "passed"
+                else "current checkout is not the clean analyzed commit"
+            ),
+        }
+        return checked
     return manifest
 
 
@@ -762,13 +978,16 @@ def cli(argv: list[str] | None = None) -> int:
     """Run the manifest CLI from the repository containing this script."""
     args = _parser().parse_args(argv)
     repo_root = Path(__file__).resolve().parents[1]
+    output: dict[str, Any] = {"status": "ok", "command": args.command}
     if args.command == "seal":
         seal_candidate(args.artifact_dir, repo_root, status=args.status)
     elif args.command == "finalize":
         finalize_manifest(args.backup_video, repo_root)
     else:
-        check_manifest(repo_root, candidate_dir=args.candidate_dir)
-    print(json.dumps({"status": "ok", "command": args.command}, sort_keys=True))
+        checked = check_manifest(repo_root, candidate_dir=args.candidate_dir)
+        if "_check" in checked:
+            output["candidate_check"] = checked["_check"]
+    print(json.dumps(output, sort_keys=True))
     return 0
 
 
