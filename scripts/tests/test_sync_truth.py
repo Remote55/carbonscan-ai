@@ -267,6 +267,17 @@ def test_ml_ci_does_not_swallow_test_failures():
     assert "ruff check pipeline/ photogrammetry/ training/" in workflow
 
 
+def test_ml_ci_checkout_fetches_full_provenance_history():
+    workflow = Path(".github/workflows/ci-ml.yml").read_text(encoding="utf-8")
+    checkout_step = re.search(
+        r"(?ms)^\s+- name: Checkout\s*$.*?(?=^\s+- name: Setup Python\s*$)",
+        workflow,
+    )
+
+    assert checkout_step is not None
+    assert re.search(r"(?m)^\s+fetch-depth:\s*0\s*$", checkout_step.group())
+
+
 def test_current_claim_documents_share_exact_evidence():
     texts = {path: path.read_text(encoding="utf-8") for path in CURRENT_CLAIM_DOCS}
     combined = "\n".join(texts.values())

@@ -399,7 +399,7 @@ def _refresh_segmentation(segmentation: dict[str, object]) -> None:
     per_tree = segmentation["per_tree"]
     records = list(per_tree.values())
     segmentation["macro"] = {
-        key: sum(record[key] for record in records) / len(records)
+        key: math.fsum(record[key] for record in records) / len(records)
         for key in ("wood_iou", "leaf_iou", "mean_iou", "accuracy")
     }
     totals = {
@@ -407,6 +407,34 @@ def _refresh_segmentation(segmentation: dict[str, object]) -> None:
         for key in ("wood_as_wood", "wood_as_leaf", "leaf_as_wood", "leaf_as_leaf")
     }
     segmentation["pooled"] = _metrics(totals)
+
+
+def test_refresh_segmentation_uses_reproducible_float_aggregation(monkeypatch):
+    record = {
+        "wood_iou": 0.1,
+        "leaf_iou": 0.1,
+        "mean_iou": 0.1,
+        "accuracy": 0.1,
+        "confusion": {
+            "wood_as_wood": 1,
+            "wood_as_leaf": 0,
+            "leaf_as_wood": 0,
+            "leaf_as_leaf": 1,
+        },
+    }
+    segmentation = {
+        "per_tree": {f"tree-{index:02d}": copy.deepcopy(record) for index in range(10)}
+    }
+    monkeypatch.setattr(sys.modules[__name__], "sum", _naive_sum, raising=False)
+
+    _refresh_segmentation(segmentation)
+
+    assert segmentation["macro"] == {
+        "wood_iou": 0.1,
+        "leaf_iou": 0.1,
+        "mean_iou": 0.1,
+        "accuracy": 0.1,
+    }
 
 
 def _rehash_result(result: dict[str, object], evidence: Path, evaluation: str) -> None:
