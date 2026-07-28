@@ -736,13 +736,25 @@ def test_staged_json_and_report_corruption_prevent_publication(
 
 
 def test_default_pipeline_file_and_tlsep_default_are_unchanged():
+    """Tripwire: the measurement path must not drift while PointNet is unpromoted.
+
+    Update the pin only after confirming the change leaves the default backend
+    and the measurement algorithms alone, and record why here.
+
+    History:
+    - 8360851: baseline at the time of the independent evaluation.
+    - c4a78ab: pipeline 0.4.0 reports excluded segments instead of dropping them
+      silently. It adds ExcludedSegment/PipelineDiagnostics, the detected/
+      measured/excluded counts and pipeline_result_to_dict. No QSM, allometric
+      or DBH/height computation was touched, and tlsep stays the default.
+    """
     import pipeline.main as pipeline_main
 
     main_path = Path(pipeline_main.__file__).resolve()
     normalized_main_bytes = main_path.read_bytes().replace(b"\r\n", b"\n")
     assert (
         hashlib.sha256(normalized_main_bytes).hexdigest()
-        == "83608517a332d182f39c6bedaac22edfae474ef9fdd090609803cc5e61f69379"
+        == "c4a78abb9d08e919e5c0ced8f1226c7d5476c5adfc57a5ad950f5987115602b0"
     )
     assert (
         inspect.signature(pipeline_main.process_points).parameters["wood_leaf_backend"].default
