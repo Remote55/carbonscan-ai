@@ -63,7 +63,9 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-mock>=3.14.0",
     "httpx>=0.27.0",
-    "ruff>=0.4.0",
+    # Pinned: an unpinned ruff lets a new release add rules and turn CI red with
+    # no code change. Keep this frozen through the competition; bump deliberately.
+    "ruff==0.16.0",
     "black>=24.4.0",
     "mypy>=1.10.0",
     "ipython>=8.24.0",

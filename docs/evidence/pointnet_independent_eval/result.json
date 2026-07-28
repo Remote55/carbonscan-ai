@@ -1,0 +1,389 @@
+{
+  "baseline": {
+    "downstream": {
+      "dbh_mae_cm": 1.1339476465903928,
+      "height_mae_m": 0.5433234000000015,
+      "measurable_trees": 65,
+      "volume_mape_pct": 18.928262273343613
+    },
+    "external_segmentation": {
+      "macro": {
+        "accuracy": 0.4722710513680526,
+        "leaf_iou": 0.39384645177433714,
+        "mean_iou": 0.2948622237299912,
+        "wood_iou": 0.1958779956856453
+      },
+      "per_tree": {
+        "15_avec_feuilles_space0.03_man": {
+          "accuracy": 0.4612459077055912,
+          "confusion": {
+            "leaf_as_leaf": 232783,
+            "leaf_as_wood": 301573,
+            "wood_as_leaf": 12908,
+            "wood_as_wood": 36455
+          },
+          "leaf_iou": 0.4253577797918372,
+          "mean_iou": 0.26461855980724147,
+          "wood_iou": 0.10387933982264573
+        },
+        "1_avec_feuilles_man": {
+          "accuracy": 0.5703217555196554,
+          "confusion": {
+            "leaf_as_leaf": 61639,
+            "leaf_as_wood": 56663,
+            "wood_as_leaf": 7170,
+            "wood_as_wood": 23088
+          },
+          "leaf_iou": 0.49125701351695994,
+          "mean_iou": 0.3784387597468257,
+          "wood_iou": 0.26562050597669146
+        },
+        "63_avec_feuilles_sor_space0.05_man": {
+          "accuracy": 0.455043073280741,
+          "confusion": {
+            "leaf_as_leaf": 152610,
+            "leaf_as_wood": 235466,
+            "wood_as_leaf": 16812,
+            "wood_as_wood": 58044
+          },
+          "leaf_iou": 0.37691904921854935,
+          "mean_iou": 0.28198173702089874,
+          "wood_iou": 0.18704442482324812
+        },
+        "66_avec_feuilles_space0.02_man": {
+          "accuracy": 0.5181261898609033,
+          "confusion": {
+            "leaf_as_leaf": 328173,
+            "leaf_as_wood": 371138,
+            "wood_as_leaf": 35364,
+            "wood_as_wood": 108911
+          },
+          "leaf_iou": 0.44669139415387754,
+          "mean_iou": 0.3289998035895801,
+          "wood_iou": 0.21130821302528263
+        },
+        "AcePse_KA09_T049_2019-08-20_q2_TLS-on_divi50_sor_trans_man": {
+          "accuracy": 0.5726608190743754,
+          "confusion": {
+            "leaf_as_leaf": 157659,
+            "leaf_as_wood": 157963,
+            "wood_as_leaf": 15138,
+            "wood_as_wood": 74307
+          },
+          "leaf_iou": 0.4766567904220583,
+          "mean_iou": 0.38849936785540606,
+          "wood_iou": 0.3003419452887538
+        },
+        "Cinnamomum camphor_SOR_space0.005_manual": {
+          "accuracy": 0.3951648426642843,
+          "confusion": {
+            "leaf_as_leaf": 197049,
+            "leaf_as_wood": 369614,
+            "wood_as_leaf": 20345,
+            "wood_as_wood": 57728
+          },
+          "leaf_iou": 0.3356836704099433,
+          "mean_iou": 0.23231545181657753,
+          "wood_iou": 0.12894723322321175
+        },
+        "Magnolia grandiflora_SOR_space0.005_manual": {
+          "accuracy": 0.47824524802967083,
+          "confusion": {
+            "leaf_as_leaf": 218056,
+            "leaf_as_wood": 291989,
+            "wood_as_leaf": 23130,
+            "wood_as_wood": 70785
+          },
+          "leaf_iou": 0.4089764148731655,
+          "mean_iou": 0.2962014314508454,
+          "wood_iou": 0.18342644802852523
+        },
+        "PicAbi_KA09_T035_2019-08-20_q2_TLS-on_divi50_sor_space0.02_man": {
+          "accuracy": 0.3769888494135156,
+          "confusion": {
+            "leaf_as_leaf": 58246,
+            "leaf_as_wood": 197233,
+            "wood_as_leaf": 17932,
+            "wood_as_wood": 71952
+          },
+          "leaf_iou": 0.2130345889521636,
+          "mean_iou": 0.23181813002395948,
+          "wood_iou": 0.2506016710957554
+        },
+        "PinSyl_KA09_T048_2019-08-20_q1_TLS-on_divi50_sor_space0.02_trans_man": {
+          "accuracy": 0.3971897316849512,
+          "confusion": {
+            "leaf_as_leaf": 172644,
+            "leaf_as_wood": 316839,
+            "wood_as_leaf": 26966,
+            "wood_as_wood": 53888
+          },
+          "leaf_iou": 0.33429051077647554,
+          "mean_iou": 0.23489600785307874,
+          "wood_iou": 0.13550150492968194
+        },
+        "QueRub_KA09_T053_2019-08-20_q1_TLS-on_divi50_sor_space0.01_trans_man": {
+          "accuracy": 0.49772409644683724,
+          "confusion": {
+            "leaf_as_leaf": 126406,
+            "leaf_as_wood": 162833,
+            "wood_as_leaf": 5004,
+            "wood_as_wood": 39910
+          },
+          "leaf_iou": 0.4295973056283412,
+          "mean_iou": 0.31085298813549894,
+          "wood_iou": 0.1921086706426567
+        }
+      },
+      "pooled": {
+        "accuracy": 0.465427110199006,
+        "confusion": {
+          "leaf_as_leaf": 1705265,
+          "leaf_as_wood": 2461311,
+          "wood_as_leaf": 180769,
+          "wood_as_wood": 595068
+        },
+        "leaf_iou": 0.3922543529441533,
+        "mean_iou": 0.28803956354860205,
+        "wood_iou": 0.18382477415305076
+      }
+    }
+  },
+  "candidate": {
+    "downstream": {
+      "dbh_mae_cm": 1.1591405814498605,
+      "height_mae_m": 0.9508502244897976,
+      "measurable_trees": 49,
+      "volume_mape_pct": 21.74924193798788
+    },
+    "external_segmentation": {
+      "macro": {
+        "accuracy": 0.8018531951466719,
+        "leaf_iou": 0.788133971019304,
+        "mean_iou": 0.5127106180471609,
+        "wood_iou": 0.23728726507501768
+      },
+      "per_tree": {
+        "15_avec_feuilles_space0.03_man": {
+          "accuracy": 0.9398032272377633,
+          "confusion": {
+            "leaf_as_leaf": 526946,
+            "leaf_as_wood": 7410,
+            "wood_as_leaf": 27728,
+            "wood_as_wood": 21635
+          },
+          "leaf_iou": 0.9374862120252488,
+          "mean_iou": 0.6592826230365618,
+          "wood_iou": 0.38107903404787485
+        },
+        "1_avec_feuilles_man": {
+          "accuracy": 0.7994345718901454,
+          "confusion": {
+            "leaf_as_leaf": 103234,
+            "leaf_as_wood": 15068,
+            "wood_as_leaf": 14728,
+            "wood_as_wood": 15530
+          },
+          "leaf_iou": 0.7760204465158235,
+          "mean_iou": 0.5593247005998347,
+          "wood_iou": 0.3426289546838459
+        },
+        "63_avec_feuilles_sor_space0.05_man": {
+          "accuracy": 0.8956758227990288,
+          "confusion": {
+            "leaf_as_leaf": 385435,
+            "leaf_as_wood": 2641,
+            "wood_as_leaf": 45654,
+            "wood_as_wood": 29202
+          },
+          "leaf_iou": 0.8886519263136052,
+          "mean_iou": 0.6327332563423453,
+          "wood_iou": 0.37681458637108534
+        },
+        "66_avec_feuilles_space0.02_man": {
+          "accuracy": 0.8422389655589353,
+          "confusion": {
+            "leaf_as_leaf": 627593,
+            "leaf_as_wood": 71718,
+            "wood_as_leaf": 61367,
+            "wood_as_wood": 82908
+          },
+          "leaf_iou": 0.8250442368518611,
+          "mean_iou": 0.6044450048157672,
+          "wood_iou": 0.3838457727796734
+        },
+        "AcePse_KA09_T049_2019-08-20_q2_TLS-on_divi50_sor_trans_man": {
+          "accuracy": 0.78738332177146,
+          "confusion": {
+            "leaf_as_leaf": 308835,
+            "leaf_as_wood": 6787,
+            "wood_as_leaf": 79337,
+            "wood_as_wood": 10108
+          },
+          "leaf_iou": 0.7819419230856873,
+          "mean_iou": 0.44348987417065977,
+          "wood_iou": 0.10503782525563223
+        },
+        "Cinnamomum camphor_SOR_space0.005_manual": {
+          "accuracy": 0.7859821694460989,
+          "confusion": {
+            "leaf_as_leaf": 476932,
+            "leaf_as_wood": 89731,
+            "wood_as_leaf": 48254,
+            "wood_as_wood": 29819
+          },
+          "leaf_iou": 0.7756038619846256,
+          "mean_iou": 0.4766526139319328,
+          "wood_iou": 0.17770136587924007
+        },
+        "Magnolia grandiflora_SOR_space0.005_manual": {
+          "accuracy": 0.6521259686071925,
+          "confusion": {
+            "leaf_as_leaf": 348567,
+            "leaf_as_wood": 161478,
+            "wood_as_leaf": 48624,
+            "wood_as_wood": 45291
+          },
+          "leaf_iou": 0.6239240050906708,
+          "mean_iou": 0.40063122997130246,
+          "wood_iou": 0.17733845485193409
+        },
+        "PicAbi_KA09_T035_2019-08-20_q2_TLS-on_divi50_sor_space0.02_man": {
+          "accuracy": 0.6947472659202057,
+          "confusion": {
+            "leaf_as_leaf": 202968,
+            "leaf_as_wood": 52511,
+            "wood_as_leaf": 52912,
+            "wood_as_wood": 36972
+          },
+          "leaf_iou": 0.6581515024757532,
+          "mean_iou": 0.4588977253240453,
+          "wood_iou": 0.2596439481723375
+        },
+        "PinSyl_KA09_T048_2019-08-20_q1_TLS-on_divi50_sor_space0.02_trans_man": {
+          "accuracy": 0.8006003468124986,
+          "confusion": {
+            "leaf_as_leaf": 454266,
+            "leaf_as_wood": 35217,
+            "wood_as_leaf": 78508,
+            "wood_as_wood": 2346
+          },
+          "leaf_iou": 0.7997767570260796,
+          "mean_iou": 0.40999426198091726,
+          "wood_iou": 0.02021176693575484
+        },
+        "QueRub_KA09_T053_2019-08-20_q1_TLS-on_divi50_sor_space0.01_trans_man": {
+          "accuracy": 0.8205402914233899,
+          "confusion": {
+            "leaf_as_leaf": 263722,
+            "leaf_as_wood": 25517,
+            "wood_as_leaf": 34450,
+            "wood_as_wood": 10464
+          },
+          "leaf_iou": 0.8147388388236857,
+          "mean_iou": 0.4816548902982423,
+          "wood_iou": 0.14857094177279892
+        }
+      },
+      "pooled": {
+        "accuracy": 0.8058357324650934,
+        "confusion": {
+          "leaf_as_leaf": 3698498,
+          "leaf_as_wood": 468078,
+          "wood_as_leaf": 491562,
+          "wood_as_wood": 284275
+        },
+        "leaf_iou": 0.7939863524867662,
+        "mean_iou": 0.5112594243391131,
+        "wood_iou": 0.22853249619146002
+      }
+    }
+  },
+  "checkpoint_sha256": "9a21f8ee167d7511a55e5b2c835fab5b6d3ac95b0027340900982eff68a675f1",
+  "confidence_intervals": {
+    "dbh_abs_error_delta": {
+      "estimate": 0.03413998317115112,
+      "lower": -0.6826728936304942,
+      "upper": 0.5311570882957047
+    },
+    "height_abs_error_delta": {
+      "estimate": 0.4087914285714283,
+      "lower": 0.14933392857142722,
+      "upper": 0.7471825918367331
+    },
+    "volume_ape_delta": {
+      "estimate": 3.4630320709342732,
+      "lower": -0.24560393615757425,
+      "upper": 6.7235818992751195
+    },
+    "wood_iou_delta": {
+      "estimate": 0.041409269389372436,
+      "lower": -0.043984823986107494,
+      "upper": 0.12596225793244115
+    }
+  },
+  "evaluation_git_commit": "c498739a1c5881c2ecd653faf8c959f9391b4d3c",
+  "experiment_id": "pointnet-independent-eval-2026-07-16",
+  "external_manifest_sha256": "35aec2f4f2cdf954a041e4589550810788437108edfdf2ba1277494b0764aa02",
+  "formal_gate": {
+    "baseline": {
+      "dbh_mae_cm": 1.1339476465903928,
+      "height_mae_m": 0.5433234000000015,
+      "measurable_trees": 65,
+      "volume_mape_pct": 18.928262273343613,
+      "wood_iou": 0.1958779956856453
+    },
+    "candidate": {
+      "dbh_mae_cm": 1.1591405814498605,
+      "height_mae_m": 0.9508502244897976,
+      "measurable_trees": 49,
+      "volume_mape_pct": 21.74924193798788,
+      "wood_iou": 0.23728726507501768
+    },
+    "failed_criteria": [
+      "dbh_mae_non_regression",
+      "height_mae_non_regression",
+      "volume_mape_non_regression",
+      "measurable_tree_count"
+    ],
+    "promote": false,
+    "status": "rejected"
+  },
+  "freeze_manifest_sha256": "c52f99deef1122ba10a6ee91a62aafee5c425fd34d04541c4b01452ce9dcc370",
+  "limitations": [
+    "Cohort A contains only 10 individual non-Thai TLS trees, so confidence intervals may be wide.",
+    "Wan development data is not an independent final test.",
+    "Demol is a locked reused benchmark, not a newly blind cohort.",
+    "Downstream evidence validates only DBH, height, and taper-volume measurements.",
+    "This evaluation does not validate species classification, allometric carbon, carbon credits, or deployment.",
+    "This result does not automatically change the production default."
+  ],
+  "paired_deltas": {
+    "dbh_abs_error_delta": {
+      "estimate": 0.03413998317115112,
+      "name": "DBH absolute-error candidate-minus-baseline",
+      "unit": "cm"
+    },
+    "height_abs_error_delta": {
+      "estimate": 0.4087914285714283,
+      "name": "Height absolute-error candidate-minus-baseline",
+      "unit": "m"
+    },
+    "volume_ape_delta": {
+      "estimate": 3.4630320709342732,
+      "name": "Volume APE candidate-minus-baseline",
+      "unit": "percent"
+    },
+    "wood_iou_delta": {
+      "estimate": 0.041409269389372436,
+      "name": "Wood IoU candidate-minus-baseline",
+      "unit": "proportion"
+    }
+  },
+  "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+  "schema_version": "1",
+  "verdict": {
+    "promote": false,
+    "verdict": "FAIL_METRICS"
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "environment": {
+    "cuda_version": "12.8",
+    "cudnn_version": 90701,
+    "device_type": "cuda",
+    "gpu_count": 1,
+    "gpu_names": [
+      "NVIDIA GeForce RTX 4060 Laptop GPU"
+    ],
+    "numpy_version": "2.4.4",
+    "python_version": "3.12.13",
+    "pytorch_version": "2.7.1+cu128"
+  },
+  "experiment_id": "pointnet-independent-eval-2026-07-16",
+  "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+  "reproducible": true,
+  "rerun": {
+    "best_epoch": 33,
+    "best_macro_tile_wood_iou": 0.472762987948273,
+    "checkpoint_file": "seed-20260717-rerun.pt",
+    "checkpoint_sha256": "d23ff210d3646522cc706fd6758a4d8a4584545793c44684e31d1627b1ee1620",
+    "dev_metrics": {
+      "accuracy": 0.7788982780612245,
+      "leaf_iou": 0.7608458993069402,
+      "mean_iou": 0.5076782666578044,
+      "wood_iou": 0.25451063400866847
+    },
+    "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+    "seed": 20260717,
+    "state_dict_sha256": "be4202449770a2797f4ff2f2003f47e1c80bae99085584127e6c314494dee017",
+    "training_git_commit": "a336d06356c09d9c12864f399f2a6b5c02a8b040",
+    "wan_manifest_sha256": "e5a6b7c778d730d761aa114fd68d8b6a524d4d57ff7e54c8d5b3a789f159c2ab"
+  },
+  "runs": [
+    {
+      "best_epoch": 19,
+      "best_macro_tile_wood_iou": 0.4337664896410397,
+      "checkpoint_file": "seed-20260716.pt",
+      "checkpoint_sha256": "9c32da4021a2ba09597355f690f9e8439a95f3473038b512a29fe8ea903e7fbe",
+      "dev_metrics": {
+        "accuracy": 0.7549724968112245,
+        "leaf_iou": 0.7503629478471863,
+        "mean_iou": 0.41022042710413925,
+        "wood_iou": 0.07007790636109221
+      },
+      "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+      "seed": 20260716,
+      "state_dict_sha256": "06143c2be028a42862db2001a56da2850bcc5c2a4a947310ba8703ccf133fa02",
+      "training_git_commit": "a336d06356c09d9c12864f399f2a6b5c02a8b040",
+      "wan_manifest_sha256": "e5a6b7c778d730d761aa114fd68d8b6a524d4d57ff7e54c8d5b3a789f159c2ab"
+    },
+    {
+      "best_epoch": 33,
+      "best_macro_tile_wood_iou": 0.472762987948273,
+      "checkpoint_file": "seed-20260717.pt",
+      "checkpoint_sha256": "9a21f8ee167d7511a55e5b2c835fab5b6d3ac95b0027340900982eff68a675f1",
+      "dev_metrics": {
+        "accuracy": 0.7788982780612245,
+        "leaf_iou": 0.7608458993069402,
+        "mean_iou": 0.5076782666578044,
+        "wood_iou": 0.25451063400866847
+      },
+      "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+      "seed": 20260717,
+      "state_dict_sha256": "be4202449770a2797f4ff2f2003f47e1c80bae99085584127e6c314494dee017",
+      "training_git_commit": "a336d06356c09d9c12864f399f2a6b5c02a8b040",
+      "wan_manifest_sha256": "e5a6b7c778d730d761aa114fd68d8b6a524d4d57ff7e54c8d5b3a789f159c2ab"
+    },
+    {
+      "best_epoch": 56,
+      "best_macro_tile_wood_iou": 0.4713750544647501,
+      "checkpoint_file": "seed-20260718.pt",
+      "checkpoint_sha256": "ae0ec77e2d12fc9d12ffa73d13e371d7cf91ba79d3ed2190786cf30edbecf29b",
+      "dev_metrics": {
+        "accuracy": 0.8187579719387755,
+        "leaf_iou": 0.7950001127116161,
+        "mean_iou": 0.5925164893828387,
+        "wood_iou": 0.3900328660540613
+      },
+      "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+      "seed": 20260718,
+      "state_dict_sha256": "e7f5f47033570cd87887bdc244b8a403850c344620794fc8c43658802b54c4ca",
+      "training_git_commit": "a336d06356c09d9c12864f399f2a6b5c02a8b040",
+      "wan_manifest_sha256": "e5a6b7c778d730d761aa114fd68d8b6a524d4d57ff7e54c8d5b3a789f159c2ab"
+    }
+  ],
+  "schema_version": "1",
+  "training_command": [
+    "python",
+    "-m",
+    "scripts.pointnet_evidence",
+    "train",
+    "--protocol",
+    "protocol.json",
+    "--wan-manifest",
+    "wan_split_manifest.json",
+    "--artifact-dir",
+    "pointnet_evidence",
+    "--repo-root",
+    "."
+  ],
+  "training_git_commit": "a336d06356c09d9c12864f399f2a6b5c02a8b040",
+  "wan_manifest_sha256": "e5a6b7c778d730d761aa114fd68d8b6a524d4d57ff7e54c8d5b3a789f159c2ab",
+  "winner": {
+    "best_epoch": 33,
+    "best_macro_tile_wood_iou": 0.472762987948273,
+    "checkpoint_file": "winner.pt",
+    "checkpoint_sha256": "9a21f8ee167d7511a55e5b2c835fab5b6d3ac95b0027340900982eff68a675f1",
+    "dev_metrics": {
+      "accuracy": 0.7788982780612245,
+      "leaf_iou": 0.7608458993069402,
+      "mean_iou": 0.5076782666578044,
+      "wood_iou": 0.25451063400866847
+    },
+    "protocol_sha256": "b76498903feaf4c340a4e28564db00b1eebc144ed9400f62bd6f931dc3979069",
+    "seed": 20260717,
+    "state_dict_sha256": "be4202449770a2797f4ff2f2003f47e1c80bae99085584127e6c314494dee017",
+    "training_git_commit": "a336d06356c09d9c12864f399f2a6b5c02a8b040",
+    "wan_manifest_sha256": "e5a6b7c778d730d761aa114fd68d8b6a524d4d57ff7e54c8d5b3a789f159c2ab"
+  }
+}

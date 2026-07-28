@@ -11,9 +11,11 @@
 ### Verified truth snapshot (generated)
 
 - Baseline: `tlsep` — **Implemented**.
-- PointNet++: **Experimental**, not promoted; no verified independent final-test gate.
+- PointNet++: **Experimental**, not promoted; reviewed evidence never changes the default automatically.
 - Wan 2021 held-out: Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`, accuracy `0.831`. The held-out loader was also used for best-epoch selection.
 - Demol isolated-tree validation (65 trees): DBH MAE `1.1673846154 cm`; Volume MAPE `18.7650916186%`. This is not an eight-stage or carbon validation.
+- Independent PointNet review: verdict `FAIL_METRICS`; candidate/baseline external macro Wood IoU `0.23728726507501768`/`0.1958779956856453`.
+- Independent downstream candidate/baseline: DBH MAE `1.1591405814498605`/`1.1339476465903928` cm; Height MAE `0.9508502244897976`/`0.5433234000000015` m; Volume MAPE `21.74924193798788`/`18.928262273343613`%; measurable trees `49`/`65`.
 - Deterministic core demo: `3` trees, `1320.39 kg C`, `4841.48 kg CO2e`; analyzed commit `b6fe198f3de5` with a clean worktree.
 - Species classification: **Stub**. Carbon stock/CO2e estimates are not certified credits.
 <!-- TREEQ_TRUTH_END -->
@@ -347,7 +349,8 @@ CO₂eq   = Carbon × 44/12
 **⚠️ กำลังทำ / ค้าง:**
 - Rebrand core surface แล้ว; เหลือ mobile/legacy docs/proposal/assets/GitHub repo name
 - Species classifier (ขั้น 7): ยังเป็น stub — ต้องเทรน ResNet จริง (หลัง proposal)
-- PointNet++ evidence: independent final split + checkpoint/training provenance + downstream non-regression
+- PointNet++ reviewed evidence: `FAIL_METRICS`; external Wood IoU point estimate ดีขึ้น แต่ CI คร่อมศูนย์
+  และ DBH/height/volume/measurable-tree formal criteria ไม่ผ่าน จึงไม่ promote
 - Dataset: research + verify open wood/leaf dataset เพิ่มตามอาจารย์
 - Deploy API+worker จริง (RunPod/Railway) — ตอนนี้ยังใช้ tunnel
 - verify allometric coefficients กับ TGO Guideline 2017 ตัวจริง
@@ -385,8 +388,10 @@ CO₂eq   = Carbon × 44/12
 
 ## 20. Roadmap (หลัง Proposal)
 
-1. สร้าง independent real-data gate เปรียบเทียบ `tlsep` กับ PointNet++ รวม downstream metrics
-2. เพิ่มและ verify open wood/leaf dataset พร้อม checkpoint/training provenance
+1. ปรับ PointNet++ candidate โดยห้ามใช้ Cohort A ปัจจุบันหรือ Demol เพื่อ train, tune หรือ model selection;
+   freeze candidate/protocol ก่อนเปิดผล และใช้ independent final cohort/split ใหม่ที่ไม่เคยเปิดผลเป็น decisive gate รอบถัดไป
+2. เพิ่มและ verify open wood/leaf training data พร้อม checkpoint/training provenance ชุดใหม่;
+   ผล Cohort A + Demol ปัจจุบันคงเป็น immutable historical evidence เท่านั้น
 3. verify `species_db.csv` กับ TGO 2017 ต้นฉบับ
 4. Deploy API+worker บน storage ที่ทั้งสอง process เข้าถึงได้ (เลิกพึ่ง tunnel)
 5. ปิด reviewed mobile E2E และค่อยเทรน species classifier

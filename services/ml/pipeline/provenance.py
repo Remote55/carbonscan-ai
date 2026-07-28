@@ -28,9 +28,39 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def sha256_file(path: str | Path) -> str:
-    """Hash a file without interpreting its contents."""
-    return sha256_bytes(Path(path).read_bytes())
+def sha256_file(path: str | Path, chunk_size: int = 1024 * 1024) -> str:
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        while chunk := stream.read(chunk_size):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def sha256_ndarray(array: np.ndarray, dtype: str) -> str:
+    stable = np.asarray(array, dtype=np.dtype(dtype), order="C")
+    header = json.dumps(
+        {"dtype": stable.dtype.str, "shape": list(stable.shape)},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    digest = hashlib.sha256()
+    digest.update(header)
+    digest.update(b"\0")
+    digest.update(stable.tobytes(order="C"))
+    return digest.hexdigest()
+
+
+def write_canonical_json(path: str | Path, payload: dict[str, Any]) -> None:
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        indent=2,
+        ensure_ascii=False,
+        allow_nan=False,
+    ) + "\n"
+    Path(path).write_text(encoded, encoding="utf-8", newline="\n")
 
 
 def hash_points(points: np.ndarray) -> str:
