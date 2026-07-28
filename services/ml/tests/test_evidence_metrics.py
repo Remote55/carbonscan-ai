@@ -9,11 +9,10 @@ import numpy as np
 import pytest
 
 import pipeline.evidence_metrics as evidence_metrics
-from pipeline.evidence_metrics import (
-    aggregate_segmentation_metrics,
-    paired_percentile_ci,
-    segmentation_metrics,
-)
+
+aggregate_segmentation_metrics = evidence_metrics.aggregate_segmentation_metrics
+paired_percentile_ci = evidence_metrics.paired_percentile_ci
+segmentation_metrics = evidence_metrics.segmentation_metrics
 
 ROOT = Path(__file__).resolve().parents[3]
 
