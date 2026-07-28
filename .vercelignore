@@ -3,6 +3,14 @@
 # deploy dies with "EPERM: operation not permitted, scandir", which leaves the
 # NEXT_PUBLIC_API_URL change unbuilt and the site pointing at a stale tunnel.
 
+# Local env files. These are gitignored, but Vercel does not read .gitignore, so
+# without this they are uploaded and Next.js loads them during the build instead
+# of the project's own environment. That is how NEXT_PUBLIC_API_URL went missing
+# from a build whose environment was set correctly.
+.env
+.env.*
+!.env.example
+
 # Local git worktrees: full second checkouts, each with node_modules and caches.
 .worktrees
 
