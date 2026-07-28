@@ -12,6 +12,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 type CookieSetItem = { name: string; value: string; options: CookieOptions };
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  if (pathname === '/demo' || pathname.startsWith('/demo/')) {
+    return NextResponse.next({ request });
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -58,8 +63,8 @@ export async function middleware(request: NextRequest) {
 
   // Protect /dashboard/* routes — redirect unauthenticated users to /login
   const url = request.nextUrl;
-  const isProtected = url.pathname.startsWith('/dashboard');
-  const isAuthPage = url.pathname.startsWith('/login') || url.pathname.startsWith('/signup');
+  const isProtected = pathname.startsWith('/dashboard');
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
 
   if (isProtected && !user) {
     const redirectUrl = url.clone();

@@ -6,6 +6,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   reactStrictMode: true,
   swcMinify: true,
   poweredByHeader: false,
@@ -30,7 +31,7 @@ const nextConfig = {
   // Experimental features
   experimental: {
     serverActions: {
-      bodySizeLimit: '500mb', // for large LAS file uploads
+      bodySizeLimit: '100mb', // for large LAS file uploads
     },
   },
 
@@ -54,6 +55,14 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
+        ],
+      },
+      {
+        source: '/demo/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Cache-Control', value: 'no-store' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
         ],
       },
     ];

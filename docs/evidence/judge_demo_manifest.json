@@ -1,0 +1,49 @@
+{
+  "analyzed_commit": "32bbfebcc14f43c5443e07323845f5e659dd7795",
+  "artifacts": {
+    "input": {
+      "path": "/demo/input.ply",
+      "sha256": "60bc3d3c736a3d3b5b683e3a1d58aad4c00c217bcbf1ed0d22dd09d10cfdff92",
+      "size_bytes": 1741642
+    },
+    "result": {
+      "path": "/demo/result.json",
+      "sha256": "6c1171aa66bd11296228c4ac8c578c478a1153a8d69c95f243fa6ef5227d44f0",
+      "size_bytes": 2425
+    },
+    "segmented": {
+      "path": "/demo/segmented.ply",
+      "sha256": "8e6f98fca831cc01079c482c00b25272fd67bfaaa448c5353c93511874d47405",
+      "size_bytes": 1886824
+    }
+  },
+  "git_dirty": false,
+  "pipeline": {
+    "backend": "tlsep",
+    "dataset_scope": {
+      "dataset": "deterministic_synthetic_plot_seed_42",
+      "scope": "deterministic_fixture_not_accuracy_or_credit_validation"
+    },
+    "species": "stub",
+    "version": "0.3.0"
+  },
+  "release": {
+    "backup_video": null,
+    "status": "candidate"
+  },
+  "result": {
+    "total_carbon_kg": 1289.74,
+    "total_co2eq_kg": 4729.06,
+    "total_trees": 3
+  },
+  "schema_version": 1,
+  "source": {
+    "core_manifest_path": "docs/evidence/core_demo_manifest.json",
+    "core_manifest_sha256": "744d4002afd4181415185fd82a45a63193dc2bc222e47cf2b5999587a08da932"
+  },
+  "viewer": {
+    "original": true,
+    "qsm": false,
+    "wood_leaf": true
+  }
+}

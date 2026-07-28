@@ -12,11 +12,12 @@ from uuid import UUID
 from fastapi import APIRouter, File, UploadFile, status
 
 from app.api.deps import CurrentUser, JobStoreDep
+from app.core.config import settings
 from app.core.exceptions import ForbiddenError, NotFoundError
 from app.schemas.job import JobCreated, JobDetail
 from app.services.job_input import save_job_input
 from app.services.job_store import JobRecord
-from app.services.upload_validation import validate_upload
+from app.services.upload_validation import read_upload_limited, validate_upload
 
 router = APIRouter()
 
@@ -43,7 +44,12 @@ async def submit_analyze_job(
     file: UploadFile = File(...),
 ) -> JobCreated:
     """Accept an upload, enqueue a pipeline job, return immediately."""
-    data = await file.read()
+    max_bytes = (
+        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES
+        if settings.TREEQ_DEMO_MODE
+        else settings.MAX_UPLOAD_SIZE_BYTES
+    )
+    data = await read_upload_limited(file, max_bytes)
     ext = validate_upload(file.filename, data)
     input_path = save_job_input(data, ext)
     rec = await store.create(
