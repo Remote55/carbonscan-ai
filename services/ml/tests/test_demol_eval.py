@@ -11,6 +11,9 @@ import pytest
 
 import pipeline.demol_eval as demol_eval
 
+evaluate_demol_pair = demol_eval.evaluate_demol_pair
+load_demol_cohort = demol_eval.load_demol_cohort
+
 CSV_FIELDS = (
     "tree_name",
     "DBH",
