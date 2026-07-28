@@ -8,6 +8,8 @@ import { consumeRuntimeHandoff } from '../../lib/demo-runtime';
 import { loadFrozenDemo, type FrozenDemoBundle } from '../../lib/frozen-demo';
 import { toResultViewModel } from '../../lib/result-view-model';
 import { ModeBadge } from './mode-badge';
+import { ProvenancePanel } from './provenance-panel';
+import { TreeResultTable } from './tree-result-table';
 
 const initialMode: DemoModeState = { kind: 'booting' };
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
@@ -198,29 +200,20 @@ export function DemoShell({
                         ไม่มี diagnostics จาก run นี้ — จำนวนที่ตรวจพบและที่ไม่รวมผลจึงแสดงไม่ได้
                       </p>
                     )}
+
+                    <div className="mt-8 border-t border-slate-200 pt-6">
+                      <h2 className="text-base font-semibold text-slate-900">ผลรายต้น</h2>
+                      <div className="mt-4">
+                        <TreeResultTable view={view} />
+                      </div>
+                    </div>
                   </>
                 );
               })()}
 
-              <div className="mt-8 grid gap-3 border-t border-slate-200 pt-6 text-sm sm:grid-cols-2">
-                <EvidenceFact
-                  label="Wood/leaf backend"
-                  value={`${frozenLoad.bundle.result.metadata.wood_leaf_backend} · default baseline`}
-                />
-                <EvidenceFact label="PointNet++" value="Experimental · not promoted" />
-                <EvidenceFact label="Species classification" value="Stub" />
-                <EvidenceFact
-                  label="Analyzed commit"
-                  value={frozenLoad.bundle.manifest.analyzed_commit.slice(0, 12)}
-                  mono
-                />
+              <div className="mt-8 border-t border-slate-200 pt-6">
+                <ProvenancePanel manifest={frozenLoad.bundle.manifest} />
               </div>
-
-              <p className="mt-8 rounded-2xl bg-slate-100 p-4 text-sm leading-6 text-slate-700">
-                CO₂e is a biomass-based estimate, not a certified or tradable carbon credit. This
-                deterministic fixture demonstrates reproducibility; it is not an accuracy or credit
-                validation dataset.
-              </p>
             </>
           )}
         </section>
@@ -238,19 +231,3 @@ function EvidenceMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EvidenceFact({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 rounded-xl border border-slate-200 px-4 py-3">
-      <span className="text-slate-500">{label}</span>
-      <span className={`text-right font-semibold ${mono ? 'font-mono text-xs' : ''}`}>{value}</span>
-    </div>
-  );
-}
