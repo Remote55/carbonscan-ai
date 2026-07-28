@@ -12,6 +12,7 @@ from typing import Any
 import click
 
 ML_ROOT = Path(__file__).resolve().parents[1]
+RUNNER_REPO_ROOT = ML_ROOT.parents[1].resolve()
 if str(ML_ROOT) not in sys.path:
     sys.path.insert(0, str(ML_ROOT))
 
@@ -33,7 +34,7 @@ SCOPE = "deterministic_fixture_not_accuracy_or_credit_validation"
 
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
-    encoded = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+    encoded = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False)
     return f"{encoded}\n".encode()
 
 
@@ -45,15 +46,22 @@ def _artifact(filename: str, data: bytes) -> dict[str, Any]:
     return {"filename": filename, "sha256": _sha256(data), "size_bytes": len(data)}
 
 
-def _result_payload(result: Any, repo_root: Path) -> dict[str, Any]:
+def _repo_state(repo_root: Path) -> dict[str, Any]:
+    return {
+        "commit": resolve_git_commit(repo_root),
+        "dirty": git_worktree_dirty(repo_root),
+    }
+
+
+def _result_payload(result: Any, repo_state: dict[str, Any]) -> dict[str, Any]:
     metadata = dict(result.metadata)
     metadata["input_file"] = "input.ply"
-    metadata["git_commit"] = resolve_git_commit(repo_root)
-    metadata["git_dirty"] = git_worktree_dirty(repo_root)
+    metadata["git_commit"] = repo_state["commit"]
+    metadata["git_dirty"] = repo_state["dirty"]
     return {
         "metadata": metadata,
         "summary": result.summary,
-        "diagnostics": {},
+        "diagnostics": {"dataset": DATASET, "scope": SCOPE},
         "trees": [asdict(tree) for tree in result.trees],
     }
 
@@ -62,7 +70,17 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
     """Run the repository fixture twice and publish only identical outputs."""
     output_dir = Path(output_dir)
     repo_root = Path(repo_root).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if repo_root != RUNNER_REPO_ROOT:
+        raise ValueError("repo_root must be the checkout containing the judge runner")
+    if output_dir.exists():
+        if not output_dir.is_dir() or any(output_dir.iterdir()):
+            raise ValueError("Judge demo output directory must be empty")
+    else:
+        output_dir.mkdir(parents=True)
+
+    start_state = _repo_state(repo_root)
+    if start_state["dirty"]:
+        raise ValueError("Judge demo requires a clean repository before analysis")
 
     points, _, _ = generate_synthetic_plot(**DEMO_CONFIG)
     input_path = write_xyz_ply(points, output_dir / "input.ply")
@@ -80,7 +98,7 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
             default_species="Tectona grandis",
             segmented_ply_out=str(segmented_path),
         )
-        payload = _result_payload(result, repo_root)
+        payload = _result_payload(result, start_state)
         payloads.append(payload)
         result_bytes.append(_json_bytes(payload))
         segmented_paths.append(segmented_path)
@@ -96,6 +114,9 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
     }
     if not reproducible:
         raise RuntimeError("Judge demo is not reproducible")
+    end_state = _repo_state(repo_root)
+    if end_state != start_state or end_state["dirty"]:
+        raise RuntimeError("Repository changed during judge demo analysis")
 
     (output_dir / "result.json").write_bytes(result_bytes[0])
     segmented_paths[0].replace(output_dir / "segmented.ply")
@@ -110,6 +131,11 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
         "git_dirty": metadata["git_dirty"],
         "dataset": DATASET,
         "scope": SCOPE,
+        "reproducibility": {
+            "run_count": 2,
+            "result_sha256": result_hashes,
+            "segmented_ply_sha256": segmented_hashes,
+        },
         "pipeline": {
             "version": metadata["pipeline_version"],
             "backend": metadata["wood_leaf_backend"],
@@ -129,12 +155,16 @@ def run_judge_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, A
         },
     }
     (output_dir / "candidate.json").write_bytes(_json_bytes(candidate))
+    published = {path.name for path in output_dir.iterdir()}
+    expected = {"input.ply", "result.json", "segmented.ply", "candidate.json"}
+    if published != expected or not all((output_dir / name).is_file() for name in expected):
+        raise RuntimeError("Judge demo output does not contain exactly four regular files")
     return summary
 
 
 @click.command()
 @click.option("--output-dir", required=True, type=click.Path(path_type=Path))
-@click.option("--repo-root", default="../..", type=click.Path(path_type=Path))
+@click.option("--repo-root", default=RUNNER_REPO_ROOT, type=click.Path(path_type=Path))
 def cli(output_dir: Path, repo_root: Path) -> None:
     """Generate candidate files and print an ASCII-safe verification summary."""
     click.echo(json.dumps(run_judge_demo(output_dir, repo_root), sort_keys=True))

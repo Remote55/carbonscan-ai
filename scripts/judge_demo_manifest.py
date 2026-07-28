@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
+import stat
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -39,18 +41,92 @@ def _is_hex(value: Any, length: int) -> bool:
 
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
-    encoded = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+    encoded = json.dumps(
+        payload, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False
+    )
     return f"{encoded}\n".encode()
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"Non-finite JSON number is not allowed: {value}")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        payload = json.loads(
+            path.read_text(encoding="utf-8"), parse_constant=_reject_json_constant
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"Cannot read valid JSON from {path}") from exc
     if not isinstance(payload, dict):
         raise ValueError(f"Expected a JSON object in {path}")
     return payload
+
+
+def _is_reparse_or_symlink(path: Path) -> bool:
+    try:
+        attributes = getattr(path.lstat(), "st_file_attributes", 0)
+    except OSError:
+        return False
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return path.is_symlink() or bool(attributes & reparse_flag)
+
+
+def _safe_directory(path: str | Path, label: str) -> tuple[Path, Path]:
+    raw = Path(path).absolute()
+    if _is_reparse_or_symlink(raw):
+        raise ValueError(f"{label} cannot be a symlink or reparse point")
+    if not raw.is_dir():
+        raise ValueError(f"{label} must be a directory")
+    return raw, raw.resolve(strict=True)
+
+
+def _safe_regular_file(root: str | Path, filename: str, label: str) -> Path:
+    raw_root, resolved_root = _safe_directory(root, f"{label} directory")
+    path = raw_root / filename
+    if path.parent != raw_root or _is_reparse_or_symlink(path):
+        raise ValueError(f"{label} cannot be a symlink or reparse point")
+    if not path.is_file():
+        raise ValueError(f"{label} must be a regular file")
+    resolved = path.resolve(strict=True)
+    if resolved.parent != resolved_root:
+        raise ValueError(f"{label} resolves outside its allowed directory")
+    return path
+
+
+def _safe_output_file(repo_root: Path, relative_path: Path, label: str) -> Path:
+    resolved_repo = repo_root.resolve(strict=True)
+    current = repo_root.absolute()
+    for part in relative_path.parent.parts:
+        current /= part
+        if current.exists() and _is_reparse_or_symlink(current):
+            raise ValueError(f"{label} parent cannot be a symlink or reparse point")
+    current.mkdir(parents=True, exist_ok=True)
+    if not current.resolve(strict=True).is_relative_to(resolved_repo):
+        raise ValueError(f"{label} parent resolves outside the repository")
+    path = current / relative_path.name
+    if _is_reparse_or_symlink(path) or (path.exists() and not path.is_file()):
+        raise ValueError(
+            f"{label} cannot replace a symlink, reparse point, or non-file"
+        )
+    return path
+
+
+def _positive_integer(value: Any, name: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"Candidate {name} must be a positive integer")
+    return value
+
+
+def _non_negative_finite_number(value: Any, name: str) -> int | float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ValueError(f"Candidate {name} must be a finite non-negative number")
+    return value
 
 
 def validate_candidate(candidate: dict[str, Any]) -> None:
@@ -72,6 +148,30 @@ def validate_candidate(candidate: dict[str, Any]) -> None:
         raise ValueError(
             "Candidate scope does not match the deterministic fixture contract"
         )
+
+    reproducibility = candidate.get("reproducibility")
+    if not isinstance(reproducibility, dict) or set(reproducibility) != {
+        "run_count",
+        "result_sha256",
+        "segmented_ply_sha256",
+    }:
+        raise ValueError("Candidate reproducibility evidence is incomplete")
+    if reproducibility["run_count"] != 2 or isinstance(
+        reproducibility["run_count"], bool
+    ):
+        raise ValueError("Candidate reproducibility must record exactly two runs")
+    for name in ("result_sha256", "segmented_ply_sha256"):
+        hashes = reproducibility[name]
+        if (
+            not isinstance(hashes, list)
+            or len(hashes) != 2
+            or not all(_is_hex(value, 64) for value in hashes)
+            or hashes[0] != hashes[1]
+        ):
+            display = (
+                "two result runs" if name == "result_sha256" else "two segmented runs"
+            )
+            raise ValueError(f"Candidate {display} must have equal SHA-256 identities")
 
     pipeline = candidate.get("pipeline")
     if not isinstance(pipeline, dict) or pipeline.get("backend") != "tlsep":
@@ -97,8 +197,10 @@ def validate_candidate(candidate: dict[str, Any]) -> None:
         key not in result for key in required_result
     ):
         raise ValueError("Candidate result totals are incomplete")
-    if not isinstance(result["total_trees"], int) or result["total_trees"] < 0:
-        raise ValueError("Candidate total_trees must be a non-negative integer")
+    _positive_integer(result["input_points"], "input_points")
+    _positive_integer(result["total_trees"], "total_trees")
+    _non_negative_finite_number(result["total_carbon_kg"], "total_carbon_kg")
+    _non_negative_finite_number(result["total_co2eq_kg"], "total_co2eq_kg")
 
     artifacts = candidate.get("artifacts")
     if not isinstance(artifacts, dict) or set(artifacts) != set(ARTIFACT_FILENAMES):
@@ -116,25 +218,84 @@ def validate_candidate(candidate: dict[str, Any]) -> None:
             raise ValueError(f"Candidate {expected_filename} SHA-256 is invalid")
         if (
             not isinstance(artifact.get("size_bytes"), int)
+            or isinstance(artifact["size_bytes"], bool)
             or artifact["size_bytes"] <= 0
         ):
             raise ValueError(f"Candidate {expected_filename} size is invalid")
+    if artifacts["result"]["sha256"] != reproducibility["result_sha256"][0]:
+        raise ValueError(
+            "Candidate published result hash lacks matching two-run evidence"
+        )
+    if artifacts["segmented"]["sha256"] != reproducibility["segmented_ply_sha256"][0]:
+        raise ValueError(
+            "Candidate published segmented hash lacks matching two-run evidence"
+        )
 
 
-def check_candidate_artifacts(
-    candidate: dict[str, Any], candidate_dir: str | Path
-) -> None:
-    """Verify candidate file bytes against the candidate's recorded identities."""
-    validate_candidate(candidate)
-    candidate_dir = Path(candidate_dir)
-    for artifact in candidate["artifacts"].values():
-        path = candidate_dir / artifact["filename"]
-        try:
-            data = path.read_bytes()
-        except OSError as exc:
+def _validate_result_payload(candidate: dict[str, Any], result_bytes: bytes) -> None:
+    try:
+        payload = json.loads(
+            result_bytes.decode("utf-8"), parse_constant=_reject_json_constant
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(
+            "Candidate result.json must contain strict UTF-8 JSON"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Candidate result.json must contain a JSON object")
+    metadata = payload.get("metadata")
+    summary = payload.get("summary")
+    diagnostics = payload.get("diagnostics")
+    trees = payload.get("trees")
+    if not all(isinstance(value, dict) for value in (metadata, summary, diagnostics)):
+        raise ValueError("Candidate result.json provenance sections are incomplete")
+    expected_metadata = {
+        "input_file": "input.ply",
+        "git_commit": candidate["analyzed_commit"],
+        "git_dirty": False,
+        "pipeline_version": candidate["pipeline"]["version"],
+        "wood_leaf_backend": candidate["pipeline"]["backend"],
+        "checkpoint_sha256": candidate["pipeline"]["checkpoint_sha256"],
+        "algorithms": candidate["pipeline"]["algorithms"],
+        "n_input_points": candidate["result"]["input_points"],
+    }
+    for name, expected in expected_metadata.items():
+        if metadata.get(name) != expected:
             raise ValueError(
-                f"Cannot read candidate artifact {artifact['filename']}"
-            ) from exc
+                f"Candidate result metadata {name} does not match candidate"
+            )
+    expected_summary = {
+        "total_trees": candidate["result"]["total_trees"],
+        "total_carbon_kg": candidate["result"]["total_carbon_kg"],
+        "total_co2eq_kg": candidate["result"]["total_co2eq_kg"],
+    }
+    for name, expected in expected_summary.items():
+        if summary.get(name) != expected:
+            raise ValueError(f"Candidate result {name} does not match candidate")
+    if diagnostics.get("dataset") != candidate["dataset"]:
+        raise ValueError("Candidate result dataset does not match candidate")
+    if diagnostics.get("scope") != candidate["scope"]:
+        raise ValueError("Candidate result scope does not match candidate")
+    if not isinstance(trees, list) or len(trees) != candidate["result"]["total_trees"]:
+        raise ValueError("Candidate result tree list does not match total_trees")
+
+
+def _read_candidate_artifacts(
+    candidate: dict[str, Any], candidate_dir: str | Path
+) -> dict[str, bytes]:
+    validate_candidate(candidate)
+    raw_dir, _ = _safe_directory(candidate_dir, "Candidate directory")
+    expected_files = {"candidate.json", *ARTIFACT_FILENAMES.values()}
+    if {path.name for path in raw_dir.iterdir()} != expected_files:
+        raise ValueError(
+            "Candidate directory must contain exactly four contracted files"
+        )
+    staged: dict[str, bytes] = {}
+    for name, artifact in candidate["artifacts"].items():
+        path = _safe_regular_file(
+            raw_dir, artifact["filename"], f"Candidate {artifact['filename']}"
+        )
+        data = path.read_bytes()
         if (
             len(data) != artifact["size_bytes"]
             or _sha256_bytes(data) != artifact["sha256"]
@@ -142,6 +303,17 @@ def check_candidate_artifacts(
             raise ValueError(
                 f"Candidate artifact bytes changed: {artifact['filename']}"
             )
+        staged[name] = data
+    _safe_regular_file(raw_dir, "candidate.json", "Candidate candidate.json")
+    _validate_result_payload(candidate, staged["result"])
+    return staged
+
+
+def check_candidate_artifacts(
+    candidate: dict[str, Any], candidate_dir: str | Path
+) -> None:
+    """Verify candidate bytes, two-run evidence, and result provenance."""
+    _read_candidate_artifacts(candidate, candidate_dir)
 
 
 def build_manifest(
@@ -154,8 +326,10 @@ def build_manifest(
     validate_candidate(candidate)
     if not _is_hex(core_manifest_hash, 64):
         raise ValueError("Core manifest SHA-256 is invalid")
-    if status not in ALLOWED_RELEASE_STATUSES:
-        raise ValueError("Release status must be candidate or frozen")
+    if status != "candidate":
+        raise ValueError(
+            "Seal status must be candidate; finalize creates frozen releases"
+        )
     artifacts = {
         name: {
             "path": ARTIFACT_PATHS[name],
@@ -234,16 +408,47 @@ def _git_output(repo_root: Path, *args: str) -> str:
     return proc.stdout.strip()
 
 
+def _repo_state(repo_root: Path) -> dict[str, Any]:
+    return {
+        "commit": _git_output(repo_root, "rev-parse", "HEAD"),
+        "dirty": bool(
+            _git_output(repo_root, "status", "--porcelain", "--untracked-files=normal")
+        ),
+    }
+
+
+def _git_blob_bytes(repo_root: Path, commit: str, relative_path: Path) -> bytes:
+    proc = subprocess.run(
+        ["git", "show", f"{commit}:{relative_path.as_posix()}"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    return proc.stdout
+
+
+def _safe_repo_file(repo_root: Path, relative_path: Path, label: str) -> Path:
+    path = repo_root.absolute()
+    for part in relative_path.parts:
+        path /= part
+        if _is_reparse_or_symlink(path):
+            raise ValueError(f"{label} cannot be a symlink or reparse point")
+    if not path.is_file() or not path.resolve(strict=True).is_relative_to(
+        repo_root.resolve(strict=True)
+    ):
+        raise ValueError(f"{label} must be a contained regular file")
+    return path
+
+
 def _write_manifest_bundle(repo_root: Path, manifest: dict[str, Any]) -> None:
     manifest_bytes = _json_bytes(manifest)
-    docs_path = repo_root / DOCS_MANIFEST_PATH
-    public_path = repo_root / PUBLIC_MANIFEST_PATH
-    docs_path.parent.mkdir(parents=True, exist_ok=True)
-    public_path.parent.mkdir(parents=True, exist_ok=True)
+    docs_path = _safe_output_file(
+        repo_root, DOCS_MANIFEST_PATH, "Documentation manifest"
+    )
+    public_path = _safe_output_file(repo_root, PUBLIC_MANIFEST_PATH, "Public manifest")
     docs_path.write_bytes(manifest_bytes)
     public_path.write_bytes(manifest_bytes)
-    ts_path = repo_root / TYPESCRIPT_PATH
-    ts_path.parent.mkdir(parents=True, exist_ok=True)
+    ts_path = _safe_output_file(repo_root, TYPESCRIPT_PATH, "TypeScript identity")
     ts_path.write_bytes(_typescript_bytes(manifest_bytes))
 
 
@@ -254,24 +459,33 @@ def seal_candidate(
     status: str = "candidate",
 ) -> dict[str, Any]:
     """Copy a clean candidate into the public bundle and seal its identities."""
-    artifact_dir = Path(artifact_dir).resolve()
-    repo_root = Path(repo_root).resolve()
-    candidate = _load_json(artifact_dir / "candidate.json")
-    check_candidate_artifacts(candidate, artifact_dir)
-    if _git_output(repo_root, "status", "--porcelain", "--untracked-files=normal"):
+    repo_root = Path(repo_root).resolve(strict=True)
+    before = _repo_state(repo_root)
+    if before["dirty"]:
         raise ValueError("Repository must be clean before sealing")
-    if _git_output(repo_root, "rev-parse", "HEAD") != candidate["analyzed_commit"]:
+    raw_artifact_dir, _ = _safe_directory(artifact_dir, "Candidate directory")
+    candidate_path = _safe_regular_file(
+        raw_artifact_dir, "candidate.json", "Candidate candidate.json"
+    )
+    candidate = _load_json(candidate_path)
+    staged = _read_candidate_artifacts(candidate, raw_artifact_dir)
+    if before["commit"] != candidate["analyzed_commit"]:
         raise ValueError(
             "Candidate analyzed_commit does not match the clean repository HEAD"
         )
 
-    core_bytes = (repo_root / CORE_MANIFEST_PATH).read_bytes()
-    manifest = build_manifest(candidate, _sha256_bytes(core_bytes), status=status)
-    public_dir = repo_root / PUBLIC_DEMO_DIR
-    public_dir.mkdir(parents=True, exist_ok=True)
+    _safe_repo_file(repo_root, CORE_MANIFEST_PATH, "Core manifest")
+    core_blob = _git_blob_bytes(repo_root, before["commit"], CORE_MANIFEST_PATH)
+    manifest = build_manifest(candidate, _sha256_bytes(core_blob), status=status)
+    after = _repo_state(repo_root)
+    if after != before or after["dirty"]:
+        raise RuntimeError("Repository changed while staging judge demo evidence")
     for name, filename in ARTIFACT_FILENAMES.items():
-        source_bytes = (artifact_dir / filename).read_bytes()
-        (public_dir / filename).write_bytes(source_bytes)
+        source_bytes = staged[name]
+        destination = _safe_output_file(
+            repo_root, PUBLIC_DEMO_DIR / filename, f"Public {filename}"
+        )
+        destination.write_bytes(source_bytes)
         if _sha256_bytes(source_bytes) != manifest["artifacts"][name]["sha256"]:
             raise ValueError(f"Copied artifact hash mismatch: {filename}")
     _write_manifest_bundle(repo_root, manifest)
@@ -337,7 +551,12 @@ def _validate_public_manifest(manifest: dict[str, Any]) -> None:
         raise ValueError("Public manifest tree count is invalid")
     for name in ("total_carbon_kg", "total_co2eq_kg"):
         value = result[name]
-        if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            or value < 0
+        ):
             raise ValueError(f"Public manifest {name} is invalid")
     if manifest.get("viewer") != {"original": True, "wood_leaf": True, "qsm": False}:
         raise ValueError("Public manifest viewer capabilities are invalid")
@@ -349,6 +568,10 @@ def _validate_public_manifest(manifest: dict[str, Any]) -> None:
     ):
         raise ValueError("Public manifest release status is invalid")
     backup = release.get("backup_video")
+    if release["status"] == "candidate" and backup is not None:
+        raise ValueError("Candidate release cannot include a backup video")
+    if release["status"] == "frozen" and backup is None:
+        raise ValueError("Frozen release requires a backup video identity")
     if backup is not None:
         if (
             not isinstance(backup, dict)
@@ -357,9 +580,55 @@ def _validate_public_manifest(manifest: dict[str, Any]) -> None:
             or Path(backup["path"]).name != backup["path"]
             or not _is_hex(backup["sha256"], 64)
             or not isinstance(backup["size_bytes"], int)
+            or isinstance(backup["size_bytes"], bool)
             or backup["size_bytes"] <= 0
         ):
             raise ValueError("Public manifest backup video identity is invalid")
+
+
+def _validate_public_result(manifest: dict[str, Any], result_bytes: bytes) -> None:
+    try:
+        payload = json.loads(
+            result_bytes.decode("utf-8"), parse_constant=_reject_json_constant
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("Public result.json must contain strict UTF-8 JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Public result.json must contain a JSON object")
+    metadata = payload.get("metadata")
+    summary = payload.get("summary")
+    diagnostics = payload.get("diagnostics")
+    trees = payload.get("trees")
+    if not all(isinstance(value, dict) for value in (metadata, summary, diagnostics)):
+        raise ValueError("Public result.json provenance sections are incomplete")
+    expected_metadata = {
+        "input_file": "input.ply",
+        "git_commit": manifest["analyzed_commit"],
+        "git_dirty": False,
+        "pipeline_version": manifest["pipeline"]["version"],
+        "wood_leaf_backend": manifest["pipeline"]["backend"],
+        "checkpoint_sha256": None,
+    }
+    for name, expected in expected_metadata.items():
+        if metadata.get(name) != expected:
+            raise ValueError(f"Public result metadata {name} is inconsistent")
+    algorithms = metadata.get("algorithms")
+    if (
+        not isinstance(algorithms, dict)
+        or algorithms.get("species") != manifest["pipeline"]["species"]
+        or algorithms.get("wood_leaf") != manifest["pipeline"]["backend"]
+    ):
+        raise ValueError("Public result algorithms are inconsistent")
+    for name, expected in manifest["result"].items():
+        if summary.get(name) != expected:
+            raise ValueError(f"Public result {name} is inconsistent")
+    dataset_scope = manifest["pipeline"]["dataset_scope"]
+    if diagnostics.get("dataset") != dataset_scope["dataset"]:
+        raise ValueError("Public result dataset is inconsistent")
+    if diagnostics.get("scope") != dataset_scope["scope"]:
+        raise ValueError("Public result scope is inconsistent")
+    if not isinstance(trees, list) or len(trees) != manifest["result"]["total_trees"]:
+        raise ValueError("Public result tree list is inconsistent")
 
 
 def check_manifest(
@@ -368,15 +637,25 @@ def check_manifest(
     candidate_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Fail closed when committed manifest, artifacts, or generated identity differ."""
-    repo_root = Path(repo_root).resolve()
-    docs_bytes = (repo_root / DOCS_MANIFEST_PATH).read_bytes()
-    public_bytes = (repo_root / PUBLIC_MANIFEST_PATH).read_bytes()
+    repo_root = Path(repo_root).resolve(strict=True)
+    docs_path = _safe_repo_file(repo_root, DOCS_MANIFEST_PATH, "Documentation manifest")
+    public_path = _safe_repo_file(repo_root, PUBLIC_MANIFEST_PATH, "Public manifest")
+    docs_bytes = docs_path.read_bytes()
+    public_bytes = public_path.read_bytes()
     if docs_bytes != public_bytes:
         raise ValueError("Documentation and public manifests are not byte-identical")
-    manifest = json.loads(public_bytes.decode("utf-8"))
+    try:
+        manifest = json.loads(
+            public_bytes.decode("utf-8"), parse_constant=_reject_json_constant
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("Public manifest must contain strict UTF-8 JSON") from exc
     _validate_public_manifest(manifest)
 
-    core_bytes = (repo_root / CORE_MANIFEST_PATH).read_bytes()
+    _safe_repo_file(repo_root, CORE_MANIFEST_PATH, "Core manifest")
+    core_bytes = _git_blob_bytes(
+        repo_root, manifest["analyzed_commit"], CORE_MANIFEST_PATH
+    )
     source = manifest["source"]
     if source != {
         "core_manifest_path": CORE_MANIFEST_PATH.as_posix(),
@@ -386,36 +665,53 @@ def check_manifest(
     if manifest["viewer"] != {"original": True, "wood_leaf": True, "qsm": False}:
         raise ValueError("Viewer capability declaration is invalid")
 
+    public_result_bytes: bytes | None = None
     for name, expected_path in ARTIFACT_PATHS.items():
         artifact = manifest["artifacts"].get(name)
         if not isinstance(artifact, dict) or artifact.get("path") != expected_path:
             raise ValueError(f"Public {name} artifact contract is invalid")
-        public_artifact = repo_root / PUBLIC_DEMO_DIR / Path(expected_path).name
+        public_artifact = _safe_repo_file(
+            repo_root,
+            PUBLIC_DEMO_DIR / Path(expected_path).name,
+            f"Public {name} artifact",
+        )
         data = public_artifact.read_bytes()
         if artifact.get("size_bytes") != len(data) or artifact.get(
             "sha256"
         ) != _sha256_bytes(data):
             raise ValueError(f"Public artifact bytes changed: {expected_path}")
+        if name == "result":
+            public_result_bytes = data
+    if public_result_bytes is None:
+        raise ValueError("Public result.json is missing")
+    _validate_public_result(manifest, public_result_bytes)
 
-    ts_bytes = (repo_root / TYPESCRIPT_PATH).read_bytes()
+    ts_bytes = _safe_repo_file(
+        repo_root, TYPESCRIPT_PATH, "TypeScript identity"
+    ).read_bytes()
     if ts_bytes != _typescript_bytes(public_bytes):
         raise ValueError(
             "Generated TypeScript identity does not match public manifest bytes"
         )
 
     if candidate_dir is not None:
-        candidate_dir = Path(candidate_dir)
-        candidate = _load_json(candidate_dir / "candidate.json")
-        check_candidate_artifacts(candidate, candidate_dir)
-        if candidate["analyzed_commit"] != manifest["analyzed_commit"]:
-            raise ValueError(
-                "Candidate analyzed_commit differs from the sealed manifest"
-            )
-        for name in ARTIFACT_PATHS:
-            if (
-                candidate["artifacts"][name]["sha256"]
-                != manifest["artifacts"][name]["sha256"]
-            ):
+        raw_candidate_dir, _ = _safe_directory(candidate_dir, "Candidate directory")
+        candidate_path = _safe_regular_file(
+            raw_candidate_dir, "candidate.json", "Candidate candidate.json"
+        )
+        candidate = _load_json(candidate_path)
+        check_candidate_artifacts(candidate, raw_candidate_dir)
+        expected = build_manifest(candidate, manifest["source"]["core_manifest_sha256"])
+        for name in (
+            "analyzed_commit",
+            "git_dirty",
+            "pipeline",
+            "source",
+            "artifacts",
+            "result",
+            "viewer",
+        ):
+            if expected[name] != manifest[name]:
                 raise ValueError(f"Candidate {name} differs from the sealed manifest")
     return manifest
 
@@ -424,11 +720,17 @@ def finalize_manifest(
     backup_video: str | Path, repo_root: str | Path
 ) -> dict[str, Any]:
     """Freeze an existing checked manifest while preserving its analyzed commit."""
-    repo_root = Path(repo_root).resolve()
+    repo_root = Path(repo_root).resolve(strict=True)
     manifest = check_manifest(repo_root)
+    if manifest["release"] != {"status": "candidate", "backup_video": None}:
+        raise ValueError("Finalize requires an existing candidate release")
     analyzed_commit = manifest["analyzed_commit"]
-    backup_video = Path(backup_video)
+    backup_video = Path(backup_video).absolute()
+    if _is_reparse_or_symlink(backup_video) or not backup_video.is_file():
+        raise ValueError("Finalize requires a real regular backup video file")
     video_bytes = backup_video.read_bytes()
+    if not video_bytes:
+        raise ValueError("Finalize requires a non-empty backup video identity")
     manifest["release"] = {
         "status": "frozen",
         "backup_video": {
@@ -448,9 +750,7 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     seal = subparsers.add_parser("seal")
     seal.add_argument("--artifact-dir", required=True, type=Path)
-    seal.add_argument(
-        "--status", choices=sorted(ALLOWED_RELEASE_STATUSES), default="candidate"
-    )
+    seal.add_argument("--status", choices=["candidate"], default="candidate")
     finalize = subparsers.add_parser("finalize")
     finalize.add_argument("--backup-video", required=True, type=Path)
     check = subparsers.add_parser("check")
