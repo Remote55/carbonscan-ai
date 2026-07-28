@@ -49,7 +49,19 @@ export interface FrozenDemoResult {
     total_carbon_kg: number;
     total_co2eq_kg: number;
     total_trees: number;
+    // Present once the bundle is regenerated with pipeline 0.4.0. Optional so a
+    // bundle frozen by 0.3.0 still loads, and absent stays absent rather than 0.
+    detected_trees?: number | null;
+    measured_trees?: number | null;
+    excluded_trees?: number | null;
   };
+  diagnostics?: {
+    excluded_segments?: Array<{
+      tree_id: number;
+      stage: 'wood_leaf' | 'qsm';
+      reason_code: 'WOOD_EMPTY' | 'QSM_INVALID';
+    }>;
+  } | null;
   trees: FrozenDemoTreeResult[];
 }
 
