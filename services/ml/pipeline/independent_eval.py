@@ -737,8 +737,9 @@ def _publish_evidence_artifacts(
         if destination_created:
             try:
                 destination.rmdir()
-            except OSError:
-                pass
+            except OSError as cleanup_error:
+                # Best-effort cleanup only: do not mask the primary failure.
+                _ = cleanup_error
         if isinstance(exc, IndependentEvaluationError):
             raise
         raise IndependentEvaluationError(str(exc)) from exc
