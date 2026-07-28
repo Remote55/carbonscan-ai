@@ -335,7 +335,7 @@ def test_candidate_check_rejects_changed_artifact_bytes(tmp_path):
 
     check_candidate_artifacts(candidate, tmp_path)
     (tmp_path / "result.json").write_bytes(b"changed")
-    with pytest.raises(ValueError, match="result.json"):
+    with pytest.raises(ValueError, match=r"result\.json"):
         check_candidate_artifacts(candidate, tmp_path)
 
 
@@ -577,7 +577,7 @@ def test_candidate_check_rejects_reparse_directory(tmp_path):
         text=True,
     )
 
-    with pytest.raises(ValueError, match="symlink|reparse"):
+    with pytest.raises(ValueError, match=r"symlink|reparse"):
         check_candidate_artifacts(candidate, candidate_dir)
 
 
@@ -601,7 +601,7 @@ def test_seal_rejects_reparse_public_output_directory(
         lambda _repo_root: {"commit": commit, "dirty": False},
     )
 
-    with pytest.raises(ValueError, match="symlink|reparse"):
+    with pytest.raises(ValueError, match=r"symlink|reparse"):
         seal_candidate(candidate_dir, repo_root)
     assert list(external_dir.iterdir()) == []
 
