@@ -136,7 +136,7 @@ def run_pipeline(
             )
         try:
             return json.loads(out_json.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise PipelineError(operator_detail=f"pipeline output was invalid: {exc}") from exc
     finally:
         out_json.unlink(missing_ok=True)

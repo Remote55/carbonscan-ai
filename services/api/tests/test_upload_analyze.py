@@ -186,6 +186,21 @@ def test_run_pipeline_strips_secrets_from_subprocess_env(tmp_path, monkeypatch):
     assert "SUPABASE_SERVICE_KEY" not in captured_env
 
 
+def test_run_pipeline_wraps_invalid_utf8_output_as_pipeline_error(tmp_path, monkeypatch):
+    def completed_run(cmd, **kwargs):
+        output_path = cmd[cmd.index("--output") + 1]
+        with open(output_path, "wb") as output_file:
+            output_file.write(b"\xff")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("app.services.pipeline_runner.subprocess.run", completed_run)
+    with pytest.raises(PipelineError) as exc:
+        run_pipeline(tmp_path / "tree.ply")
+
+    assert exc.value.public_message == "Pipeline execution failed"
+    assert "pipeline output was invalid" in exc.value.operator_detail
+
+
 def test_probe_pipeline_runtime_returns_version_and_strips_secrets(monkeypatch):
     captured_env: dict[str, str] = {}
     monkeypatch.setenv("TREEQ_DEMO_TOKEN", "demo-secret")

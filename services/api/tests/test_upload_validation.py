@@ -17,6 +17,16 @@ def test_accepts_known_extension_and_returns_ext():
     assert validate_upload("plot.LAS", b"some-bytes") == ".las"
 
 
+def test_demo_mode_rejects_non_ply_upload(monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "TREEQ_DEMO_MODE", True)
+    with pytest.raises(HTTPException) as exc:
+        validate_upload("plot.las", b"some-bytes")
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Demo uploads must be PLY"
+
+
 def test_rejects_unknown_extension():
     with pytest.raises(HTTPException) as exc:
         validate_upload("photo.jpg", b"x")

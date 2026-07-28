@@ -80,6 +80,8 @@ def validate_upload(filename: str | None, data: bytes) -> str:
             status_code=400,
             detail=f"Unsupported file type '{ext}'. Allowed: {sorted(ANALYZE_EXTENSIONS)}",
         )
+    if settings.TREEQ_DEMO_MODE and ext != ".ply":
+        raise HTTPException(status_code=400, detail="Demo uploads must be PLY")
     if not data:
         raise HTTPException(status_code=400, detail="Empty file")
     max_size_bytes = (

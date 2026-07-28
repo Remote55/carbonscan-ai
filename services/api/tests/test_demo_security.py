@@ -27,6 +27,15 @@ def test_token_comparison_is_constant_contract():
     assert not token_matches("a" * 64, "b" * 64)
 
 
+@pytest.mark.parametrize(
+    "invalid_token",
+    ["aa" * 31, "g" * 64],
+    ids=["under-256-bits", "non-hex"],
+)
+def test_token_comparison_rejects_weak_or_malformed_config(invalid_token):
+    assert not token_matches(invalid_token, invalid_token)
+
+
 @pytest.mark.asyncio
 async def test_demo_guard_rejects_missing_token(client, monkeypatch):
     monkeypatch.setattr(settings, "TREEQ_DEMO_MODE", True)

@@ -21,9 +21,21 @@ _PROTECTED_PATHS = {
 _UPLOAD_PATH = "/api/v1/upload/analyze"
 
 
+def _is_strong_hex_token(token: str) -> bool:
+    if len(token) < 64 or len(token) % 2:
+        return False
+    try:
+        decoded = bytes.fromhex(token)
+    except ValueError:
+        return False
+    return len(decoded) >= 32 and len(token) == len(decoded) * 2
+
+
 def token_matches(expected: str, provided: str) -> bool:
-    """Compare non-empty demo tokens without content-dependent comparison."""
-    return bool(expected) and bool(provided) and hmac.compare_digest(expected, provided)
+    """Compare demo tokens only when both contain at least 256 bits of hex."""
+    if not _is_strong_hex_token(expected):
+        return False
+    return hmac.compare_digest(expected, provided) and _is_strong_hex_token(provided)
 
 
 def compute_readiness_hmac(token: str, nonce: str) -> str:
