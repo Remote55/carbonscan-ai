@@ -565,6 +565,10 @@ def test_seal_hashes_committed_core_manifest_blob_across_checkout_eol(
     )
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="NTFS directory junctions can only be created with Windows mklink",
+)
 def test_candidate_check_rejects_reparse_directory(tmp_path):
     candidate = valid_candidate()
     external_dir = tmp_path / "private-candidate"
@@ -581,6 +585,10 @@ def test_candidate_check_rejects_reparse_directory(tmp_path):
         check_candidate_artifacts(candidate, candidate_dir)
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="NTFS directory junctions can only be created with Windows mklink",
+)
 def test_seal_rejects_reparse_public_output_directory(
     tmp_path, monkeypatch, allow_independent_reproduction
 ):
