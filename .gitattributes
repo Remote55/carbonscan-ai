@@ -1,0 +1,22 @@
+# Byte-exact artifacts.
+#
+# The SHA-256 of these files is recorded in manifests and verified at runtime by
+# the evidence checks and by the judge-demo launcher preflight. That only works
+# if the bytes on disk are the bytes in Git on every platform.
+#
+# Git for Windows defaults to core.autocrlf=true, which rewrites LF to CRLF on
+# checkout. That silently changes every text artifact (a JSON with 91 lines gains
+# 91 bytes) and makes every hash comparison fail, so the launcher refuses to
+# start and `sync_truth.py --check` cannot pass on a Windows machine.
+#
+# Pin these paths to LF so a Windows checkout is byte-identical to Linux CI.
+docs/evidence/** text eol=lf
+apps/web/public/demo/** text eol=lf
+apps/web/src/generated/** text eol=lf
+
+# Point clouds and other binaries must never be line-ending converted or diffed.
+*.ply binary
+*.las binary
+*.laz binary
+*.npz binary
+*.pt binary
