@@ -965,19 +965,40 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     seal = subparsers.add_parser("seal")
+    seal.add_argument("--repo-root", type=Path)
     seal.add_argument("--artifact-dir", required=True, type=Path)
     seal.add_argument("--status", choices=["candidate"], default="candidate")
     finalize = subparsers.add_parser("finalize")
+    finalize.add_argument("--repo-root", type=Path)
     finalize.add_argument("--backup-video", required=True, type=Path)
     check = subparsers.add_parser("check")
+    check.add_argument("--repo-root", type=Path)
     check.add_argument("--candidate-dir", type=Path)
     return parser
+
+
+def _resolve_cli_repo_root(requested_root: Path | None) -> Path:
+    script_repo_root = Path(__file__).resolve().parents[1]
+    if requested_root is None:
+        return script_repo_root
+    try:
+        resolved_root = requested_root.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError(
+            "--repo-root must identify an existing repository checkout"
+        ) from exc
+    if resolved_root != script_repo_root:
+        raise ValueError(
+            "--repo-root must identify the same repository checkout containing "
+            "scripts/judge_demo_manifest.py"
+        )
+    return resolved_root
 
 
 def cli(argv: list[str] | None = None) -> int:
     """Run the manifest CLI from the repository containing this script."""
     args = _parser().parse_args(argv)
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = _resolve_cli_repo_root(args.repo_root)
     output: dict[str, Any] = {"status": "ok", "command": args.command}
     if args.command == "seal":
         seal_candidate(args.artifact_dir, repo_root, status=args.status)

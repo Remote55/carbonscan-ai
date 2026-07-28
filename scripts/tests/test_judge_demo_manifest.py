@@ -6,8 +6,10 @@ import hashlib
 import importlib.util
 import json
 import math
+import shutil
 import struct
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -194,6 +196,42 @@ def init_clean_repo_and_candidate(
     return repo_root, candidate_dir, candidate, commit
 
 
+def init_manifest_cli_checkout(tmp_path: Path) -> tuple[Path, Path]:
+    repo_root = tmp_path / "manifest-checkout"
+    script_path = repo_root / "scripts" / "judge_demo_manifest.py"
+    script_path.parent.mkdir(parents=True)
+    shutil.copyfile(MODULE_PATH, script_path)
+    subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=TreeQ Test",
+            "-c",
+            "user.email=treeq-test@example.invalid",
+            "commit",
+            "-qm",
+            "manifest CLI fixture",
+        ],
+        cwd=repo_root,
+        check=True,
+    )
+    return repo_root, script_path
+
+
+def run_manifest_cli(
+    script_path: Path, repo_root: Path, *arguments: str
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(script_path), *arguments],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
 @pytest.fixture
 def allow_independent_reproduction(monkeypatch):
     monkeypatch.setattr(
@@ -202,6 +240,69 @@ def allow_independent_reproduction(monkeypatch):
         lambda _candidate, _staged, _repo_root: None,
         raising=False,
     )
+
+
+def test_cli_repo_root_is_subcommand_scoped_backward_compatible_and_checkout_bound(
+    tmp_path,
+):
+    repo_root, script_path = init_manifest_cli_checkout(tmp_path)
+
+    exact_task_4 = run_manifest_cli(
+        script_path,
+        repo_root,
+        "seal",
+        "--repo-root",
+        ".",
+        "--artifact-dir",
+        "missing-candidate",
+        "--status",
+        "candidate",
+    )
+    omitted = run_manifest_cli(
+        script_path,
+        repo_root,
+        "seal",
+        "--artifact-dir",
+        "missing-candidate",
+        "--status",
+        "candidate",
+    )
+
+    assert exact_task_4.returncode == omitted.returncode == 1
+    assert "Candidate directory must be a directory" in exact_task_4.stderr
+    assert "Candidate directory must be a directory" in omitted.stderr
+
+    for command, required_arguments in (
+        ("finalize", ("--backup-video", "missing-video.mp4")),
+        ("check", ()),
+    ):
+        completed = run_manifest_cli(
+            script_path,
+            repo_root,
+            command,
+            "--repo-root",
+            ".",
+            *required_arguments,
+        )
+        assert completed.returncode == 1
+        assert (
+            "Documentation manifest must be a contained regular file"
+            in completed.stderr
+        )
+
+    other_checkout = tmp_path / "other-checkout"
+    other_checkout.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=other_checkout, check=True)
+    rejected = run_manifest_cli(
+        script_path,
+        repo_root,
+        "check",
+        "--repo-root",
+        str(other_checkout),
+    )
+
+    assert rejected.returncode == 1
+    assert "same repository checkout" in rejected.stderr
 
 
 @pytest.mark.parametrize(
