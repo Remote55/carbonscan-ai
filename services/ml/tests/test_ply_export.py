@@ -5,7 +5,16 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from pipeline.ply_export import read_segmented_ply, write_segmented_ply
+from pipeline.field_eval import load_point_cloud
+from pipeline.ply_export import read_segmented_ply, write_segmented_ply, write_xyz_ply
+
+
+def test_write_xyz_ply_roundtrip(tmp_path):
+    points = np.array([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]])
+    path = write_xyz_ply(points, tmp_path / "input.ply")
+    loaded = load_point_cloud(path)
+    assert np.allclose(loaded, points, atol=1e-6)
+    assert b"property uchar class" not in path.read_bytes()[:256]
 
 
 def test_roundtrip(tmp_path):
@@ -36,8 +45,12 @@ def test_process_points_writes_segmented_ply_with_three_classes(tmp_path):
     from pipeline.main import process_points
 
     pts, _, _ = synthetic.generate_synthetic_plot(
-        n_trees=3, plot_size_m=20.0, ground_z_variation=0.8,
-        ground_point_density=20.0, leaves_per_tree=1500, seed=42,
+        n_trees=3,
+        plot_size_m=20.0,
+        ground_z_variation=0.8,
+        ground_point_density=20.0,
+        leaves_per_tree=1500,
+        seed=42,
     )
     out = tmp_path / "seg.ply"
     process_points(pts, segmented_ply_out=str(out))

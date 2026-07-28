@@ -13,6 +13,7 @@ import numpy as np
 
 # Packed dtype (no alignment padding) matching the PLY property order.
 _PLY_DTYPE = np.dtype([("x", "<f4"), ("y", "<f4"), ("z", "<f4"), ("class", "u1")])
+_XYZ_PLY_DTYPE = np.dtype([("x", "<f4"), ("y", "<f4"), ("z", "<f4")])
 
 _HEADER = (
     "ply\n"
@@ -25,6 +26,35 @@ _HEADER = (
     "property uchar class\n"
     "end_header\n"
 )
+
+_XYZ_HEADER = (
+    "ply\n"
+    "format binary_little_endian 1.0\n"
+    "comment TreeQ Carbon Platform XYZ point cloud\n"
+    "element vertex {n}\n"
+    "property float x\n"
+    "property float y\n"
+    "property float z\n"
+    "end_header\n"
+)
+
+
+def write_xyz_ply(points: np.ndarray, path: str | Path) -> Path:
+    """Write XYZ coordinates as a deterministic binary little-endian PLY."""
+    points = np.asarray(points, dtype=np.float64)
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError(f"Expected points (N, 3), got {points.shape}")
+
+    rec = np.empty(len(points), dtype=_XYZ_PLY_DTYPE)
+    rec["x"] = points[:, 0]
+    rec["y"] = points[:, 1]
+    rec["z"] = points[:, 2]
+
+    path = Path(path)
+    with path.open("wb") as file:
+        file.write(_XYZ_HEADER.format(n=len(points)).encode("ascii"))
+        file.write(rec.tobytes(order="C"))
+    return path
 
 
 def write_segmented_ply(points: np.ndarray, classes: np.ndarray, path: str | Path) -> Path:
@@ -70,8 +100,10 @@ def read_segmented_ply(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     if idx < 0:
         raise ValueError(f"Not a PLY with end_header: {path}")
     header = raw[:idx].decode("ascii", "ignore")
-    n = next(int(line.split()[-1]) for line in header.splitlines() if line.startswith("element vertex"))
-    body = raw[idx + len(marker):]
+    n = next(
+        int(line.split()[-1]) for line in header.splitlines() if line.startswith("element vertex")
+    )
+    body = raw[idx + len(marker) :]
     rec = np.frombuffer(body, dtype=_PLY_DTYPE, count=n)
     points = np.column_stack([rec["x"], rec["y"], rec["z"]]).astype(np.float32)
     return points, rec["class"].copy()
