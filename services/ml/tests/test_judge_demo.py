@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from services.ml.scripts import run_judge_demo as judge_runner
+
+from scripts import run_judge_demo as judge_runner
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
