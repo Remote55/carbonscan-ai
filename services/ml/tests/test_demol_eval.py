@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 
 import pipeline.demol_eval as demol_eval
-from pipeline.demol_eval import DemolTree, evaluate_demol_pair, load_demol_cohort
 
 CSV_FIELDS = (
     "tree_name",
@@ -28,13 +27,13 @@ def _tree(
     height: float = 5.0,
     volume: float = 2.0,
     points: np.ndarray | None = None,
-) -> DemolTree:
+) -> demol_eval.DemolTree:
     if points is None:
         points = np.array(
             [[x, 0.0, 0.0], [x, 1.0, 1.0], [x, 2.0, 2.0], [x, 3.0, 3.0]],
             dtype=np.float64,
         )
-    return DemolTree(tree_id, points, dbh, height, volume)
+    return demol_eval.DemolTree(tree_id, points, dbh, height, volume)
 
 
 def _qsm(dbh: object = 10.0, height: object = 5.0, volume: object = 2.0):
