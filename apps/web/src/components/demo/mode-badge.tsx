@@ -4,7 +4,16 @@ import type { DemoModeState } from '../../lib/demo-mode';
 
 export const FROZEN_EVIDENCE_LABEL = 'FROZEN EVIDENCE — NOT A LIVE RUN';
 
-export function ModeBadge({ state }: { state: DemoModeState }) {
+type ModeBadgeProps =
+  | { state: DemoModeState; label?: never }
+  | { state?: never; label: 'LIVE ANALYSIS' };
+
+export function ModeBadge(props: ModeBadgeProps) {
+  if (props.label) {
+    return <Badge label={props.label} tone="border-lichen bg-canopy text-paper" />;
+  }
+
+  const { state } = props;
   if (state.kind === 'booting') return null;
 
   const label =
@@ -22,6 +31,10 @@ export function ModeBadge({ state }: { state: DemoModeState }) {
         ? 'border-evidence-amber bg-gallery-ivory text-deep-forest'
         : 'border-lichen bg-canopy text-paper';
 
+  return <Badge label={label} tone={tone} />;
+}
+
+function Badge({ label, tone }: { label: string; tone: string }) {
   return (
     <span
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[0.625rem] font-medium tracking-[0.08em] ${tone}`}

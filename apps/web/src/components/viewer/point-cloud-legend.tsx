@@ -12,7 +12,8 @@ export function PointCloudLegend() {
       {LEGEND.map((item) => (
         <div key={item.label} className="flex items-center gap-2">
           <span
-            className="ring-paper/20 inline-block size-2 rounded-full ring-1"
+            aria-hidden="true"
+            className="inline-block size-3 rounded-full border-2 border-paper"
             style={{ backgroundColor: item.color }}
           />
           <span className="font-mono text-[0.625rem] uppercase tracking-wide text-paper">

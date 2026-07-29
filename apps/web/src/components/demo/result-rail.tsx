@@ -20,7 +20,7 @@ export function ResultRail({ view, modeLabel }: ResultRailProps) {
 
   return (
     <aside className="h-full rounded-[1.25rem] border border-hairline bg-paper px-6 py-7 text-forest-ink">
-      <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-moss">
+      <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-canopy">
         Carbon summary / {modeLabel}
       </p>
       <h2 className="mt-3 font-display text-2xl font-semibold leading-tight">
@@ -62,20 +62,27 @@ export function ResultRail({ view, modeLabel }: ResultRailProps) {
             />
           </>
         ) : (
-          <div className="border-t border-hairline py-3">
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-evidence-amber">
-              diagnostics unavailable
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-canopy">
-              ผลรุ่นนี้ไม่มีข้อมูลพอที่จะยืนยันจำนวนที่ตรวจพบหรือไม่รวมผล
-            </p>
+          <div
+            data-result-metric=""
+            aria-label="Diagnostics — diagnostics unavailable"
+            className="flex items-start justify-between gap-4 border-t border-hairline py-3"
+          >
+            <dt className="text-sm text-deep-forest">Diagnostics</dt>
+            <dd className="max-w-[13rem] text-right">
+              <span className="block font-mono text-[0.625rem] uppercase tracking-[0.12em] text-deep-forest">
+                diagnostics unavailable
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-canopy">
+                ผลรุ่นนี้ไม่มีข้อมูลพอที่จะยืนยันจำนวนที่ตรวจพบหรือไม่รวมผล
+              </span>
+            </dd>
           </div>
         )}
       </dl>
 
       {diagnosticsAvailable && view.excludedRows.length > 0 ? (
         <div className="mt-2 rounded-xl border border-evidence-amber bg-gallery-ivory p-3.5">
-          <p className="text-sm font-medium text-evidence-amber">
+          <p className="text-sm font-medium text-deep-forest">
             เหตุผลที่ไม่รวมผล {view.excludedRows.length.toLocaleString()} ต้น
           </p>
           <ul className="mt-1.5 space-y-1 text-xs leading-relaxed text-deep-forest">
@@ -97,11 +104,17 @@ export function ResultRail({ view, modeLabel }: ResultRailProps) {
 
 function MetricRow({ label, note, value }: { label: string; note: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-t border-hairline py-3">
-      <div>
-        <dt className="text-sm text-deep-forest">{label}</dt>
-        <p className="font-mono text-[0.5625rem] uppercase tracking-wide text-moss">{note}</p>
-      </div>
+    <div
+      data-result-metric=""
+      aria-label={`${label} — ${value}`}
+      className="flex items-center justify-between gap-4 border-t border-hairline py-3"
+    >
+      <dt className="text-sm text-deep-forest">
+        <span className="block">{label}</span>
+        <span className="block font-mono text-[0.5625rem] uppercase tracking-wide text-canopy">
+          {note}
+        </span>
+      </dt>
       <dd className="shrink-0 text-sm font-semibold tabular-nums">{value}</dd>
     </div>
   );

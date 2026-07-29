@@ -4,6 +4,18 @@ import { describe, expect, it } from 'vitest';
 import { toResultViewModel } from '../../lib/result-view-model';
 import { ResultRail } from './result-rail';
 
+function definitionPairs(markup: string) {
+  const definitionList = markup.match(/<dl[^>]*>([\s\S]*?)<\/dl>/)?.[1] ?? '';
+
+  return new Map(
+    [
+      ...definitionList.matchAll(
+        /<div[^>]*data-result-metric=""[^>]*aria-label="([^"]+)"[^>]*>([\s\S]*?)<\/div>/g,
+      ),
+    ].map(([, accessibleName, contents]) => [accessibleName, contents]),
+  );
+}
+
 describe('ResultRail', () => {
   it('labels measured trees and explains exclusions', () => {
     const view = toResultViewModel({
@@ -25,14 +37,18 @@ describe('ResultRail', () => {
 
     const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Frozen Evidence" />);
 
-    expect(markup).toContain('ต้นไม้ที่คำนวณสำเร็จ');
-    expect(markup).toContain('ต้นไม้ที่ตรวจพบ');
-    expect(markup).toContain('ไม่รวมผล');
+    const pairs = definitionPairs(markup);
+
     expect(markup).toContain('4.729 tCO₂e');
-    expect(markup).toContain('1,289.74 kg');
-    expect(markup).toContain('3');
-    expect(markup).toContain('5');
-    expect(markup).toContain('2');
+    expect([...pairs.keys()]).toEqual([
+      'คาร์บอนรวม — 1,289.74 kg',
+      'ต้นไม้ที่คำนวณสำเร็จ — 3 ต้น',
+      'ต้นไม้ที่ตรวจพบ — 5 ต้น',
+      'ไม่รวมผล — 2 ต้น',
+    ]);
+    for (const contents of pairs.values()) {
+      expect(contents).toMatch(/^<dt[\s\S]*<\/dt>\s*<dd[\s\S]*<\/dd>$/);
+    }
     expect(markup).not.toContain('จำนวนต้นไม้');
   });
 
@@ -47,11 +63,17 @@ describe('ResultRail', () => {
 
     const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Live Analysis" />);
 
+    const pairs = definitionPairs(markup);
+
     expect(markup).toContain('diagnostics unavailable');
-    expect(markup).toContain('ต้นไม้ที่คำนวณสำเร็จ');
-    expect(markup).not.toContain('ต้นไม้ที่ตรวจพบ');
-    expect(markup).not.toContain('>0 ต้น<');
-    expect(markup).not.toContain('>2 ต้น<');
+    expect([...pairs.keys()]).toEqual([
+      'คาร์บอนรวม — 1,289.74 kg',
+      'ต้นไม้ที่คำนวณสำเร็จ — 3 ต้น',
+      'Diagnostics — diagnostics unavailable',
+    ]);
+    for (const contents of pairs.values()) {
+      expect(contents).toMatch(/^<dt[\s\S]*<\/dt>\s*<dd[\s\S]*<\/dd>$/);
+    }
   });
 
   it('states that the estimate is not a certified carbon credit', () => {

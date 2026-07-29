@@ -201,13 +201,7 @@ export default function ViewerPage() {
                 classes={cloud.classes}
               >
                 {analysis ? (
-                  <ModeBadge
-                    state={{
-                      kind: 'local-live',
-                      credentials: { endpoint: 'confirmed-analysis-runtime', token: '' },
-                      pipelineVersion: analysis.metadata.pipeline_version,
-                    }}
-                  />
+                  <ModeBadge label="LIVE ANALYSIS" />
                 ) : (
                   <span className="rounded-full border border-moss px-3 py-1.5 font-mono text-[0.625rem] uppercase tracking-wide text-lichen">
                     {loaded === null ? 'Synthetic' : `${nPoints.toLocaleString()} points`}
