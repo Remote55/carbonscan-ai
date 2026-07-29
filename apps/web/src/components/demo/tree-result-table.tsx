@@ -20,7 +20,7 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
   ].sort((a, b) => a.treeId - b.treeId);
 
   if (rows.length === 0) {
-    return <p className="text-sm text-slate-600">ยังไม่มีผลรายต้น</p>;
+    return <p className="text-sm text-canopy">ยังไม่มีผลรายต้น</p>;
   }
 
   return (
@@ -28,7 +28,7 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
       <table className="w-full min-w-[36rem] border-collapse text-sm">
         <caption className="sr-only">ผลการวัดรายต้น รวมต้นที่ไม่รวมผล</caption>
         <thead>
-          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr className="border-b border-hairline text-left font-mono text-[0.625rem] uppercase tracking-wide text-canopy">
             <th scope="col" className="py-2 pr-4 font-medium">ต้นที่</th>
             <th scope="col" className="py-2 pr-4 font-medium">DBH (ซม.)</th>
             <th scope="col" className="py-2 pr-4 font-medium">ความสูง (ม.)</th>
@@ -39,8 +39,8 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
         <tbody>
           {rows.map((entry) =>
             entry.kind === 'measured' ? (
-              <tr key={`m-${entry.treeId}`} className="border-b border-slate-100">
-                <th scope="row" className="py-2 pr-4 text-left font-mono font-normal text-slate-500">
+              <tr key={`m-${entry.treeId}`} className="border-b border-hairline">
+                <th scope="row" className="py-2 pr-4 text-left font-mono font-normal text-canopy">
                   {entry.treeId}
                 </th>
                 <td className="py-2 pr-4 tabular-nums">{decimal.format(entry.row.dbhCm)}</td>
@@ -49,11 +49,11 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
                 <td className="py-2 tabular-nums">{decimal.format(entry.row.co2eqKg)}</td>
               </tr>
             ) : (
-              <tr key={`x-${entry.treeId}`} className="border-b border-slate-100 bg-amber-50/60">
-                <th scope="row" className="py-2 pr-4 text-left font-mono font-normal text-slate-500">
+              <tr key={`x-${entry.treeId}`} className="border-b border-hairline bg-gallery-ivory">
+                <th scope="row" className="py-2 pr-4 text-left font-mono font-normal text-canopy">
                   {entry.treeId}
                 </th>
-                <td className="py-2 text-amber-900" colSpan={4}>
+                <td className="py-2 text-deep-forest" colSpan={4}>
                   ไม่รวมผล — {entry.row.reasonTh}
                 </td>
               </tr>

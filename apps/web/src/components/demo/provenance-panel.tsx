@@ -20,7 +20,8 @@ export function ProvenancePanel({ manifest }: { manifest: FrozenDemoManifest }) 
 
   return (
     <section aria-labelledby="provenance-heading" className="text-sm">
-      <h2 id="provenance-heading" className="text-base font-semibold text-slate-900">
+      <p className="editorial-eyebrow">Provenance / limitations</p>
+      <h2 id="provenance-heading" className="mt-2 font-display text-xl text-forest-ink">
         ที่มาของผลลัพธ์
       </h2>
 
@@ -28,17 +29,17 @@ export function ProvenancePanel({ manifest }: { manifest: FrozenDemoManifest }) 
         {facts.map((fact) => (
           <div
             key={fact.label}
-            className="flex items-baseline justify-between gap-4 rounded-xl border border-slate-200 px-4 py-3"
+            className="flex items-baseline justify-between gap-4 rounded-xl border border-hairline px-4 py-3"
           >
-            <dt className="text-slate-500">{fact.label}</dt>
-            <dd className={fact.mono ? 'font-mono text-slate-900' : 'text-slate-900'}>
+            <dt className="text-canopy">{fact.label}</dt>
+            <dd className={fact.mono ? 'font-mono text-forest-ink' : 'text-forest-ink'}>
               {fact.value}
             </dd>
           </div>
         ))}
       </dl>
 
-      <p className="mt-4 rounded-2xl bg-slate-100 p-4 leading-6 text-slate-700">
+      <p className="mt-4 rounded-2xl bg-gallery-ivory p-4 leading-6 text-canopy">
         ค่า CO₂e เป็นค่าประมาณจากชีวมวล <strong>ไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรองหรือซื้อขายได้</strong>{' '}
         ชุดข้อมูลนี้เป็น fixture ที่ให้ผลเดิมทุกครั้งเพื่อแสดงว่าทำซ้ำได้ ไม่ใช่ชุดตรวจสอบความแม่นยำ
       </p>
