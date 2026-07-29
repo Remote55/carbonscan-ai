@@ -24,37 +24,65 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[36rem] border-collapse text-sm">
+    <div className="max-w-full overflow-x-auto overscroll-x-contain">
+      <table className="w-full min-w-[44rem] border-collapse text-sm">
         <caption className="sr-only">ผลการวัดรายต้น รวมต้นที่ไม่รวมผล</caption>
         <thead>
-          <tr className="border-b border-hairline text-left font-mono text-[0.625rem] uppercase tracking-wide text-canopy">
-            <th scope="col" className="py-2 pr-4 font-medium">ต้นที่</th>
-            <th scope="col" className="py-2 pr-4 font-medium">DBH (ซม.)</th>
-            <th scope="col" className="py-2 pr-4 font-medium">ความสูง (ม.)</th>
-            <th scope="col" className="py-2 pr-4 font-medium">คาร์บอน (กก.)</th>
-            <th scope="col" className="py-2 font-medium">CO₂e (กก.)</th>
+          <tr className="border-b border-hairline bg-gallery-ivory text-left font-mono text-[0.625rem] uppercase tracking-wide text-canopy">
+            <th scope="col" className="px-3 py-3 font-medium">
+              ต้นที่
+            </th>
+            <th scope="col" className="px-3 py-3 font-medium">
+              DBH (ซม.)
+            </th>
+            <th scope="col" className="px-3 py-3 font-medium">
+              ความสูง (ม.)
+            </th>
+            <th scope="col" className="px-3 py-3 font-medium">
+              คาร์บอน (กก.)
+            </th>
+            <th scope="col" className="px-3 py-3 font-medium">
+              CO₂e (กก.)
+            </th>
+            <th scope="col" className="px-3 py-3 font-medium">
+              สถานะ
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map((entry) =>
             entry.kind === 'measured' ? (
               <tr key={`m-${entry.treeId}`} className="border-b border-hairline">
-                <th scope="row" className="py-2 pr-4 text-left font-mono font-normal text-canopy">
+                <th scope="row" className="px-3 py-3 text-left font-mono font-normal text-canopy">
                   {entry.treeId}
                 </th>
-                <td className="py-2 pr-4 tabular-nums">{decimal.format(entry.row.dbhCm)}</td>
-                <td className="py-2 pr-4 tabular-nums">{decimal.format(entry.row.heightM)}</td>
-                <td className="py-2 pr-4 tabular-nums">{decimal.format(entry.row.carbonKg)}</td>
-                <td className="py-2 tabular-nums">{decimal.format(entry.row.co2eqKg)}</td>
+                <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.dbhCm)}</td>
+                <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.heightM)}</td>
+                <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.carbonKg)}</td>
+                <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.co2eqKg)}</td>
+                <td className="px-3 py-3 font-mono text-[0.625rem] font-medium tracking-wide text-moss">
+                  READY
+                </td>
               </tr>
             ) : (
-              <tr key={`x-${entry.treeId}`} className="border-b border-hairline bg-gallery-ivory">
-                <th scope="row" className="py-2 pr-4 text-left font-mono font-normal text-canopy">
+              <tr
+                key={`x-${entry.treeId}`}
+                className="border-b border-evidence-amber bg-gallery-ivory"
+              >
+                <th scope="row" className="px-3 py-3 text-left font-mono font-normal text-canopy">
                   {entry.treeId}
                 </th>
-                <td className="py-2 text-deep-forest" colSpan={4}>
-                  ไม่รวมผล — {entry.row.reasonTh}
+                <td className="px-3 py-3 text-canopy">—</td>
+                <td className="px-3 py-3 text-canopy">—</td>
+                <td className="px-3 py-3 text-canopy">—</td>
+                <td className="px-3 py-3 text-canopy">—</td>
+                <td className="px-3 py-3 text-deep-forest">
+                  <span className="block font-mono text-[0.625rem] font-medium tracking-wide text-clay">
+                    EXCLUDED
+                  </span>
+                  <span className="mt-1 block text-xs leading-5">
+                    ไม่รวมผล — {entry.row.reasonTh}
+                  </span>
                 </td>
               </tr>
             ),
