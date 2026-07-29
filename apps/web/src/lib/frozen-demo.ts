@@ -168,6 +168,7 @@ function parseDiagnostics(value: unknown): NonNullable<FrozenDemoResult['diagnos
     throw new Error('Frozen demo result is invalid');
   }
 
+  const excludedTreeIds = new Set<number>();
   return {
     excluded_segments: value.excluded_segments.map((segment) => {
       if (
@@ -176,10 +177,16 @@ function parseDiagnostics(value: unknown): NonNullable<FrozenDemoResult['diagnos
         !Number.isSafeInteger(segment.tree_id) ||
         segment.tree_id < 0 ||
         !isExcludedStage(segment.stage) ||
-        !isExcludedReason(segment.reason_code)
+        !isExcludedReason(segment.reason_code) ||
+        !(
+          (segment.stage === 'wood_leaf' && segment.reason_code === 'WOOD_EMPTY') ||
+          (segment.stage === 'qsm' && segment.reason_code === 'QSM_INVALID')
+        ) ||
+        excludedTreeIds.has(segment.tree_id)
       ) {
         throw new Error('Frozen demo result is invalid');
       }
+      excludedTreeIds.add(segment.tree_id);
       return {
         tree_id: segment.tree_id,
         stage: segment.stage,
@@ -233,6 +240,32 @@ function parseResult(value: unknown): FrozenDemoResult {
   const measuredTrees = parseOptionalCount(value.summary, 'measured_trees');
   const excludedTrees = parseOptionalCount(value.summary, 'excluded_trees');
   const diagnostics = parseDiagnostics(value.diagnostics);
+  const hasAnyModernField =
+    detectedTrees !== undefined ||
+    measuredTrees !== undefined ||
+    excludedTrees !== undefined ||
+    diagnostics !== undefined;
+
+  if (hasAnyModernField) {
+    if (
+      detectedTrees === undefined ||
+      measuredTrees === undefined ||
+      excludedTrees === undefined ||
+      diagnostics === undefined ||
+      diagnostics.excluded_segments === undefined ||
+      detectedTrees !== measuredTrees + excludedTrees ||
+      measuredTrees !== value.summary.total_trees ||
+      measuredTrees !== trees.length ||
+      excludedTrees !== diagnostics.excluded_segments.length
+    ) {
+      throw new Error('Frozen demo result is invalid');
+    }
+
+    const measuredTreeIds = new Set(trees.map((tree) => tree.tree_id));
+    if (diagnostics.excluded_segments.some((segment) => measuredTreeIds.has(segment.tree_id))) {
+      throw new Error('Frozen demo result is invalid');
+    }
+  }
 
   return {
     metadata: {
