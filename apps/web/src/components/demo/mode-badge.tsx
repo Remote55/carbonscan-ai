@@ -1,8 +1,18 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 
 import type { DemoModeState } from '../../lib/demo-mode';
 
 export const FROZEN_EVIDENCE_LABEL = 'FROZEN EVIDENCE — NOT A LIVE RUN';
+
+export function ViewerAnalysisBadge({
+  analysis,
+  fallback,
+}: {
+  analysis: object | null;
+  fallback: ReactNode;
+}) {
+  return analysis !== null ? <ModeBadge label={'LIVE ANALYSIS'} /> : <>{fallback}</>;
+}
 
 type ModeBadgeProps =
   | { state: DemoModeState; label?: never }

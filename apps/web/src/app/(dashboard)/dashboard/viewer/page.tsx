@@ -6,7 +6,7 @@ import { analyzePointCloud, ApiError, IS_API_CONFIGURED, type AnalyzeResponse } 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResultRail } from '@/components/demo/result-rail';
-import { ModeBadge } from '@/components/demo/mode-badge';
+import { ViewerAnalysisBadge } from '@/components/demo/mode-badge';
 import { TreeResultTable } from '@/components/demo/tree-result-table';
 import { CompactWorkspaceHeader } from '@/components/layout/compact-workspace-header';
 import { ViewerStage } from '@/components/viewer/viewer-stage';
@@ -200,13 +200,14 @@ export default function ViewerPage() {
                 positions={cloud.positions}
                 classes={cloud.classes}
               >
-                {analysis ? (
-                  <ModeBadge label="LIVE ANALYSIS" />
-                ) : (
-                  <span className="rounded-full border border-moss px-3 py-1.5 font-mono text-[0.625rem] uppercase tracking-wide text-lichen">
-                    {loaded === null ? 'Synthetic' : `${nPoints.toLocaleString()} points`}
-                  </span>
-                )}
+                <ViewerAnalysisBadge
+                  analysis={analysis}
+                  fallback={
+                    <span className="rounded-full border border-moss px-3 py-1.5 font-mono text-[0.625rem] uppercase tracking-wide text-lichen">
+                      {loaded === null ? 'Synthetic' : `${nPoints.toLocaleString()} points`}
+                    </span>
+                  }
+                />
               </ViewerStage>
             </div>
 
