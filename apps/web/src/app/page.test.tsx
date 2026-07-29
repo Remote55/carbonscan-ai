@@ -3,19 +3,31 @@ import { describe, expect, it } from 'vitest';
 
 import HomePage from './page';
 
+function getAnchorHrefByLabel(markup: string, label: string) {
+  const anchor = (markup.match(/<a\b[^>]*>.*?<\/a>/g) ?? []).find((tag) =>
+    tag.includes(`>${label}</a>`),
+  );
+
+  return anchor?.match(/\bhref="([^"]+)"/)?.[1];
+}
+
 describe('Landing evidence contract', () => {
-  it('leads to the judge demo and reports validation without rounding', () => {
+  it('routes each labelled hero action to the judge demo', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
-    expect(markup).toContain('href="/demo"');
-    expect(markup).toContain('ทดลอง Demo Dataset');
-    expect(markup).toContain('อัปโหลด Point Cloud');
+    expect(getAnchorHrefByLabel(markup, 'ทดลอง Demo Dataset')).toBe('/demo');
+    expect(getAnchorHrefByLabel(markup, 'อัปโหลด Point Cloud')).toBe('/demo');
+  });
+
+  it('reports validation without rounding or promoting incomplete stages', () => {
+    const markup = renderToStaticMarkup(<HomePage />);
+
     expect(markup).toContain('0.418');
     expect(markup).toContain('0.808');
     expect(markup).toContain('1.1673846154');
-    expect(markup).toContain('PointNet++');
-    expect(markup).toContain('Experimental');
-    expect(markup).toContain('species');
+    expect(markup).toContain('tlsep = Default');
+    expect(markup).toContain('PointNet++ = Experimental');
+    expect(markup).toContain('species stage = Stub');
     expect(markup).not.toContain('93.135');
   });
 
