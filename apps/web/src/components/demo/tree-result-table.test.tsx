@@ -68,4 +68,14 @@ describe('TreeResultTable', () => {
     expect(markup).toContain('overflow-x-auto');
     expect(markup).toContain('min-w-[44rem]');
   });
+
+  it('uses the AA light-surface text token for the small READY status', () => {
+    const markup = renderToStaticMarkup(<TreeResultTable view={view} />);
+    const measuredRow = (markup.match(/<tr[^>]*>.*?<\/tr>/g) ?? []).find((row) =>
+      row.includes('READY'),
+    );
+
+    expect(measuredRow).toContain('text-canopy');
+    expect(measuredRow).not.toContain('text-moss');
+  });
 });

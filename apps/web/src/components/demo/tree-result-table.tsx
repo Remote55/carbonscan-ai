@@ -60,7 +60,7 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.heightM)}</td>
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.carbonKg)}</td>
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.co2eqKg)}</td>
-                <td className="px-3 py-3 font-mono text-[0.625rem] font-medium tracking-wide text-moss">
+                <td className="px-3 py-3 font-mono text-[0.625rem] font-medium tracking-wide text-canopy">
                   READY
                 </td>
               </tr>

@@ -46,7 +46,9 @@ export function ProvenancePanel({ manifest }: { manifest: FrozenDemoManifest }) 
               key={label}
               className="grid gap-1 border-b border-hairline py-3 last:border-b-0 sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-4"
             >
-              <p className="font-mono text-[0.625rem] uppercase tracking-wide text-moss">{label}</p>
+              <p className="font-mono text-[0.625rem] uppercase tracking-wide text-canopy">
+                {label}
+              </p>
               <div className="min-w-0">
                 <p className="text-xs text-canopy">
                   {artifact.path} · {artifact.size_bytes.toLocaleString('en-US')} bytes
@@ -123,7 +125,7 @@ function AuditGroup({
     >
       <h3
         className={`font-mono text-[0.625rem] uppercase tracking-[0.12em] ${
-          emphasis ? 'text-lichen' : 'text-moss'
+          emphasis ? 'text-lichen' : 'text-canopy'
         }`}
       >
         {title}
