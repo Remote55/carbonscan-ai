@@ -907,9 +907,18 @@ function Start-TreeQManagedProcess {
         $managed.Capture = $capture
         $capture.Start($process)
         $process.Refresh()
+        # A child that has already exited, or one whose image we may not query,
+        # reports an empty Path. Writing that produces an entry every later read
+        # rejects as invalid, which poisons the registry for good: each following
+        # run fails in cleanup until someone deletes the runtime directory by
+        # hand. We started this process from a resolved path, so fall back to it.
+        $executablePath = $process.Path
+        if ([string]::IsNullOrWhiteSpace($executablePath)) {
+            $executablePath = $startInfo.FileName
+        }
         $managed.Entry = [pscustomobject][ordered]@{
             pid = $process.Id
-            executable_path = $process.Path
+            executable_path = $executablePath
             start_time_utc = $process.StartTime.ToUniversalTime().ToString('o')
             role = $Role
         }
