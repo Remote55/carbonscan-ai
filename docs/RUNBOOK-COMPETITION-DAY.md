@@ -52,17 +52,23 @@ git checkout main && git pull --ff-only
 4. **ทดสอบอัปโหลดหนึ่งครั้งด้วยไฟล์จาก USB** — อย่าให้ครั้งแรกที่กดคือตอนกรรมการดู
 5. กด `เริ่มใหม่` ให้จอสะอาด แล้วปล่อยทิ้งไว้
 
-เวลาที่ควรได้ (วัดจากการซ้อมจริง):
+เวลาที่ควรได้ (จับเวลาจากการซ้อมจริง 29 ก.ค. 69 บนเครื่องที่จะใช้แข่ง):
 
-| โหมด | เวลาจนพร้อม |
-|---|---|
-| Frozen | ~3 วินาที |
-| Local | ~7 วินาที |
-| Auto | ~35 วินาที |
+| โหมด | เวลาจนพร้อม | ที่วัดได้ |
+|---|---|---|
+| Frozen | ~7 วินาที | 7.0 |
+| Local | ~7 วินาที | 6.5, 6.4 |
+| Auto | **40–50 วินาที** | 48.2, 38.2 |
 
 Auto ช้ากว่าเพราะ **ตั้งใจรอ 25 วินาที** ก่อนเช็ค hostname สาธารณะครั้งแรก — ถ้าเช็คเร็วกว่านั้น
 DNS จะตอบ "ไม่มี host นี้" แล้ว **cache ไว้ 30 นาที** ทำให้โหมด public ใช้ไม่ได้ทั้งรอบ
-**อย่าปิดหน้าต่างเพราะคิดว่ามันค้าง**
+
+> **อย่าปิดหน้าต่างเพราะคิดว่ามันค้าง** — ระหว่างรอจะมีบรรทัด
+> `Public hostname published; holding 25s before the first lookup` ขึ้นให้เห็น
+> ถ้าเห็นบรรทัดนี้แปลว่ากำลังทำงานปกติ
+
+ถ้าคิดว่า 40–50 วินาทีนานเกินไปสำหรับจังหวะขึ้นเวที ให้เปิด launcher ทิ้งไว้ตั้งแต่ก่อนถึงคิว
+หรือใช้ `-Mode Local` ซึ่งพร้อมใน 7 วินาทีและสาธิตได้ครบเหมือนกัน
 
 ---
 
@@ -123,6 +129,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo\start-treeq-dem
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo\start-treeq-demo.ps1 -Mode Local
 ```
+
+### ต้องเปิด API เองด้วยมือ (นอก launcher)
+
+ใช้ **venv ของ repo เท่านั้น** — Python ที่ติดตั้งในเครื่องไม่มี `uvicorn`
+
+```powershell
+cd D:\Project_Carbon\services\api
+$env:CORS_ORIGINS='http://localhost:3000,https://treeqcarbon.vercel.app'
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+**ห้ามตั้ง `TREEQ_DEMO_MODE`** ถ้าไม่ได้เปิดผ่าน launcher — API ที่เปิด demo mode ค้างไว้บนพอร์ต
+8000 คือสาเหตุที่ทุกการอัปโหลดเคยตอบ 401 โดยไม่มีอะไรบนจอบอกว่าทำไม
 
 ### ทุกอย่างล่ม
 
