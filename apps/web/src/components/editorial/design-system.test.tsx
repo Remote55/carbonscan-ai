@@ -40,8 +40,13 @@ describe('TreeQ editorial primitives', () => {
     );
 
     expect(markup).toContain('aria-label="Primary navigation"');
+    expect(markup).toContain('href="/"');
+    expect(markup).toContain('href="/#tech"');
+    expect(markup).toContain('href="/#how"');
+    expect(markup).toContain('href="/#proof"');
     expect(markup).toContain('href="/dashboard/viewer"');
     expect(markup).toContain('href="/login"');
+    expect(markup).toContain('href="/demo"');
     expect(markup).toContain('aria-label="Workspace navigation"');
     expect(markup).toContain('Analysis workspace');
     expect(markup).toContain('Traceable assessment');
