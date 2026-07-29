@@ -25,9 +25,9 @@ describe('TreeQ editorial primitives', () => {
   });
 
   it('renders navigable workspace primitives and an explicit status', () => {
-    const markup = renderToStaticMarkup(
+    const appHeaderMarkup = renderToStaticMarkup(<AppHeader tone="transparent" />);
+    const workspaceMarkup = renderToStaticMarkup(
       <>
-        <AppHeader tone="transparent" />
         <CompactWorkspaceHeader title="Analysis workspace" mode="Frozen evidence" backHref="/demo" />
         <EditorialSection eyebrow="Method" title="Traceable assessment">
           <p>Every result keeps its provenance.</p>
@@ -39,20 +39,21 @@ describe('TreeQ editorial primitives', () => {
       </>,
     );
 
-    expect(markup).toContain('aria-label="Primary navigation"');
-    expect(markup).toContain('href="/"');
-    expect(markup).toContain('href="/#tech"');
-    expect(markup).toContain('href="/#how"');
-    expect(markup).toContain('href="/#proof"');
-    expect(markup).toContain('href="/dashboard/viewer"');
-    expect(markup).toContain('href="/login"');
-    expect(markup).toContain('href="/demo"');
-    expect(markup).toContain('aria-label="Workspace navigation"');
-    expect(markup).toContain('Analysis workspace');
-    expect(markup).toContain('Traceable assessment');
-    expect(markup).toContain('Pipeline');
-    expect(markup).toContain('Ready');
-    expect(markup).toContain('Deterministic baseline');
-    expect(markup).toContain('h-12');
+    expect(appHeaderMarkup).toContain('aria-label="Primary navigation"');
+    expect(appHeaderMarkup).toContain('href="/"');
+    expect(appHeaderMarkup).toContain('href="/#tech"');
+    expect(appHeaderMarkup).toContain('href="/#how"');
+    expect(appHeaderMarkup).toContain('href="/#proof"');
+    expect(appHeaderMarkup).toContain('href="/dashboard/viewer"');
+    expect(appHeaderMarkup).toContain('href="/login"');
+    expect(appHeaderMarkup).toContain('href="/demo"');
+    expect(workspaceMarkup).toContain('aria-label="Workspace navigation"');
+    expect(workspaceMarkup).toContain('href="/demo"');
+    expect(workspaceMarkup).toContain('Analysis workspace');
+    expect(workspaceMarkup).toContain('Traceable assessment');
+    expect(workspaceMarkup).toContain('Pipeline');
+    expect(workspaceMarkup).toContain('Ready');
+    expect(workspaceMarkup).toContain('Deterministic baseline');
+    expect(workspaceMarkup).toContain('h-12');
   });
 });
