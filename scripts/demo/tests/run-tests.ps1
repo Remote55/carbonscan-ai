@@ -641,6 +641,24 @@ try {
                 'managed child logs redact inherited secret'
             Assert-True $capturedLogs.Contains('[REDACTED]') `
                 'managed child log redaction is explicit'
+
+            # The registry must survive its own validation. Process.Path is
+            # empty for a child that has already exited, and writing that
+            # produced an entry every later read rejected as invalid, so every
+            # following run failed in cleanup until the runtime directory was
+            # deleted by hand. The child above has exited by now, which is
+            # exactly the case that used to poison the file.
+            $writtenRegistry = [System.IO.File]::ReadAllText($managedRegistry) | ConvertFrom-Json
+            $writtenEntry = @($writtenRegistry.processes)[0]
+            Assert-True (
+                -not [string]::IsNullOrWhiteSpace([string]$writtenEntry.executable_path)
+            ) 'registry entry records an executable path even for an exited child'
+            Assert-True (
+                [System.IO.Path]::IsPathRooted([string]$writtenEntry.executable_path)
+            ) 'registry entry executable path is rooted'
+            Assert-Equal (
+                @($writtenEntry.PSObject.Properties.Name | Sort-Object) -join ','
+            ) 'executable_path,pid,role,start_time_utc' 'registry entry matches its own schema'
         }
         catch {
             Assert-True $false 'managed process preserves argument boundaries under spaces'
