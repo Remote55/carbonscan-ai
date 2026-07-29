@@ -1,42 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Sarabun, Space_Grotesk, JetBrains_Mono, Pacifico } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import './globals.css';
+import { ibmPlexSansThai, jetBrainsMono, notoSerifThai } from '@/lib/fonts';
 import { cn } from '@/lib/utils';
-
-// Fonts
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-});
-
-const sarabun = Sarabun({
-  subsets: ['thai', 'latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-sarabun',
-  display: 'swap',
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  display: 'swap',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-jetbrains-mono',
-  display: 'swap',
-});
-
-// Script accent for the marketing hero (nature-landing feel).
-const pacifico = Pacifico({
-  subsets: ['latin'],
-  weight: '400',
-  variable: '--font-pacifico',
-  display: 'swap',
-});
 
 // Metadata
 export const metadata: Metadata = {
@@ -109,11 +75,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="th"
       className={cn(
-        inter.variable,
-        sarabun.variable,
-        spaceGrotesk.variable,
-        jetbrainsMono.variable,
-        pacifico.variable,
+        notoSerifThai.variable,
+        ibmPlexSansThai.variable,
+        jetBrainsMono.variable,
         GeistSans.variable,
         'font-sans',
       )}
