@@ -77,7 +77,8 @@
   }
 
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
   }
 
   html {
@@ -141,9 +142,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-muted-foreground/30;
+  @apply rounded-full;
+  background-color: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
+  background-color: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
 }
