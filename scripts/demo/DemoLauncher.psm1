@@ -389,6 +389,58 @@ function Get-TreeQSha256 {
     return ([BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()
 }
 
+function Get-TreeQPortOwner {
+    <#
+        .SYNOPSIS
+        Process id currently listening on a loopback port, or $null.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    $connection = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -eq $connection) {
+        return $null
+    }
+    return [int]$connection.OwningProcess
+}
+
+function Assert-TreeQPortFree {
+    <#
+        .SYNOPSIS
+        Refuse to start when something already holds a port the demo needs.
+
+        .DESCRIPTION
+        An interrupted run leaves its child alive and still listening. The next
+        launch cannot bind the port, so it ends up driving whatever is already
+        there. That is not hypothetical: an abandoned API with demo mode enabled
+        answered every upload with 401, and the only thing on screen was the 401.
+
+        Failing here, naming the port and the process holding it, turns a silent
+        wrong-server session into one line the operator can act on.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][int]$Port,
+        [Parameter(Mandatory = $true)][string]$Role
+    )
+
+    $owner = Get-TreeQPortOwner -Port $Port
+    if ($null -eq $owner) {
+        return
+    }
+    $name = 'unknown'
+    $process = Get-Process -Id $owner -ErrorAction SilentlyContinue
+    if ($null -ne $process) {
+        $name = $process.Name
+    }
+    throw (
+        "Port $Port is already in use by process $owner ($name), which this " +
+        "launcher did not start. The $Role would talk to that process instead " +
+        "of its own. Stop it, then run the launcher again."
+    )
+}
+
 function Get-TreeQWebServerEntry {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
@@ -1198,6 +1250,8 @@ Export-ModuleMember -Function @(
     'Protect-TreeQLog',
     'Get-TreeQSha256',
     'Get-TreeQWebServerEntry',
+    'Get-TreeQPortOwner',
+    'Assert-TreeQPortFree',
     'New-TreeQHandoffUrl',
     'Test-TreeQOwnedProcess',
     'Stop-TreeQOwnedProcesses',

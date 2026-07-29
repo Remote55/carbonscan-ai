@@ -76,9 +76,38 @@ function Assert-TreeQDirectorySafe {
 }
 
 function Initialize-TreeQRuntime {
+    <#
+        .SYNOPSIS
+        Prepare the runtime directory and a log directory unique to this run.
+
+        .DESCRIPTION
+        Log files used to have fixed names, so a run whose capture threads were
+        still holding web.stdout.log made the next run fail while opening it.
+        That exception is raised inside Start-TreeQManagedProcess, whose catch
+        kills the child it just created -- so the web server died immediately
+        after starting, with an empty stderr and nothing to explain it.
+
+        Giving each run its own directory removes the contention instead of
+        trying to detect it. The registry stays at a fixed path because finding
+        leftovers from previous runs depends on it.
+    #>
     $tempRoot = Join-Path $script:RepoRoot 'temp'
     Assert-TreeQDirectorySafe -Path $tempRoot -Root $script:RepoRoot
     Assert-TreeQDirectorySafe -Path $script:RuntimeRoot -Root $script:RepoRoot
+    $logsRoot = Join-Path $script:RuntimeRoot 'logs'
+    Assert-TreeQDirectorySafe -Path $logsRoot -Root $script:RepoRoot
+    $runId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssfff')
+    $script:LogRoot = Join-Path $logsRoot $runId
+    Assert-TreeQDirectorySafe -Path $script:LogRoot -Root $script:RepoRoot
+
+    # Keep a few runs for debugging without letting the demo machine fill up.
+    # A directory still locked by a live run simply stays.
+    Get-ChildItem -LiteralPath $logsRoot -Directory -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending |
+        Select-Object -Skip 5 |
+        ForEach-Object {
+            try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop } catch { }
+        }
 }
 
 function Repair-TreeQDuplicatePathEnvironment {
@@ -362,8 +391,8 @@ function Start-TreeQWeb {
             -FilePath $NodePath `
             -ArgumentList @($ServerPath) `
             -WorkingDirectory $ServerRoot `
-            -StandardOutputPath (Join-Path $script:RuntimeRoot 'web.stdout.log') `
-            -StandardErrorPath (Join-Path $script:RuntimeRoot 'web.stderr.log') `
+            -StandardOutputPath (Join-Path $script:LogRoot 'web.stdout.log') `
+            -StandardErrorPath (Join-Path $script:LogRoot 'web.stderr.log') `
             -Secrets @($script:LogSecrets) `
             -OwnedProcesses $script:ManagedProcesses `
             -RegistryPath $script:RegistryPath `
@@ -439,8 +468,8 @@ function Start-TreeQApi {
                 '--port', '8000'
             ) `
             -WorkingDirectory (Join-Path $script:RepoRoot 'services\api') `
-            -StandardOutputPath (Join-Path $script:RuntimeRoot 'api.stdout.log') `
-            -StandardErrorPath (Join-Path $script:RuntimeRoot 'api.stderr.log') `
+            -StandardOutputPath (Join-Path $script:LogRoot 'api.stdout.log') `
+            -StandardErrorPath (Join-Path $script:LogRoot 'api.stderr.log') `
             -Secrets @($Token) `
             -OwnedProcesses $script:ManagedProcesses `
             -RegistryPath $script:RegistryPath `
@@ -534,8 +563,8 @@ function Start-TreeQTunnel {
             '--no-autoupdate'
         ) `
         -WorkingDirectory $script:RepoRoot `
-        -StandardOutputPath (Join-Path $script:RuntimeRoot 'tunnel.stdout.log') `
-        -StandardErrorPath (Join-Path $script:RuntimeRoot 'tunnel.stderr.log') `
+        -StandardOutputPath (Join-Path $script:LogRoot 'tunnel.stdout.log') `
+        -StandardErrorPath (Join-Path $script:LogRoot 'tunnel.stderr.log') `
         -Secrets @($script:LogSecrets) `
         -OwnedProcesses $script:ManagedProcesses `
         -RegistryPath $script:RegistryPath `
@@ -641,6 +670,17 @@ try {
         Write-TreeQMessage (
             "Previous registry checked; stopped $($staleStopped.Count) verified owned process(es)."
         )
+    }
+
+    # Ports must be free *after* our own leftovers are stopped. Anything still
+    # listening belongs to someone else, and starting anyway means the demo
+    # drives a server this launcher did not configure. That is not theoretical:
+    # an abandoned API with demo mode enabled kept port 8000, the operator's own
+    # API could not bind, and every upload came back 401 with nothing on screen
+    # explaining why.
+    Assert-TreeQPortFree -Port 3000 -Role 'web server'
+    if ($Mode -ne 'Frozen') {
+        Assert-TreeQPortFree -Port 8000 -Role 'API'
     }
 
     $webBuild = Test-TreeQWebBuild -RepoRoot $script:RepoRoot
