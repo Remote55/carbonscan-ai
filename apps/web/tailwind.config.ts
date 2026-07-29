@@ -16,68 +16,66 @@ const config: Config = {
       screens: {
         '2xl': '1400px',
       },
-    },
-    extend: {
+      },
+      extend: {
       colors: {
-        // Brand
-        forest: {
-          50: '#f0f9f4',
-          100: '#d6f0de',
-          200: '#aee0c1',
-          300: '#7cc59a',
-          400: '#52b07a',
-          500: '#2d6a4f', // Primary
-          600: '#1f5a3f',
-          700: '#1b4332',
-          800: '#0f3324',
-          900: '#0d2e1f',
-        },
-        sky: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#74c0fc', // Brand secondary
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-        },
+        'forest-ink': 'var(--forest-ink)',
+        'deep-forest': 'var(--deep-forest)',
+        canopy: 'var(--canopy)',
+        moss: 'var(--moss)',
+        lichen: 'var(--lichen)',
+        'gallery-ivory': 'var(--gallery-ivory)',
+        paper: 'var(--paper)',
+        mist: 'var(--mist)',
+        'evidence-amber': 'var(--evidence-amber)',
+        clay: 'var(--clay)',
+        hairline: 'var(--hairline)',
 
-        // shadcn/ui CSS variables
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        // Legacy aliases remain while existing surfaces migrate to semantic tokens.
+        forest: {
+          50: 'var(--paper)',
+          100: 'var(--mist)',
+          200: 'var(--lichen)',
+          300: 'var(--lichen)',
+          400: 'var(--moss)',
+          500: 'var(--canopy)',
+          600: 'var(--canopy)',
+          700: 'var(--deep-forest)',
+          800: 'var(--deep-forest)',
+          900: 'var(--forest-ink)',
+        },
+        border: 'var(--border)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
+          DEFAULT: 'var(--destructive)',
+          foreground: 'var(--destructive-foreground)',
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
         },
       },
       borderRadius: {
@@ -86,9 +84,10 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'var(--font-sarabun)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-space-grotesk)', 'sans-serif'],
-        mono: ['var(--font-jetbrains-mono)', 'monospace'],
+        sans: ['var(--font-ui)', 'system-ui', 'sans-serif'],
+        heading: ['var(--font-editorial)', 'serif'],
+        display: ['var(--font-editorial)', 'serif'],
+        mono: ['var(--font-technical)', 'monospace'],
       },
       keyframes: {
         'accordion-down': {
