@@ -194,10 +194,10 @@ export default function HomePage() {
                 เข้าสู่ระบบ
               </Link>
               <Link
-                href="/signup"
+                href="/demo"
                 className="inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-forest-800 shadow-lg shadow-black/20 transition hover:bg-forest-50"
               >
-                เริ่มใช้ฟรี <ArrowRight className="h-4 w-4" />
+                ดูเดโม <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </nav>
@@ -220,18 +220,22 @@ export default function HomePage() {
               แพลตฟอร์มประเมินชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อม provenance ของ
               pipeline การรับรองและออก carbon credit อย่างเป็นทางการอยู่นอกขอบเขต prototype นี้
             </p>
+            {/* The demo leads, because it is the only route that shows real
+                results without an account. Signup led here before, which meant
+                anyone arriving to evaluate the work hit a login wall first and
+                had no way to discover /demo at all. */}
             <div className="mt-9 flex flex-wrap gap-3">
               <Link
-                href="/signup"
+                href="/demo"
                 className="inline-flex h-12 items-center gap-2 rounded-full bg-gradient-to-b from-forest-400 to-forest-600 px-7 text-base font-semibold text-white shadow-xl shadow-forest-900/40 transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-forest-900/50"
               >
-                ลองใช้ฟรี <ArrowRight className="h-5 w-5" />
+                ดูผลจริง ไม่ต้องสมัคร <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
-                href="/dashboard/viewer"
+                href="/signup"
                 className="inline-flex h-12 items-center rounded-full border border-white/25 bg-white/5 px-7 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/10"
               >
-                ทดลอง 3D Viewer
+                สมัครใช้งาน
               </Link>
             </div>
             <dl className="mt-12 flex flex-wrap gap-x-10 gap-y-5">
