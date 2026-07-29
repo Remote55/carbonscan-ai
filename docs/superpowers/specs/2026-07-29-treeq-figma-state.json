@@ -1,0 +1,106 @@
+{
+  "runId": "treeq-forest-observatory-2026-07-29",
+  "fileKey": "54IMkjTG5teh8P1ZHairlo",
+  "fileUrl": "https://www.figma.com/design/54IMkjTG5teh8P1ZHairlo",
+  "status": "phase-4-complete",
+  "approvedSpec": "docs/superpowers/specs/2026-07-29-treeq-web-visual-redesign-design.md",
+  "pages": {
+    "00 Foundations": "0:1",
+    "01 Components": "12:2",
+    "02 Landing": "12:3",
+    "03 Judge Demo": "12:4",
+    "04 Results + Viewer": "12:5",
+    "05 Auth": "12:6",
+    "06 Dashboard": "12:7"
+  },
+  "collections": {
+    "TreeQ / Color Primitives": "VariableCollectionId:4:2",
+    "TreeQ / Color": "VariableCollectionId:4:3",
+    "TreeQ / Dimensions": "VariableCollectionId:4:4",
+    "TreeQ / Typography": "VariableCollectionId:4:5"
+  },
+  "styles": {
+    "textStyleCount": 14,
+    "effectStyleCount": 3
+  },
+  "components": {
+    "BrandMark": "17:2",
+    "Button": "21:2",
+    "ModeBadge": "23:2",
+    "EvidenceMetric": "23:3",
+    "UploadDropzone": "25:2",
+    "StatusState": "25:3",
+    "AppHeader": "28:2",
+    "CompactWorkspaceHeader": "28:15",
+    "ViewerLegend": "28:20",
+    "ResultRail": "29:9",
+    "TreeResultTable": "29:34",
+    "ProvenancePanel": "30:9",
+    "AuthPanel": "30:38"
+  },
+  "screens": {
+    "Cover": "13:2",
+    "Foundations": "15:2",
+    "Components Intro": "16:2",
+    "Landing 1440x900": "32:2",
+    "Landing 1366x768": "42:21",
+    "Judge Demo 1440x900": "33:2",
+    "Judge Demo 1366x768": "43:28",
+    "Results 3D 1440x900": "35:2",
+    "Results 1366x768": "45:145",
+    "Results Table 1440x900": "36:43",
+    "Provenance 1440x900": "36:123",
+    "Auth 1440x900": "37:2",
+    "Dashboard 1440x900": "39:2"
+  },
+  "validation": {
+    "phase1": {
+      "status": "PASS",
+      "variableCount": 86,
+      "allScopeVariables": 0,
+      "missingCodeSyntax": 0,
+      "brokenAliases": 0
+    },
+    "phase3": {
+      "status": "PASS",
+      "componentSetCount": 5,
+      "componentCount": 32,
+      "buttonVariantCount": 12,
+      "modeBadgeVariantCount": 3,
+      "uploadDropzoneVariantCount": 4
+    },
+    "phase4": {
+      "status": "PASS",
+      "designFrameCount": 13,
+      "verificationFrameCount": 3,
+      "missingFonts": 0,
+      "zeroSizeNodes": 0,
+      "missingTruthClaims": 0,
+      "forbiddenStaleClaims": 0,
+      "reviewedViewports": [
+        "1440x900",
+        "1366x768"
+      ]
+    }
+  },
+  "truthSource": {
+    "validation": {
+      "source": "apps/web/src/generated/core-demo-evidence.ts",
+      "woodIoU": 0.418,
+      "leafIoU": 0.808,
+      "dbhMaeCm": 1.1673846154
+    },
+    "judgeFrozenResult": {
+      "source": "apps/web/public/demo/result.json",
+      "detectedTrees": 5,
+      "calculatedTrees": 3,
+      "excludedTrees": 2,
+      "totalCarbonKg": 1289.74,
+      "totalCo2eqKg": 4729.06
+    }
+  },
+  "assetPolicy": {
+    "figmaPhotography": "Visual-direction reference supplied by the user; do not copy into the repository until commercial or competition-use rights are documented.",
+    "productionRequirement": "Use team-owned, generated, or explicitly licensed imagery and record source plus license before commit."
+  }
+}

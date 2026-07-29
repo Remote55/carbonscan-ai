@@ -1,9 +1,11 @@
 # TreeQ Web Visual Redesign — Design Specification
 
 **วันที่:** 2026-07-29  
-**สถานะ:** Approved visual direction; pending Figma review  
-**แนวทางภาพ:** Forest Editorial Observatory  
+**สถานะ:** Approved Figma design; ready for implementation planning
+**แนวทางภาพ:** Forest Editorial Observatory + Cinematic Field Photography
 **ขอบเขต:** Web เท่านั้น
+
+**Figma:** [TreeQ — Forest Editorial Observatory](https://www.figma.com/design/54IMkjTG5teh8P1ZHairlo)
 
 ## 1. เป้าหมาย
 
@@ -269,4 +271,3 @@ Visual components รับข้อมูลจาก view model และ stat
 8. Critical content ผ่านสอง desktop viewport
 9. Design ไม่เปลี่ยนข้อมูลหรือพฤติกรรมระบบ
 10. Figma, spec และ implementation ตรงกัน
-
