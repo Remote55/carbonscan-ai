@@ -33,6 +33,7 @@ describe('ProvenancePanel', () => {
     expect(markup).toContain('stub');
     expect(markup).toContain('PointNet++');
     expect(markup).toContain('Experimental');
+    expect(markup).toContain('ยังไม่ถูกเลื่อนเป็นค่าตั้งต้น');
     expect(markup).toContain('Dataset scope');
     expect(markup).toContain('deterministic fixture');
     expect(markup).toContain('Allometric source');

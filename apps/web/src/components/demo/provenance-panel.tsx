@@ -63,8 +63,8 @@ export function ProvenancePanel({ manifest }: { manifest: FrozenDemoManifest }) 
           <AuditFact label="Pipeline version" value={manifest.pipeline.version} mono />
           <AuditFact label="Wood / leaf backend" value={manifest.pipeline.backend} mono />
           <p className="mt-3 border-t border-hairline pt-3 text-xs leading-5 text-canopy">
-            PointNet++ = <strong className="font-medium text-clay">Experimental</strong> · backend
-            ที่ run นี้ระบุคือ {manifest.pipeline.backend}
+            PointNet++ = <strong className="font-medium text-clay">Experimental</strong> ·
+            ยังไม่ถูกเลื่อนเป็นค่าตั้งต้น · backend ที่ run นี้ระบุคือ {manifest.pipeline.backend}
           </p>
         </AuditGroup>
 
