@@ -703,6 +703,34 @@ try {
     }
     Assert-Equal $failureOwned.Count 0 'registration failure removes in-memory ownership entry'
 
+    # Port guard. A process left behind by an interrupted run keeps holding 8000,
+    # the next launch cannot bind it, and the demo silently talks to whatever is
+    # already there. That happened for real: an abandoned API with demo mode on
+    # answered every upload with 401 and nothing said why.
+    $freeListener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+    $freeListener.Start()
+    $takenPort = ([System.Net.IPEndPoint]$freeListener.LocalEndpoint).Port
+    try {
+        Assert-Equal (Get-TreeQPortOwner -Port $takenPort) $PID 'port owner is reported'
+        Assert-Throws {
+            Assert-TreeQPortFree -Port $takenPort -Role 'api'
+        } 'occupied port fails preflight instead of starting anyway'
+        $message = ''
+        try { Assert-TreeQPortFree -Port $takenPort -Role 'api' } catch { $message = $_.Exception.Message }
+        Assert-True ($message -match "\b$takenPort\b") 'port failure names the port'
+        Assert-True ($message -match "\b$PID\b") 'port failure names the process holding it'
+    }
+    finally {
+        $freeListener.Stop()
+    }
+    $probeListener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+    $probeListener.Start()
+    $nowFreePort = ([System.Net.IPEndPoint]$probeListener.LocalEndpoint).Port
+    $probeListener.Stop()
+    Assert-Null (Get-TreeQPortOwner -Port $nowFreePort) 'free port has no owner'
+    Assert-TreeQPortFree -Port $nowFreePort -Role 'api'
+    Assert-True $true 'free port passes preflight'
+
     # Pinned so a published manifest cannot change without someone re-sealing on
     # purpose. Update only alongside a real reseal, and say why here.
     #   68d8650: sealed from pipeline 0.3.0.

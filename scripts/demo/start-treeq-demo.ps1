@@ -643,6 +643,17 @@ try {
         )
     }
 
+    # Ports must be free *after* our own leftovers are stopped. Anything still
+    # listening belongs to someone else, and starting anyway means the demo
+    # drives a server this launcher did not configure. That is not theoretical:
+    # an abandoned API with demo mode enabled kept port 8000, the operator's own
+    # API could not bind, and every upload came back 401 with nothing on screen
+    # explaining why.
+    Assert-TreeQPortFree -Port 3000 -Role 'web server'
+    if ($Mode -ne 'Frozen') {
+        Assert-TreeQPortFree -Port 8000 -Role 'API'
+    }
+
     $webBuild = Test-TreeQWebBuild -RepoRoot $script:RepoRoot
     $web = Start-TreeQWeb `
         -NodePath $nodePath `
