@@ -676,6 +676,82 @@ function Test-TreeQReadiness {
     }
 }
 
+function Wait-TreeQPublicReadiness {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)][string]$Token,
+        [Parameter(Mandatory = $false)]$Tunnel,
+        [Parameter(Mandatory = $false)][ValidateRange(1, 120)][int]$GraceSec = 25,
+        [Parameter(Mandatory = $false)][ValidateRange(1, 180)][int]$TimeoutSec = 45,
+        [Parameter(Mandatory = $false)][scriptblock]$Probe
+    )
+
+    # The grace period below is the whole fix, not a slow-start cushion. Shorten
+    # it to make the launcher feel faster and the bug comes straight back.
+    #
+    # cloudflared prints the quick-tunnel URL before that hostname exists in DNS,
+    # and says so itself: "it may take some time to be reachable". The launcher
+    # used to probe the instant it read the URL. That lookup is answered
+    # NXDOMAIN, and trycloudflare.com publishes an SOA minimum of 1800 seconds,
+    # so "no such host" is then cached for thirty minutes - by this machine and
+    # by the upstream resolver. No amount of retrying clears it.
+    #
+    # Measured here, one fresh tunnel per data point:
+    #   probe at once, then retry 60s straight   -> never resolved
+    #   first lookup at  8s (tunnel registered)  -> still poisoned
+    #   first lookup at 14s                      -> resolved
+    #   first lookup at 20s                      -> resolved in 0.03s
+    # Public readiness was therefore not flaky. It destroyed the name it was
+    # checking on every run, which is why Auto never once reached public mode.
+    #
+    # Waiting for the tunnel's own "Registered tunnel connection" event is not a
+    # substitute: registration lands around 5s, well inside the poisoning window.
+    if ($null -eq $Probe) {
+        $Probe = {
+            param($ProbeEndpoint, $ProbeToken)
+            Test-TreeQReadiness -Endpoint $ProbeEndpoint -Token $ProbeToken -TimeoutSec 5
+        }
+    }
+
+    $graceDeadline = [DateTime]::UtcNow.AddSeconds($GraceSec)
+    while ([DateTime]::UtcNow -lt $graceDeadline) {
+        if ($null -ne $Tunnel -and -not (Test-TreeQOwnedProcess -Entry $Tunnel.Entry)) {
+            return [pscustomobject]@{
+                Ready = $false
+                PipelineVersion = $null
+                Detail = 'tunnel exited'
+            }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
+    while ($true) {
+        if ($null -ne $Tunnel -and -not (Test-TreeQOwnedProcess -Entry $Tunnel.Entry)) {
+            return [pscustomobject]@{
+                Ready = $false
+                PipelineVersion = $null
+                Detail = 'tunnel exited'
+            }
+        }
+        $readiness = & $Probe $Endpoint $Token
+        if ($readiness.Ready) {
+            return $readiness
+        }
+        if ([DateTime]::UtcNow -ge $deadline) {
+            break
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    return [pscustomobject]@{
+        Ready = $false
+        PipelineVersion = $null
+        Detail = 'public readiness timeout'
+    }
+}
+
 function ConvertTo-TreeQWindowsArgument {
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Argument)
 
@@ -1265,6 +1341,7 @@ Export-ModuleMember -Function @(
     'Test-TreeQOwnedProcess',
     'Stop-TreeQOwnedProcesses',
     'Test-TreeQReadiness',
+    'Wait-TreeQPublicReadiness',
     'ConvertTo-TreeQWindowsCommandLine',
     'Assert-TreeQProcessRegistryPath',
     'Start-TreeQManagedProcess',

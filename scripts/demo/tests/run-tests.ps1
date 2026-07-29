@@ -858,6 +858,44 @@ try {
         [void]$badServer.Process.WaitForExit(5000)
     }
 
+    # Public readiness must not look the tunnel hostname up before the grace
+    # elapses. The hostname does not exist yet at that point, and trycloudflare.com
+    # caches the resulting "no such host" for 1800 seconds, so a single early
+    # lookup costs the whole run its public mode. These assertions are the
+    # tripwire: they fail if anyone shortens the wait to make startup feel faster.
+    $probeTimes = New-Object System.Collections.ArrayList
+    $graceClock = [Diagnostics.Stopwatch]::StartNew()
+    $recordingProbe = {
+        param($ProbeEndpoint, $ProbeToken)
+        [void]$probeTimes.Add($graceClock.Elapsed.TotalSeconds)
+        [pscustomobject]@{ Ready = $false; PipelineVersion = $null; Detail = 'unavailable' }
+    }
+    $graceResult = Wait-TreeQPublicReadiness `
+        -Endpoint 'https://grace-probe.trycloudflare.com' `
+        -Token $token `
+        -GraceSec 2 `
+        -TimeoutSec 1 `
+        -Probe $recordingProbe
+    Assert-True ($probeTimes.Count -ge 1) 'public readiness does probe after waiting'
+    Assert-True ($probeTimes[0] -ge 1.9) 'public readiness makes no lookup before the grace elapses'
+    Assert-True (-not $graceResult.Ready) 'public readiness does not claim an unproven tunnel'
+    Assert-Equal $graceResult.Detail 'public readiness timeout' `
+        'public readiness names its own timeout'
+
+    $readyProbe = {
+        param($ProbeEndpoint, $ProbeToken)
+        [pscustomobject]@{ Ready = $true; PipelineVersion = '0.4.0'; Detail = 'ready' }
+    }
+    $readyResult = Wait-TreeQPublicReadiness `
+        -Endpoint 'https://grace-probe.trycloudflare.com' `
+        -Token $token `
+        -GraceSec 1 `
+        -TimeoutSec 5 `
+        -Probe $readyProbe
+    Assert-True $readyResult.Ready 'public readiness passes once the tunnel answers'
+    Assert-Equal $readyResult.PipelineVersion '0.4.0' `
+        'public readiness carries the pipeline version through'
+
     $self = Get-Process -Id $PID
     $selfEntry = New-TestProcessEntry -Process $self -Role 'test-self'
     Assert-True (

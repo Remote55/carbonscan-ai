@@ -732,10 +732,15 @@ try {
                     $tunnel = Start-TreeQTunnel -ExecutablePath $cloudflared
                     $tunnelUrl = Wait-TreeQTunnelUrl -Tunnel $tunnel
                     if ($null -ne $tunnelUrl) {
-                        $publicReadiness = Test-TreeQReadiness `
+                        Write-TreeQMessage (
+                            'Public hostname published; holding 25s before the first ' +
+                            'lookup. Asking earlier is cached as "no such host" for 30 ' +
+                            'minutes and would cost this run its public mode.'
+                        )
+                        $publicReadiness = Wait-TreeQPublicReadiness `
                             -Endpoint $tunnelUrl `
                             -Token $token `
-                            -TimeoutSec 30
+                            -Tunnel $tunnel
                         $publicReady = $publicReadiness.Ready
                     }
                     if ($publicReady) {
