@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AnalyzeResponse } from "./api";
-import { analyzePointCloud, getJob, pollJobUntilDone, submitAnalyzeJob } from "./api";
+import {
+  analyzePointCloud,
+  getJob,
+  isApiConfigured,
+  pollJobUntilDone,
+  submitAnalyzeJob,
+} from "./api";
+import { RUNTIME_STORAGE_KEY } from "./demo-runtime";
 
 describe("analyze diagnostics contract", () => {
   const base = {
@@ -103,6 +110,87 @@ describe("analyzePointCloud", () => {
 
     const file = new File([new Uint8Array([1])], "photo.jpg");
     await expect(analyzePointCloud(file)).rejects.toThrowError(/API Error 400/);
+  });
+});
+
+describe("backend resolution", () => {
+  const TUNNEL = "https://green-tree.trycloudflare.com";
+  const TOKEN = "e".repeat(64);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // These tests run in the node environment, like the rest of this file, so the
+  // browser has to be supplied rather than assumed. Stubbing just the surface
+  // the client touches keeps this file free of a jsdom dependency that nothing
+  // else here needs.
+  function stubBrowser(stored?: { endpoint: string; token: string }) {
+    const values = new Map<string, string>();
+    if (stored) values.set(RUNTIME_STORAGE_KEY, JSON.stringify(stored));
+    vi.stubGlobal("window", {
+      sessionStorage: { getItem: (key: string) => values.get(key) ?? null },
+    });
+  }
+
+  function stubOkFetch() {
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("sends the request to the handed-off tunnel, not the built-in URL", async () => {
+    // The whole point of the change: NEXT_PUBLIC_API_URL is fixed at build
+    // time, and a quick tunnel is not. A request that ignored the handoff would
+    // go to whichever tunnel happened to be alive on the day of the build.
+    stubBrowser({ endpoint: TUNNEL, token: TOKEN });
+    const fetchMock = stubOkFetch();
+
+    await analyzePointCloud(new File([new Uint8Array([1])], "plot.ply"));
+
+    const [url] = fetchMock.mock.calls[0] as unknown as [URL];
+    expect(url.origin).toBe(TUNNEL);
+  });
+
+  it("carries the demo token, which the API's upload guard requires", async () => {
+    stubBrowser({ endpoint: TUNNEL, token: TOKEN });
+    const fetchMock = stubOkFetch();
+
+    await analyzePointCloud(new File([new Uint8Array([1])], "plot.ply"));
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(new Headers(init.headers).get("x-treeq-demo-token")).toBe(TOKEN);
+  });
+
+  it("sends no demo token when there is no handoff", async () => {
+    // Without a handoff the request goes to the built-in URL, and inventing a
+    // header there would leak a value this browser was never given.
+    stubBrowser();
+    const fetchMock = stubOkFetch();
+
+    await analyzePointCloud(new File([new Uint8Array([1])], "plot.ply"));
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(new Headers(init.headers).has("x-treeq-demo-token")).toBe(false);
+  });
+
+  it("reports itself configured once a handoff is stored", () => {
+    stubBrowser();
+    expect(isApiConfigured()).toBe(false);
+
+    stubBrowser({ endpoint: TUNNEL, token: TOKEN });
+    expect(isApiConfigured()).toBe(true);
+  });
+
+  it("ignores a stored endpoint that is not an allowed demo origin", async () => {
+    stubBrowser({ endpoint: "https://attacker.test", token: TOKEN });
+    const fetchMock = stubOkFetch();
+
+    await analyzePointCloud(new File([new Uint8Array([1])], "plot.ply"));
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(url.origin).not.toBe("https://attacker.test");
+    expect(new Headers(init.headers).has("x-treeq-demo-token")).toBe(false);
   });
 });
 

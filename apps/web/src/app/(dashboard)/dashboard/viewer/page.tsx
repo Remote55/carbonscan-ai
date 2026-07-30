@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { analyzePointCloud, ApiError, IS_API_CONFIGURED, type AnalyzeResponse } from '@/lib/api';
+import { analyzePointCloud, ApiError, isApiConfigured, type AnalyzeResponse } from '@/lib/api';
+import { consumeRuntimeHandoff } from '@/lib/demo-runtime';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResultRail } from '@/components/demo/result-rail';
@@ -33,6 +34,21 @@ export default function ViewerPage() {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Whether a backend is reachable is a browser fact, not a build fact, so it
+  // cannot be read during render without the server and the client disagreeing
+  // on the first paint. Start from what the build knows and correct it here.
+  const [apiReady, setApiReady] = useState(false);
+  useEffect(() => {
+    // Accept a handoff addressed to this page as well as one already stored by
+    // /demo, so the launcher link works wherever the visitor lands first.
+    consumeRuntimeHandoff({
+      location: window.location,
+      history: window.history,
+      storage: window.sessionStorage,
+    });
+    setApiReady(isApiConfigured());
+  }, []);
 
   const cloud = loaded ?? demoTree;
   const nPoints = cloud.classes.length;
@@ -228,7 +244,7 @@ export default function ViewerPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                {IS_API_CONFIGURED ? (
+                {apiReady ? (
                   <>
                     <Button type="button" onClick={runAnalysis} disabled={analyzing}>
                       {analyzing ? 'กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)' : 'วิเคราะห์คาร์บอน'}

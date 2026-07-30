@@ -3,7 +3,7 @@ export type RuntimeCredentials = Readonly<{ endpoint: string; token: string }>;
 export const RUNTIME_STORAGE_KEY = 'treeq.demo.runtime.v1';
 
 export interface RuntimeBrowser {
-  location: Pick<Location, 'hash'>;
+  location: Pick<Location, 'hash' | 'pathname'>;
   history: Pick<History, 'replaceState'>;
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 }
@@ -64,7 +64,24 @@ function parseCredentials(serialized: string): RuntimeCredentials | null {
 }
 
 function scrubHandoff(browser: RuntimeBrowser): void {
-  browser.history.replaceState(null, '', '/demo');
+  // Strip the fragment without moving the visitor. This used to hard-code
+  // /demo, which was harmless while /demo was the only page that read a
+  // handoff - and became a redirect the moment the viewer read one too.
+  browser.history.replaceState(null, '', browser.location.pathname);
+}
+
+/**
+ * The credentials already stored for this tab, without touching the fragment.
+ *
+ * consumeRuntimeHandoff is the entry point: a page calls it once on mount, and
+ * it is what writes the store. This is the read side, for callers that need the
+ * endpoint on every request rather than once per page - the API client, which
+ * has no mount to hang a handoff off.
+ */
+export function readRuntimeCredentials(
+  storage: Pick<Storage, 'getItem'>,
+): RuntimeCredentials | null {
+  return parseCredentials(storage.getItem(RUNTIME_STORAGE_KEY) ?? '');
 }
 
 export function consumeRuntimeHandoff(browser: RuntimeBrowser): RuntimeCredentials | null {
