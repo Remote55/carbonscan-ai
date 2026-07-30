@@ -28,7 +28,7 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
       <table className="w-full min-w-[44rem] border-collapse text-sm">
         <caption className="sr-only">ผลการวัดรายต้น รวมต้นที่ไม่รวมผล</caption>
         <thead>
-          <tr className="border-b border-hairline bg-gallery-ivory text-left font-mono text-[0.625rem] uppercase tracking-wide text-canopy">
+          <tr className="border-b border-hairline bg-gallery-ivory text-left font-mono text-[0.6875rem] uppercase tracking-wide text-canopy">
             <th scope="col" className="px-3 py-3 font-medium">
               ต้นที่
             </th>
@@ -60,7 +60,7 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.heightM)}</td>
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.carbonKg)}</td>
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.co2eqKg)}</td>
-                <td className="px-3 py-3 font-mono text-[0.625rem] font-medium tracking-wide text-canopy">
+                <td className="px-3 py-3 font-mono text-[0.6875rem] font-medium tracking-wide text-canopy">
                   READY
                 </td>
               </tr>
@@ -76,11 +76,17 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
                 <td className="px-3 py-3 text-canopy">—</td>
                 <td className="px-3 py-3 text-canopy">—</td>
                 <td className="px-3 py-3 text-canopy">—</td>
+                {/* Red and bold, at the designer's request: this is the one status
+                    a judge must not skim past, and the muted terracotta read as
+                    decoration next to READY. The cell also used to carry three
+                    type sizes - a 10px badge, a 12px reason, and the row's own 14px
+                    - so the column looked accidental. Now it is two, and they mean
+                    something: 11px mono for the label, body size for the prose. */}
                 <td className="px-3 py-3 text-deep-forest">
-                  <span className="block font-mono text-[0.625rem] font-medium tracking-wide text-clay">
+                  <span className="block font-mono text-[0.6875rem] font-bold tracking-wide text-ember">
                     EXCLUDED
                   </span>
-                  <span className="mt-1 block text-xs leading-5">
+                  <span className="mt-1 block text-sm leading-6">
                     ไม่รวมผล — {entry.row.reasonTh}
                   </span>
                 </td>

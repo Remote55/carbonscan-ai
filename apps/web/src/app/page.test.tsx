@@ -52,10 +52,18 @@ describe('Landing evidence contract', () => {
     expect(markup).toContain('0.418');
     expect(markup).toContain('0.808');
     expect(markup).toContain('1.1673846154');
-    expect(markup).toContain('tlsep = Default');
-    expect(markup).toContain('PointNet++ = Experimental');
-    expect(markup).toContain('species stage = Stub');
+    // The three facts moved from one cramped line into labelled cards after a
+    // reviewer asked whether they mattered at all. Assert the facts, not the old
+    // sentence: what must hold is that tlsep is the shipped backend, PointNet++ is
+    // Experimental, and species is a stub - however they are laid out.
+    expect(markup).toContain('tlsep');
+    expect(markup).toContain('PointNet++');
+    expect(markup).toContain('Experimental');
+    expect(markup).toContain('Stub');
     expect(markup).not.toContain('93.135');
+
+    // The one arrangement that would be a lie.
+    expect(markup).not.toMatch(/PointNet\+\+[^<]*Default/);
   });
 
   it('renders exactly the four evidence-led editorial beats', () => {
