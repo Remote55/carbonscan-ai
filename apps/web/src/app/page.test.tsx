@@ -30,9 +30,16 @@ describe('Landing evidence contract', () => {
     const markup = renderToStaticMarkup(<HomePage />);
     const anchors = markup.match(/<a\b[^>]*>.*?<\/a>/g) ?? [];
 
-    for (const anchor of anchors) {
-      const label = anchor.replace(/<[^>]+>/g, '').trim();
-      if (!label.includes('อัปโหลด')) continue;
+    // Matching the whole anchor rather than stripping its tags to recover the
+    // label. `replace(/<[^>]+>/g, '')` is the sanitise-by-regex antipattern - one
+    // pass over `<<script>>` still leaves `<script` - and CodeQL rightly failed
+    // the build over it. Nothing here is ever written back to a DOM, so it was
+    // not exploitable, but the shorter form has no such argument to make.
+    // Hrefs are ASCII paths, so a Thai label cannot be confused for one.
+    const uploadAnchors = anchors.filter((anchor) => anchor.includes('อัปโหลด'));
+    expect(uploadAnchors.length).toBeGreaterThan(0);
+
+    for (const anchor of uploadAnchors) {
       const href = anchor.match(/\bhref="([^"]+)"/)?.[1];
       expect(href).toBeDefined();
       expect(href).not.toBe('/demo');
