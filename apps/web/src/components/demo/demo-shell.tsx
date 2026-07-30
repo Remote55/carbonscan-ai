@@ -8,6 +8,8 @@ import { consumeRuntimeHandoff } from '../../lib/demo-runtime';
 import { uploadReducer, type UploadState } from '../../lib/demo-upload';
 import { loadFrozenDemo, type FrozenDemoBundle } from '../../lib/frozen-demo';
 import { toResultViewModel, type ResultViewModel } from '../../lib/result-view-model';
+import { Button } from '../ui/button';
+import { JudgeDemoHeader } from './judge-demo-header';
 import { ModeBadge } from './mode-badge';
 import { ProvenancePanel } from './provenance-panel';
 import { TreeResultTable } from './tree-result-table';
@@ -165,15 +167,24 @@ export function DemoShell({
   onResetUpload?: () => void;
 }) {
   if (mode.kind === 'booting') {
-    return <main className="min-h-screen bg-[#f5f2e9]" aria-busy="true" />;
+    return <main className="min-h-screen bg-gallery-ivory" aria-busy="true" />;
   }
 
   if (mode.kind === 'checking') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f5f2e9] px-6">
-        <div className="text-center">
-          <ModeBadge state={mode} />
-          <p className="mt-4 text-sm text-slate-600">Checking authenticated runtime readiness…</p>
+      <main className="min-h-screen bg-gallery-ivory px-4 py-5 text-forest-ink sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <JudgeDemoHeader state={mode} />
+          <section
+            className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-8 text-center"
+            aria-busy="true"
+          >
+            <p className="editorial-eyebrow">Pre-flight / runtime</p>
+            <h2 className="mt-3 font-display text-2xl">กำลังตรวจ readiness ของ runtime</h2>
+            <p className="mt-3 text-sm text-canopy">
+              ถ้าติดต่อไม่ได้ ระบบจะกลับสู่ Frozen Evidence โดยอัตโนมัติ
+            </p>
+          </section>
         </div>
       </main>
     );
@@ -181,90 +192,255 @@ export function DemoShell({
 
   if (mode.kind === 'production-live' || mode.kind === 'local-live') {
     return (
-      <main className="min-h-screen bg-[#f5f2e9] px-6 py-12 text-slate-950">
-        <div className="mx-auto max-w-5xl">
-          <header className="mb-8">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-800">
-              TreeQ Carbon Platform · Judge Demo
-            </p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-              รันจริงบน pipeline {mode.pipelineVersion}
-            </h1>
-            <div className="mt-4">
-              <ModeBadge state={mode} />
-            </div>
-          </header>
+      <main className="min-h-screen bg-gallery-ivory px-4 py-5 text-forest-ink sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <JudgeDemoHeader state={mode} />
 
-          <UploadPanel
-            state={upload}
-            onSelect={onSelectFile}
-            onStart={onStartAnalysis}
-            onReset={onResetUpload}
-          />
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,0.95fr)]">
+            <div className="space-y-5">
+              <ModeChoice mode={mode} onUseFrozen={onUseFrozen} />
+              <UploadPanel
+                state={upload}
+                onSelect={onSelectFile}
+                onStart={onStartAnalysis}
+                onReset={onResetUpload}
+              />
+            </div>
+            <ReliabilityPanel mode={mode} frozenLoad={frozenLoad} />
+          </div>
 
           {upload.kind === 'complete' && (
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <section className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-5 sm:p-8">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="editorial-eyebrow">Result / live runtime</p>
+                  <h2 className="mt-2 font-display text-3xl">ผลจากไฟล์ {upload.file.name}</h2>
+                </div>
+                <p className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-canopy">
+                  pipeline {mode.pipelineVersion}
+                </p>
+              </div>
               <ResultSummary view={toResultViewModel(upload.result)} />
 
               {/* A live run has no manifest to check, so it gets no provenance
                   panel. Saying that plainly is the point: the frozen route is
                   the one whose bytes were verified, and a judge should be able
                   to tell which of the two they are looking at. */}
-              <p className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p className="mt-8 rounded-2xl border border-hairline bg-gallery-ivory p-4 text-sm leading-6 text-canopy">
                 ผลนี้มาจากการรันสดกับไฟล์ที่เพิ่งอัปโหลด จึง{' '}
                 <strong className="font-semibold">ไม่มี manifest ให้ตรวจแฮช</strong> เหมือนชุด
                 Frozen Evidence — และเป็นค่าประมาณชีวมวล ไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรอง
               </p>
             </section>
           )}
-
-          <button
-            type="button"
-            className="mt-6 rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-white"
-            onClick={onUseFrozen}
-          >
-            ดูชุดหลักฐานที่ตรวจแฮชแล้ว
-          </button>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f2e9] px-6 py-12 text-slate-950">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-8">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-800">
-            TreeQ Carbon Platform · Judge Demo
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Hash-verified measurement evidence
-          </h1>
-          <p className="mt-4 max-w-3xl text-slate-600">
-            A deterministic seed-42 fixture showing the implemented point-cloud pipeline with
-            explicit provenance and limitations.
-          </p>
-        </header>
+    <main className="min-h-screen bg-gallery-ivory px-4 py-5 text-forest-ink sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <JudgeDemoHeader state={mode} />
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <ModeBadge state={mode} />
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,0.95fr)]">
+          <ModeChoice mode={mode} onUseFrozen={onUseFrozen} />
+          <ReliabilityPanel mode={mode} frozenLoad={frozenLoad} />
+        </div>
 
-          {frozenLoad.kind === 'failed' ? (
-            <p className="mt-8 font-mono text-sm font-semibold text-red-800">loading failed</p>
-          ) : frozenLoad.kind === 'loading' ? (
-            <p className="mt-8 text-sm text-slate-600">Verifying every evidence byte…</p>
-          ) : (
-            <>
-              <ResultSummary view={toResultViewModel(frozenLoad.bundle.result)} />
-
-              <div className="mt-8 border-t border-slate-200 pt-6">
-                <ProvenancePanel manifest={frozenLoad.bundle.manifest} />
+        {frozenLoad.kind === 'failed' ? (
+          <section className="mt-6 rounded-[1.25rem] border border-clay bg-paper p-6 sm:p-8">
+            <p className="editorial-eyebrow text-clay">Artifact verification</p>
+            {/* The outcome replaces "Verifying every evidence byte…" after the
+                page has already settled, so without a live region a screen
+                reader is left on the pending message and never learns that the
+                evidence failed its hash check. Scoped to this line rather than
+                the section, so the announcement is the verdict and not the
+                whole panel. */}
+            <p className="mt-3 font-mono text-sm font-semibold text-clay" role="status">
+              loading failed
+            </p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-canopy">
+              ระบบปิดผลลัพธ์ไว้ เพราะยืนยัน bytes ของหลักฐาน frozen ไม่สำเร็จ
+            </p>
+          </section>
+        ) : frozenLoad.kind === 'loading' ? (
+          <section
+            className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-6 sm:p-8"
+            aria-busy="true"
+          >
+            <p className="editorial-eyebrow">Validate / artifact</p>
+            <p className="mt-3 text-sm text-canopy">Verifying every evidence byte…</p>
+          </section>
+        ) : (
+          <section className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-5 sm:p-8">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="editorial-eyebrow">Result / verified frozen artifact</p>
+                <h2 className="mt-2 font-display text-3xl">ผลการวัดที่ตรวจ checksum แล้ว</h2>
               </div>
-            </>
-          )}
-        </section>
+              <ModeBadge state={mode} />
+            </div>
+            <ResultSummary view={toResultViewModel(frozenLoad.bundle.result)} />
+
+            <div className="mt-8 border-t border-hairline pt-6">
+              <ProvenancePanel manifest={frozenLoad.bundle.manifest} />
+            </div>
+          </section>
+        )}
       </div>
     </main>
+  );
+}
+
+function ModeChoice({
+  mode,
+  onUseFrozen,
+}: {
+  mode: Exclude<DemoModeState, { kind: 'booting' | 'checking' }>;
+  onUseFrozen: () => void;
+}) {
+  const isLive = mode.kind === 'production-live' || mode.kind === 'local-live';
+
+  return (
+    <section className="rounded-[1.25rem] border border-hairline bg-paper p-5 sm:p-7">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div>
+          <p className="editorial-eyebrow">Input mode</p>
+          <h2 className="mt-2 font-display text-2xl text-forest-ink">เลือกวิธีเริ่มวิเคราะห์</h2>
+        </div>
+
+        {/* A current-state readout plus the one action that exists - not a tab
+            set. Live mode can only be entered by a runtime handoff, so a tablist
+            or a pair of pressed toggles would advertise a control the page does
+            not have. The previous markup put `aria-current="page"` on a span,
+            which claimed "page" about something that is not a page and still
+            left assistive tech no way to tell that the other label was the
+            alternative; the active mode is now announced as text instead. */}
+        <div className="flex items-center gap-2 rounded-full bg-gallery-ivory p-1">
+          {isLive ? (
+            <>
+              <Button
+                type="button"
+                variant="editorial"
+                size="xl"
+                onClick={onUseFrozen}
+                aria-label="สลับไปใช้ Frozen Sample"
+              >
+                Frozen Sample
+              </Button>
+              <p className="rounded-full px-5 py-3 text-sm font-medium text-canopy">
+                <span className="sr-only">โหมดปัจจุบัน: </span>
+                Live Upload
+              </p>
+            </>
+          ) : (
+            <p className="rounded-full bg-canopy px-5 py-3 text-sm font-medium text-paper">
+              <span className="sr-only">โหมดปัจจุบัน: </span>
+              Frozen Sample
+            </p>
+          )}
+        </div>
+      </div>
+
+      {isLive ? (
+        <div className="bg-lichen/35 mt-5 rounded-xl border border-lichen p-4">
+          <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-moss">
+            pipeline {mode.pipelineVersion}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-canopy">
+            Runtime ผ่าน readiness แล้ว จึงเปิด Live Upload; Frozen Sample ยังเป็นเส้นทางหลักที่ตรวจ
+            checksum ได้
+          </p>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="rounded-xl border border-moss bg-gallery-ivory p-5">
+            <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-moss">
+              Recommended / zero network dependency
+            </p>
+            <h3 className="mt-3 font-display text-xl">Verified demo plot</h3>
+            <p className="mt-2 text-sm leading-6 text-canopy">
+              ไฟล์ตัวอย่างและผลลัพธ์ถูกผูกกับ manifest; หน้านี้จะแสดงตัวเลขก็ต่อเมื่อ hash ผ่าน
+            </p>
+          </div>
+          <p className="max-w-xs text-sm leading-6 text-canopy">{frozenReason(mode.reason)}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function frozenReason(reason: Extract<DemoModeState, { kind: 'frozen' }>['reason']): string {
+  if (reason === 'invalid-handoff') {
+    return 'Live Upload ไม่เปิด เพราะ runtime handoff ไม่ถูกต้อง; Frozen Evidence ยังใช้งานได้';
+  }
+  if (reason === 'unreachable') {
+    return 'Live Upload ไม่เปิด เพราะ API readiness ไม่ผ่าน; ระบบ fallback มาที่ Frozen Evidence';
+  }
+  if (reason === 'manual') {
+    return 'กำลังดู Frozen Evidence ตามที่เลือก; การรันสดก่อนหน้านี้ไม่ถูกนำมาปะปนกับหลักฐานชุดนี้';
+  }
+  return 'หน้านี้เริ่มจาก Frozen Evidence; Live Upload จะเปิดเฉพาะเมื่อมี runtime ที่ผ่าน readiness';
+}
+
+function ReliabilityPanel({
+  mode,
+  frozenLoad,
+}: {
+  mode: Exclude<DemoModeState, { kind: 'booting' | 'checking' }>;
+  frozenLoad: FrozenDemoLoadState;
+}) {
+  const isLive = mode.kind === 'production-live' || mode.kind === 'local-live';
+  // In live mode the frozen bundle is never fetched - that effect is gated on the
+  // frozen mode - so `loading` here does not mean a check is running, it means one
+  // was never started. Reporting VERIFYING would have this panel, whose whole
+  // claim is that it does not hide status, assert an action that is not happening,
+  // and it would sit there for the length of the demo.
+  const artifactStatus =
+    frozenLoad.kind === 'ready'
+      ? 'CHECKSUM VERIFIED'
+      : frozenLoad.kind === 'failed'
+        ? 'VERIFICATION FAILED'
+        : isLive
+          ? 'NOT CHECKED IN LIVE MODE'
+          : 'VERIFYING';
+  const rows = [
+    ['WEB', 'READY'],
+    ['API', isLive ? 'READINESS PASSED' : 'OPTIONAL IN FROZEN MODE'],
+    ['DATASET', 'LOCKED'],
+    ['ARTIFACT', artifactStatus],
+    ['FALLBACK', 'AVAILABLE'],
+  ] as const;
+
+  return (
+    <aside className="rounded-[1.25rem] bg-deep-forest p-6 text-paper sm:p-7">
+      <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-lichen">
+        Pre-flight / health
+      </p>
+      <h2 className="mt-3 font-display text-2xl">พร้อมสาธิตโดยไม่ซ่อนสถานะ</h2>
+      <p className="mt-3 text-sm leading-6 text-mist">
+        ระบบแยกความพร้อมของเว็บ, API และหลักฐานออกจากกัน
+      </p>
+
+      <dl className="mt-6 space-y-2">
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="bg-canopy/70 grid grid-cols-[6rem_1fr] gap-3 rounded-xl px-4 py-3 font-mono text-[0.625rem]"
+          >
+            <dt className="text-lichen">{label}</dt>
+            <dd className={value === 'VERIFICATION FAILED' ? 'text-[#efad91]' : 'text-lichen'}>
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <p className="mt-5 text-xs leading-5 text-mist">
+        Frozen Evidence ไม่พึ่ง API และไม่ถูกแทนที่ด้วยผล live โดยอัตโนมัติ
+      </p>
+    </aside>
   );
 }
 
@@ -277,7 +453,7 @@ export function DemoShell({
 function ResultSummary({ view }: { view: ResultViewModel }) {
   return (
     <>
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="mt-8 grid gap-3 sm:grid-cols-3">
         <EvidenceMetric
           label={view.countsLabel.measured}
           value={number.format(view.counts.measured)}
@@ -293,17 +469,21 @@ function ResultSummary({ view }: { view: ResultViewModel }) {
       </div>
 
       {view.diagnosticsStatus === 'available' ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 p-4 text-sm">
-          <p className="text-slate-700">
+        <div className="bg-gallery-ivory/55 mt-4 rounded-2xl border border-hairline p-4 text-sm">
+          <p className="font-medium text-forest-ink">
             {view.countsLabel.detected} {number.format(view.counts.detected ?? 0)} ·{' '}
             {view.countsLabel.measured} {number.format(view.counts.measured)} ·{' '}
             {view.countsLabel.excluded} {number.format(view.counts.excluded ?? 0)}
           </p>
+          <p className="mt-2 leading-6 text-canopy">
+            “ตรวจพบ” คือ segment ต้นไม้ทั้งหมด; “คำนวณสำเร็จ” คือแถวที่ผ่านการวัด geometry;
+            “ไม่รวมผล” คือ segment ที่วัดไม่ได้และไม่ถูกนำไปรวมยอดคาร์บอน
+          </p>
           {view.excludedRows.length > 0 && (
-            <ul className="mt-3 space-y-1 text-slate-600">
+            <ul className="mt-3 space-y-1 text-canopy">
               {view.excludedRows.map((row) => (
                 <li key={row.treeId} className="flex gap-2">
-                  <span className="font-mono text-xs text-slate-500">#{row.treeId}</span>
+                  <span className="font-mono text-xs text-moss">#{row.treeId}</span>
                   <span>{row.reasonTh}</span>
                 </li>
               ))}
@@ -311,13 +491,13 @@ function ResultSummary({ view }: { view: ResultViewModel }) {
           )}
         </div>
       ) : (
-        <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="mt-4 rounded-2xl border border-evidence-amber bg-gallery-ivory p-4 text-sm text-deep-forest">
           ไม่มี diagnostics จาก run นี้ — จำนวนที่ตรวจพบและที่ไม่รวมผลจึงแสดงไม่ได้
         </p>
       )}
 
-      <div className="mt-8 border-t border-slate-200 pt-6">
-        <h2 className="text-base font-semibold text-slate-900">ผลรายต้น</h2>
+      <div className="mt-8 border-t border-hairline pt-6">
+        <h2 className="font-display text-xl text-forest-ink">ผลรายต้น</h2>
         <div className="mt-4">
           <TreeResultTable view={view} />
         </div>
@@ -328,10 +508,9 @@ function ResultSummary({ view }: { view: ResultViewModel }) {
 
 function EvidenceMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-emerald-950 p-5 text-white">
-      <p className="text-xs uppercase tracking-[0.12em] text-emerald-200">{label}</p>
-      <p className="mt-3 text-2xl font-semibold">{value}</p>
+    <div className="rounded-2xl bg-deep-forest p-5 text-paper">
+      <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-lichen">{label}</p>
+      <p className="mt-3 font-display text-2xl tabular-nums">{value}</p>
     </div>
   );
 }
-

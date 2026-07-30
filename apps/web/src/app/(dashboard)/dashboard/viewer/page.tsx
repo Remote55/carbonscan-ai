@@ -5,17 +5,18 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { analyzePointCloud, ApiError, IS_API_CONFIGURED, type AnalyzeResponse } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PointCloudLegend } from '@/components/viewer/point-cloud-legend';
-import { PointCloudViewer } from '@/components/viewer/point-cloud-viewer';
+import { ResultRail } from '@/components/demo/result-rail';
+import { ViewerAnalysisBadge } from '@/components/demo/mode-badge';
+import { TreeResultTable } from '@/components/demo/tree-result-table';
+import { CompactWorkspaceHeader } from '@/components/layout/compact-workspace-header';
+import { ViewerStage } from '@/components/viewer/viewer-stage';
 import { CORE_DEMO_EVIDENCE } from '@/generated/core-demo-evidence';
 import { generateDemoTree, type PointCloud } from '@/lib/demo-pointcloud';
 import { formatBackendLabel, formatEvidenceStatus } from '@/lib/evidence';
 import { decimate, parsePly } from '@/lib/ply-loader';
+import { toResultViewModel } from '@/lib/result-view-model';
 
 const MAX_POINTS = 200_000;
-
-const fmt = (n: number | null | undefined, d = 2) =>
-  n == null ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: d });
 
 export default function ViewerPage() {
   const demoTree = useMemo(() => generateDemoTree({ seed: 42 }), []);
@@ -35,6 +36,10 @@ export default function ViewerPage() {
 
   const cloud = loaded ?? demoTree;
   const nPoints = cloud.classes.length;
+  const resultView = useMemo(
+    () => (analysis === null ? null : toResultViewModel(analysis)),
+    [analysis],
+  );
 
   const loadFile = useCallback(async (f: File) => {
     if (!f.name.toLowerCase().endsWith('.ply')) {
@@ -105,231 +110,227 @@ export default function ViewerPage() {
   }, [file]);
 
   return (
-    <main className="container mx-auto px-4 py-12">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="font-display text-3xl font-bold tracking-tight">3D Point Cloud Viewer</h1>
-        <p className="mt-2 text-muted-foreground">
-          ดูต้นไม้แบบ 3 มิติ พร้อมสีแยกลำต้น / ใบ / พื้นดิน — หมุน ซูม เลื่อนได้
-        </p>
+    <>
+      <CompactWorkspaceHeader
+        title="ผลการวิเคราะห์ 3D Point Cloud"
+        mode={
+          loaded === null
+            ? 'Synthetic preview'
+            : analysis === null
+              ? 'Browser PLY preview'
+              : 'Live analysis'
+        }
+        backHref="/dashboard"
+      />
 
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>{loaded ? `ไฟล์: ${fileName}` : 'ตัวอย่างต้นไม้ (synthetic)'}</CardTitle>
-            <CardDescription>
-              {loaded
-                ? `point cloud จาก segmented .ply จริง — ${nPoints.toLocaleString()} จุด`
-                : 'ลากไฟล์ .ply ที่ export จาก ML pipeline มาวาง หรือเลือกไฟล์ เพื่อดู point cloud จริง'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={onDrop}
-              className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
-                isDragging ? 'border-primary bg-primary/5' : 'border-foreground/15 bg-muted/30'
-              }`}
-            >
-              <p className="text-sm text-muted-foreground">
-                {isLoading ? 'กำลังอ่านไฟล์…' : 'ลากไฟล์ .ply มาวางที่นี่ หรือ'}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => inputRef.current?.click()}
-                  disabled={isLoading}
-                >
-                  เลือกไฟล์ .ply
-                </Button>
-                {loaded ? (
-                  <Button type="button" variant="outline" onClick={resetToDemo}>
-                    กลับไปตัวอย่าง (demo tree)
-                  </Button>
-                ) : null}
-              </div>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".ply"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void loadFile(f);
-                }}
-              />
-            </div>
-
-            {error ? (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-
-            <p className="text-sm text-muted-foreground">
-              กำลังแสดง {nPoints.toLocaleString()} จุด
-              {loaded ? '' : ' (ตัวอย่าง synthetic)'}
-            </p>
-
-            <PointCloudViewer
-              positions={cloud.positions}
-              classes={cloud.classes}
-              className="h-[480px] w-full overflow-hidden rounded-lg ring-1 ring-foreground/10"
-            />
-            <PointCloudLegend />
-          </CardContent>
-        </Card>
-
-        {loaded ? (
-          <Card className="mt-6">
+      <main className="bg-gallery-ivory px-4 py-8 sm:px-8">
+        <div className="mx-auto max-w-7xl">
+          <Card>
             <CardHeader>
-              <CardTitle>ผลประมาณการคาร์บอน (ML pipeline)</CardTitle>
+              <CardTitle>
+                {loaded ? `ไฟล์: ${fileName}` : 'เลือก point cloud สำหรับตรวจสอบ'}
+              </CardTitle>
               <CardDescription>
-                ส่งไฟล์นี้เข้า backend → รัน pipeline (ground → tree → wood/leaf → QSM → allometric)
-                → คืนค่าประมาณการคาร์บอนพร้อม provenance
+                รองรับ segmented .ply และจำกัดการแสดงผลไว้ที่ {MAX_POINTS.toLocaleString()} จุด
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {IS_API_CONFIGURED ? (
-                <>
-                  <Button type="button" onClick={runAnalysis} disabled={analyzing}>
-                    {analyzing ? 'กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)' : 'วิเคราะห์คาร์บอน'}
+            <CardContent>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={onDrop}
+                className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
+                  isDragging ? 'bg-lichen/40 border-moss' : 'border-hairline bg-paper'
+                }`}
+              >
+                <p className="text-sm text-canopy">
+                  {isLoading ? 'กำลังอ่านไฟล์…' : 'ลากไฟล์ .ply มาวางที่นี่ หรือ'}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => inputRef.current?.click()}
+                    disabled={isLoading}
+                  >
+                    เลือกไฟล์ .ply
                   </Button>
-
-                  {analyzeError ? (
-                    <p className="text-sm text-destructive" role="alert">
-                      {analyzeError}
-                    </p>
+                  {loaded ? (
+                    <Button type="button" variant="outline" onClick={resetToDemo}>
+                      กลับไปตัวอย่าง synthetic
+                    </Button>
                   ) : null}
-                </>
-              ) : (
-                <div className="rounded-lg border border-dashed border-foreground/20 bg-muted/30 p-4">
-                  <p className="text-sm font-medium text-foreground">
-                    การวิเคราะห์คาร์บอนทำงานผ่าน backend (ML pipeline จริง)
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    เวอร์ชันสาธิตออนไลน์นี้แสดงเฉพาะการแยก 3 มิติ (ลำต้น / ใบ / พื้นดิน) —
-                    การคำนวณคาร์บอนสาธิตสดผ่าน API ในการนำเสนอ Reviewed core demo แบบ synthetic
-                    ที่ใช้ตรวจ reproducibility พบ {CORE_DEMO_EVIDENCE.coreDemo.totalTrees} ต้น ·
-                    คาร์บอน {CORE_DEMO_EVIDENCE.coreDemo.totalCarbonKg} กก. · CO₂e{' '}
-                    {CORE_DEMO_EVIDENCE.coreDemo.totalCo2eqKg} กก. ตัวเลขนี้ไม่ใช่ accuracy
-                    benchmark หรือ carbon-credit certification
-                  </p>
                 </div>
-              )}
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".ply"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void loadFile(f);
+                  }}
+                />
+              </div>
 
-              {analysis ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="rounded-lg border border-foreground/10 p-4">
-                      <div className="text-2xl font-bold">{analysis.summary.total_trees}</div>
-                      <div className="text-sm text-muted-foreground">จำนวนต้นไม้</div>
-                    </div>
-                    <div className="rounded-lg border border-foreground/10 p-4">
-                      <div className="text-2xl font-bold">
-                        {fmt(analysis.summary.total_carbon_kg)}{' '}
-                        <span className="text-base">kg</span>
-                      </div>
-                      <div className="text-sm text-muted-foreground">ค่าประมาณคาร์บอนรวม</div>
-                    </div>
-                    <div className="rounded-lg border border-foreground/10 p-4">
-                      <div className="text-2xl font-bold">
-                        {fmt(analysis.summary.total_co2eq_kg / 1000, 3)}{' '}
-                        <span className="text-base">tCO₂e</span>
-                      </div>
-                      <div className="text-sm text-muted-foreground">ค่าประมาณ CO₂ เทียบเท่า</div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-forest-200 bg-forest-50/60 p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-forest-700 px-2.5 py-1 text-xs font-semibold text-white">
-                        {formatBackendLabel(analysis.metadata)}
-                      </span>
-                      <span className="text-sm text-forest-900/70">
-                        {formatEvidenceStatus(analysis.metadata)}
-                      </span>
-                    </div>
-                    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                      <div>
-                        <dt className="text-muted-foreground">Pipeline / Git</dt>
-                        <dd className="font-mono text-xs">
-                          v{analysis.metadata.pipeline_version} ·{' '}
-                          {analysis.metadata.git_commit.slice(0, 12)}
-                          {analysis.metadata.git_dirty ? ' · dirty' : ' · clean'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Normalized XYZ input SHA-256</dt>
-                        <dd className="font-mono text-xs">
-                          {analysis.metadata.input_sha256.slice(0, 12)}…
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Checkpoint</dt>
-                        <dd className="font-mono text-xs">
-                          {analysis.metadata.checkpoint_sha256
-                            ? `${analysis.metadata.checkpoint_sha256.slice(0, 12)}…`
-                            : 'ไม่มี checkpoint (tlsep baseline)'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Species algorithm</dt>
-                        <dd className="font-medium">
-                          {analysis.metadata.algorithms.species === 'stub'
-                            ? 'Stub — ยังไม่มีโมเดลจำแนกชนิดไม้'
-                            : analysis.metadata.algorithms.species}
-                        </dd>
-                      </div>
-                    </dl>
-                    <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                      Provenance นี้ผูกกับ input ที่ส่งเข้า analysis backend ส่วนภาพ 3D
-                      ด้านบนอ่านจากไฟล์ที่อัปโหลดในเบราว์เซอร์ และยังไม่ได้ตรวจว่า hash
-                      ตรงกันด้วยขั้นตอน normalized XYZ เดียวกัน
-                    </p>
-                  </div>
-
-                  {analysis.trees.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="text-left text-muted-foreground">
-                          <tr className="border-b border-foreground/10">
-                            <th className="py-2 pr-4">ต้นที่</th>
-                            <th className="py-2 pr-4">DBH (cm)</th>
-                            <th className="py-2 pr-4">สูง (m)</th>
-                            <th className="py-2 pr-4">ปริมาตร (m³)</th>
-                            <th className="py-2 pr-4">คาร์บอน (kg)</th>
-                            <th className="py-2">CO₂e (kg)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analysis.trees.map((t) => (
-                            <tr key={t.tree_id} className="border-b border-foreground/5">
-                              <td className="py-2 pr-4">{t.tree_id}</td>
-                              <td className="py-2 pr-4">{fmt(t.dbh_cm)}</td>
-                              <td className="py-2 pr-4">{fmt(t.height_m)}</td>
-                              <td className="py-2 pr-4">{fmt(t.volume_m3, 4)}</td>
-                              <td className="py-2 pr-4">{fmt(t.carbon_kg)}</td>
-                              <td className="py-2">{fmt(t.co2eq_kg)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      ไม่พบต้นไม้ในไฟล์นี้ (ลองไฟล์ที่เป็น plot หลายต้น)
-                    </p>
-                  )}
-                </div>
+              {error ? (
+                <p className="mt-3 text-sm text-destructive" role="alert">
+                  {error}
+                </p>
               ) : null}
             </CardContent>
           </Card>
-        ) : null}
-      </div>
-    </main>
+
+          <div className={`mt-6 grid gap-6 ${resultView ? 'lg:grid-cols-12' : ''}`}>
+            <div className={resultView ? 'lg:col-span-8' : ''}>
+              <ViewerStage
+                title={
+                  loaded === null ? 'Synthetic preview tree' : (fileName ?? 'Uploaded point cloud')
+                }
+                evidenceLabel={
+                  loaded === null
+                    ? 'SYNTHETIC · NOT PIPELINE EVIDENCE'
+                    : analysis === null
+                      ? 'BROWSER PLY · NOT ANALYZED'
+                      : 'LIVE ANALYSIS · VIEWER IDENTITY UNVERIFIED'
+                }
+                positions={cloud.positions}
+                classes={cloud.classes}
+              >
+                <ViewerAnalysisBadge
+                  analysis={analysis}
+                  fallback={
+                    <span className="rounded-full border border-moss px-3 py-1.5 font-mono text-[0.625rem] uppercase tracking-wide text-lichen">
+                      {loaded === null ? 'Synthetic' : `${nPoints.toLocaleString()} points`}
+                    </span>
+                  }
+                />
+              </ViewerStage>
+            </div>
+
+            {resultView ? (
+              <div className="lg:col-span-4">
+                <ResultRail view={resultView} modeLabel="Live analysis" />
+              </div>
+            ) : null}
+          </div>
+
+          {loaded ? (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>ผลประมาณการคาร์บอน (ML pipeline)</CardTitle>
+                <CardDescription>
+                  ส่งไฟล์นี้เข้า backend → รัน pipeline (ground → tree → wood/leaf → QSM →
+                  allometric) → คืนค่าประมาณการคาร์บอนพร้อม provenance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {IS_API_CONFIGURED ? (
+                  <>
+                    <Button type="button" onClick={runAnalysis} disabled={analyzing}>
+                      {analyzing ? 'กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)' : 'วิเคราะห์คาร์บอน'}
+                    </Button>
+
+                    {analyzeError ? (
+                      <p className="text-sm text-destructive" role="alert">
+                        {analyzeError}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-hairline bg-paper p-4">
+                    <p className="text-sm font-medium text-forest-ink">
+                      การวิเคราะห์คาร์บอนทำงานผ่าน backend (ML pipeline จริง)
+                    </p>
+                    <p className="mt-1 text-sm text-canopy">
+                      เวอร์ชันสาธิตออนไลน์นี้แสดงเฉพาะการแยก 3 มิติ (ลำต้น / ใบ / พื้นดิน) —
+                      การคำนวณคาร์บอนสาธิตสดผ่าน API ในการนำเสนอ Reviewed core demo แบบ synthetic
+                      ที่ใช้ตรวจ reproducibility พบ {CORE_DEMO_EVIDENCE.coreDemo.totalTrees} ต้น ·
+                      คาร์บอน {CORE_DEMO_EVIDENCE.coreDemo.totalCarbonKg} กก. · CO₂e{' '}
+                      {CORE_DEMO_EVIDENCE.coreDemo.totalCo2eqKg} กก. ตัวเลขนี้ไม่ใช่ accuracy
+                      benchmark หรือ carbon-credit certification
+                    </p>
+                  </div>
+                )}
+
+                {analysis && resultView ? (
+                  <div className="space-y-5">
+                    <div className="rounded-xl border border-hairline bg-paper p-5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-deep-forest px-2.5 py-1 text-xs font-semibold text-paper">
+                          {formatBackendLabel(analysis.metadata)}
+                        </span>
+                        <span className="text-sm text-canopy">
+                          {formatEvidenceStatus(analysis.metadata)}
+                        </span>
+                      </div>
+                      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                        <div>
+                          <dt className="text-canopy">{resultView.countsLabel.measured}</dt>
+                          <dd className="font-medium">
+                            {resultView.counts.measured.toLocaleString()} ต้น
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-canopy">Pipeline / Git</dt>
+                          <dd className="font-mono text-xs">
+                            v{analysis.metadata.pipeline_version} ·{' '}
+                            {analysis.metadata.git_commit.slice(0, 12)}
+                            {analysis.metadata.git_dirty ? ' · dirty' : ' · clean'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-canopy">Normalized XYZ input SHA-256</dt>
+                          <dd className="font-mono text-xs">
+                            {analysis.metadata.input_sha256.slice(0, 12)}…
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-canopy">Checkpoint</dt>
+                          <dd className="font-mono text-xs">
+                            {analysis.metadata.checkpoint_sha256
+                              ? `${analysis.metadata.checkpoint_sha256.slice(0, 12)}…`
+                              : 'ไม่มี checkpoint (tlsep baseline)'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-canopy">Species algorithm</dt>
+                          <dd className="font-medium">
+                            {analysis.metadata.algorithms.species === 'stub'
+                              ? 'Stub — ยังไม่มีโมเดลจำแนกชนิดไม้'
+                              : analysis.metadata.algorithms.species}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-canopy">QSM artifact</dt>
+                          <dd className="font-mono text-xs">QSM artifact unavailable</dd>
+                        </div>
+                      </dl>
+                      <p className="mt-4 text-xs leading-relaxed text-canopy">
+                        Provenance นี้ผูกกับ input ที่ส่งเข้า analysis backend ส่วนภาพ 3D
+                        ด้านบนอ่านจากไฟล์ที่อัปโหลดในเบราว์เซอร์ และยังไม่ได้ตรวจว่า hash
+                        ตรงกันด้วยขั้นตอน normalized XYZ เดียวกัน
+                      </p>
+                    </div>
+
+                    <section className="rounded-xl border border-hairline bg-paper p-5">
+                      <h2 className="font-display text-xl font-semibold text-forest-ink">
+                        ผลการวัดรายต้น
+                      </h2>
+                      <div className="mt-3">
+                        <TreeResultTable view={resultView} />
+                      </div>
+                    </section>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      </main>
+    </>
   );
 }

@@ -142,6 +142,60 @@ function parseManifest(value: unknown): FrozenDemoManifest {
   };
 }
 
+function parseOptionalCount(
+  summary: Record<string, unknown>,
+  field: 'detected_trees' | 'measured_trees' | 'excluded_trees',
+): number | undefined {
+  if (!(field in summary)) return undefined;
+  const count = summary[field];
+  if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) {
+    throw new Error('Frozen demo result is invalid');
+  }
+  return count;
+}
+
+function isExcludedStage(value: unknown): value is 'wood_leaf' | 'qsm' {
+  return value === 'wood_leaf' || value === 'qsm';
+}
+
+function isExcludedReason(value: unknown): value is 'WOOD_EMPTY' | 'QSM_INVALID' {
+  return value === 'WOOD_EMPTY' || value === 'QSM_INVALID';
+}
+
+function parseDiagnostics(value: unknown): NonNullable<FrozenDemoResult['diagnostics']> | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || !Array.isArray(value.excluded_segments)) {
+    throw new Error('Frozen demo result is invalid');
+  }
+
+  const excludedTreeIds = new Set<number>();
+  return {
+    excluded_segments: value.excluded_segments.map((segment) => {
+      if (
+        !isRecord(segment) ||
+        typeof segment.tree_id !== 'number' ||
+        !Number.isSafeInteger(segment.tree_id) ||
+        segment.tree_id < 0 ||
+        !isExcludedStage(segment.stage) ||
+        !isExcludedReason(segment.reason_code) ||
+        !(
+          (segment.stage === 'wood_leaf' && segment.reason_code === 'WOOD_EMPTY') ||
+          (segment.stage === 'qsm' && segment.reason_code === 'QSM_INVALID')
+        ) ||
+        excludedTreeIds.has(segment.tree_id)
+      ) {
+        throw new Error('Frozen demo result is invalid');
+      }
+      excludedTreeIds.add(segment.tree_id);
+      return {
+        tree_id: segment.tree_id,
+        stage: segment.stage,
+        reason_code: segment.reason_code,
+      };
+    }),
+  };
+}
+
 function parseResult(value: unknown): FrozenDemoResult {
   if (
     !isRecord(value) ||
@@ -182,6 +236,36 @@ function parseResult(value: unknown): FrozenDemoResult {
       co2eq_kg: tree.co2eq_kg,
     };
   });
+  const detectedTrees = parseOptionalCount(value.summary, 'detected_trees');
+  const measuredTrees = parseOptionalCount(value.summary, 'measured_trees');
+  const excludedTrees = parseOptionalCount(value.summary, 'excluded_trees');
+  const diagnostics = parseDiagnostics(value.diagnostics);
+  const hasAnyModernField =
+    detectedTrees !== undefined ||
+    measuredTrees !== undefined ||
+    excludedTrees !== undefined ||
+    diagnostics !== undefined;
+
+  if (hasAnyModernField) {
+    if (
+      detectedTrees === undefined ||
+      measuredTrees === undefined ||
+      excludedTrees === undefined ||
+      diagnostics === undefined ||
+      diagnostics.excluded_segments === undefined ||
+      detectedTrees !== measuredTrees + excludedTrees ||
+      measuredTrees !== value.summary.total_trees ||
+      measuredTrees !== trees.length ||
+      excludedTrees !== diagnostics.excluded_segments.length
+    ) {
+      throw new Error('Frozen demo result is invalid');
+    }
+
+    const measuredTreeIds = new Set(trees.map((tree) => tree.tree_id));
+    if (diagnostics.excluded_segments.some((segment) => measuredTreeIds.has(segment.tree_id))) {
+      throw new Error('Frozen demo result is invalid');
+    }
+  }
 
   return {
     metadata: {
@@ -199,7 +283,11 @@ function parseResult(value: unknown): FrozenDemoResult {
       total_carbon_kg: value.summary.total_carbon_kg,
       total_co2eq_kg: value.summary.total_co2eq_kg,
       total_trees: value.summary.total_trees,
+      ...(detectedTrees === undefined ? {} : { detected_trees: detectedTrees }),
+      ...(measuredTrees === undefined ? {} : { measured_trees: measuredTrees }),
+      ...(excludedTrees === undefined ? {} : { excluded_trees: excludedTrees }),
     },
+    ...(diagnostics === undefined ? {} : { diagnostics }),
     trees,
   };
 }

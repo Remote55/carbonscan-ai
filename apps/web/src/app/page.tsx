@@ -1,413 +1,277 @@
+import Image from 'next/image';
 import Link from 'next/link';
-import {
-  ArrowRight,
-  Leaf,
-  ShieldCheck,
-  Boxes,
-  Scale,
-  Upload,
-  ScanLine,
-  Calculator,
-  BadgeCheck,
-  Github,
-} from 'lucide-react';
 
-import { CORE_DEMO_EVIDENCE } from '@/generated/core-demo-evidence';
+import { EditorialSection } from '../components/editorial/editorial-section';
+import { EvidenceMetric } from '../components/evidence/evidence-metric';
+import { AppHeader } from '../components/layout/app-header';
+import { Button } from '../components/ui/button';
+import { CORE_DEMO_EVIDENCE } from '../generated/core-demo-evidence';
+import { VISUAL_ASSETS } from '../lib/visual-assets';
 
-const script = { fontFamily: 'var(--font-pacifico)' } as const;
-const { baseline, candidate } = CORE_DEMO_EVIDENCE;
+const { baseline, candidate, coreDemo } = CORE_DEMO_EVIDENCE;
 const { wanHeldOut, demol65 } = CORE_DEMO_EVIDENCE.validation;
 
-const FEATURES = [
+const JOURNEY = [
   {
-    icon: Leaf,
-    title: 'Evidence-gated Wood–Leaf Segmentation',
-    desc: `ใช้ ${baseline.backend} เป็น baseline ที่รันซ้ำได้ ส่วน ${candidate.displayName} ยังเป็น ${candidate.status} (Wan held-out: Wood IoU ${wanHeldOut.woodIoU}, Leaf IoU ${wanHeldOut.leafIoU})`,
+    step: '01',
+    title: 'รับ point cloud',
+    description: 'เริ่มจากข้อมูลจุดสามมิติที่เปิดดูและตรวจสอบย้อนกลับได้ใน judge demo',
   },
   {
-    icon: ShieldCheck,
-    title: 'Anti-Fraud — Planned',
-    desc: 'การตรวจ EXIF, GPS และภาพซ้ำเป็น roadmap ยังไม่ใช่ความสามารถที่ผ่านการทดสอบใน prototype นี้',
+    step: '02',
+    title: 'แยก wood / leaf',
+    description: `${baseline.backend} เป็น default baseline; ${candidate.displayName} ยังเป็น ${candidate.status}`,
   },
   {
-    icon: Boxes,
-    title: 'ตรวจสอบผลแบบ 3D',
-    desc: '3D Viewer ใช้งานได้แล้ว ส่วน GIS และการผูกหลักฐานเชิงพื้นที่แบบครบวงจรยังเป็น Planned',
+    step: '03',
+    title: 'วัด geometry',
+    description:
+      'หา DBH ความสูง และปริมาตรจากโครงสร้างของต้นไม้ โดยรายงานขอบเขต validation แยกจากกัน',
   },
   {
-    icon: Scale,
-    title: 'Allometric Carbon Estimate',
-    desc: 'คำนวณชีวมวล คาร์บอน และ CO₂e ด้วย species_db.csv หรือ Chave fallback; ไม่ใช่การรับรอง carbon credit',
+    step: '04',
+    title: 'ประมาณ carbon stock',
+    description:
+      'แปลง geometry ผ่าน allometric equation พร้อม provenance; species classification ยังเป็น Stub',
   },
-];
-
-const STEPS = [
-  {
-    icon: Upload,
-    k: '01',
-    title: 'อัปโหลด Point Cloud',
-    desc: 'รับไฟล์ .las/.laz/.ply; เส้นทางถ่ายภาพมือถือและ photogrammetry ยังเป็น Planned',
-  },
-  {
-    icon: ScanLine,
-    k: '02',
-    title: 'แยกลำต้น–ใบ + วัด',
-    desc: 'tlsep baseline แยก wood/leaf แล้ววัด DBH ด้วย RANSAC, ความสูงจาก max-Z และ volume แบบ taper; PointNet++ ยัง Experimental',
-  },
-  {
-    icon: Calculator,
-    k: '03',
-    title: 'คำนวณคาร์บอน',
-    desc: 'แทนค่าลงสมการแอลโลเมตริก → ชีวมวลเหนือ/ใต้ดิน → คาร์บอน ×0.47 → CO₂e ×44/12',
-  },
-  {
-    icon: BadgeCheck,
-    k: '04',
-    title: 'ตรวจสอบผล',
-    desc: 'ดูผลและ provenance ใน 3D viewer; Marketplace, Payment และ Certificate ยังเป็น Planned',
-  },
-];
-
-const METRICS = [
-  {
-    n: String(wanHeldOut.woodIoU),
-    u: '',
-    l: `Wood IoU · ${candidate.status} ${candidate.displayName} · Wan held-out`,
-  },
-  {
-    n: String(wanHeldOut.leafIoU),
-    u: '',
-    l: `Leaf IoU · ${candidate.status} ${candidate.displayName} · Wan held-out`,
-  },
-  { n: String(demol65.dbhMaeCm), u: 'ซม.', l: 'DBH MAE · Demol isolated-tree · 65 ต้น' },
-  { n: String(demol65.volumeMapePct), u: '%', l: 'Volume MAPE · Demol isolated-tree · 65 ต้น' },
-];
-
-const NAV = [
-  { href: '#tech', label: 'เทคโนโลยี' },
-  { href: '#how', label: 'วิธีทำงาน' },
-  { href: '#proof', label: 'งานวิจัย' },
-  { href: '/dashboard/viewer', label: '3D Viewer' },
-];
-
-/** Decorative out-of-focus leaf (nature-template accent). */
-function LeafBlob({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true" fill="none">
-      <path
-        fill="currentColor"
-        d="M50 4C70 24 88 44 88 66c0 18-16 30-38 30S12 84 12 66C12 44 30 24 50 4Z"
-      />
-      <path
-        stroke="currentColor"
-        strokeOpacity=".55"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        d="M50 16v70M50 42l20-14M50 60l22-16M50 42 30 28M50 60 28 44"
-      />
-    </svg>
-  );
-}
+] as const;
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[#fbfaf6] font-sans text-forest-900 antialiased">
-      {/* ─────────────── HERO ─────────────── */}
-      <section className="relative isolate flex min-h-[92vh] flex-col overflow-hidden">
-        {/* illustrated forest dusk backdrop */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-b from-[#04140d] via-[#0b2b1d] to-[#17462f]" />
-          {/* sun glow */}
-          <div className="absolute left-1/2 top-[42%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(190,242,170,.45),rgba(120,220,150,.12)_45%,transparent_68%)] blur-2xl" />
-          {/* layered hills + pines */}
-          <svg
-            className="absolute inset-0 h-full w-full"
-            viewBox="0 0 1440 900"
-            preserveAspectRatio="xMidYMid slice"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M0,470 C240,435 480,455 720,450 C960,445 1200,462 1440,448 L1440,900 L0,900 Z"
-              fill="#123f2a"
-              fillOpacity=".85"
-            />
-            <path
-              d="M0,528 C260,498 520,518 780,514 C1040,510 1240,528 1440,520 L1440,900 L0,900 Z"
-              fill="#0c3220"
-            />
-            <path
-              d="M0,588 C300,562 560,582 820,578 C1080,574 1280,592 1440,584 L1440,900 L0,900 Z"
-              fill="#071f14"
-            />
-            {/* pines on the near ridge */}
-            <g fill="#05170e">
-              <path d="M205,588 l-16,0 l16,-38 l16,38 z" />
-              <path d="M235,588 l-11,0 l11,-26 l11,26 z" />
-              <path d="M1040,586 l-18,0 l18,-42 l18,42 z" />
-              <path d="M1075,586 l-12,0 l12,-28 l12,28 z" />
-              <path d="M1260,588 l-14,0 l14,-32 l14,32 z" />
-            </g>
-          </svg>
-          {/* mist */}
-          <div className="absolute left-0 top-[48%] h-32 w-full bg-[radial-gradient(60%_100%_at_50%_50%,rgba(200,240,210,.16),transparent_70%)] blur-xl" />
-          {/* grain */}
-          <div
-            className="absolute inset-0 opacity-40 mix-blend-overlay"
-            style={{
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E\")",
-            }}
-          />
-          {/* readability scrim */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#04140d]/85 via-[#04140d]/40 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#fbfaf6] to-transparent" />
-        </div>
+    // AppHeader renders its own <header><nav>, and the footer is contentinfo, so
+    // neither belongs inside <main>: nesting them there put three landmarks
+    // inside the one that is supposed to hold only the page's main content, and
+    // left a screen reader jumping to "main" at the top of the navigation.
+    <div className="min-h-screen overflow-x-hidden bg-gallery-ivory text-forest-ink">
+      <a
+        href="#main-content"
+        className="sr-only rounded-full bg-canopy px-5 py-3 text-sm font-medium text-paper focus:not-sr-only focus:absolute focus:left-5 focus:top-4 focus:z-50"
+      >
+        ข้ามไปยังเนื้อหาหลัก
+      </a>
 
-        {/* decorative leaves */}
-        <LeafBlob className="pointer-events-none absolute -left-16 top-24 h-64 w-64 rotate-[18deg] text-forest-400/30 blur-[2px]" />
-        <LeafBlob className="pointer-events-none absolute -right-10 bottom-32 h-52 w-52 -rotate-[150deg] text-forest-300/25 blur-[3px]" />
+      <div className="mx-auto max-w-7xl px-5 pt-4 sm:px-8">
+        <AppHeader />
+      </div>
 
-        {/* nav */}
-        <header className="relative z-20">
-          <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="bg-forest-gradient grid h-9 w-9 place-items-center rounded-xl shadow-lg shadow-black/30 ring-1 ring-white/10">
-                <Leaf className="h-5 w-5 text-white" />
-              </span>
-              <span className="text-lg font-bold tracking-tight text-white">
-                TreeQ<span className="text-forest-300"> Carbon</span>
-              </span>
-            </Link>
-            <div className="hidden items-center gap-8 text-sm font-medium text-white/75 md:flex">
-              {NAV.map((n) => (
-                <Link key={n.href} href={n.href} className="transition hover:text-white">
-                  {n.label}
-                </Link>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/login"
-                className="hidden text-sm font-medium text-white/75 transition hover:text-white sm:block"
-              >
-                เข้าสู่ระบบ
-              </Link>
-              <Link
-                href="/demo"
-                className="inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-forest-800 shadow-lg shadow-black/20 transition hover:bg-forest-50"
-              >
-                ดูเดโม <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </nav>
-        </header>
-
-        {/* hero copy */}
-        <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 items-center px-6">
-          <div className="max-w-2xl py-16">
-            <p style={script} className="animate-fade-in text-2xl text-forest-300 sm:text-3xl">
-              Nature, measured.
-            </p>
-            <h1 className="mt-3 animate-slide-up text-5xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              ประเมินการกักเก็บ{' '}
-              <span className="bg-gradient-to-r from-forest-300 via-emerald-200 to-lime-200 bg-clip-text text-transparent">
-                คาร์บอนจากต้นไม้
-              </span>{' '}
-              ด้วย AI ที่โปร่งใส
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/80">
-              แพลตฟอร์มประเมินชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อม provenance ของ
-              pipeline การรับรองและออก carbon credit อย่างเป็นทางการอยู่นอกขอบเขต prototype นี้
-            </p>
-            {/* The demo leads, because it is the only route that shows real
-                results without an account. Signup led here before, which meant
-                anyone arriving to evaluate the work hit a login wall first and
-                had no way to discover /demo at all. */}
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/demo"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-gradient-to-b from-forest-400 to-forest-600 px-7 text-base font-semibold text-white shadow-xl shadow-forest-900/40 transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-forest-900/50"
-              >
-                ดูผลจริง ไม่ต้องสมัคร <ArrowRight className="h-5 w-5" />
-              </Link>
-              <Link
-                href="/signup"
-                className="inline-flex h-12 items-center rounded-full border border-white/25 bg-white/5 px-7 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/10"
-              >
-                สมัครใช้งาน
-              </Link>
-            </div>
-            <dl className="mt-12 flex flex-wrap gap-x-10 gap-y-5">
-              {[
-                { n: String(wanHeldOut.woodIoU), l: `Wood IoU · ${candidate.status} / Wan` },
-                { n: String(wanHeldOut.leafIoU), l: `Leaf IoU · ${candidate.status} / Wan` },
-                { n: `${demol65.dbhMaeCm} ซม.`, l: 'DBH MAE · Demol 65 ต้น' },
-              ].map((s) => (
-                <div key={s.l} className="border-l border-white/15 pl-4 first:border-0 first:pl-0">
-                  <dt className="font-display text-3xl font-bold tabular-nums text-white">{s.n}</dt>
-                  <dd className="mt-1 text-xs text-white/60">{s.l}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────────── TECHNOLOGY ─────────────── */}
-      <section id="tech" className="bg-[#fbfaf6] py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="max-w-2xl">
-            <p style={script} className="text-xl text-forest-500">
-              Our technology
-            </p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight text-forest-900 sm:text-5xl">
-              เทคโนโลยีที่ขับเคลื่อน
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-forest-900/55">
-              ผสาน 3D point-cloud processing, deep learning และ cloud architecture ในไปป์ไลน์เดียว
-            </p>
-          </div>
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="group rounded-3xl border border-forest-100 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-forest-200 hover:shadow-xl hover:shadow-forest-900/5"
-              >
-                <div className="group-hover:bg-forest-gradient grid h-12 w-12 place-items-center rounded-2xl bg-forest-50 text-forest-600 transition duration-300 group-hover:text-white">
-                  <f.icon className="h-6 w-6" strokeWidth={1.7} />
-                </div>
-                <h3 className="mt-5 font-semibold text-forest-900">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-forest-900/55">{f.desc}</p>
+      <main id="main-content">
+        <section className="mx-auto max-w-7xl px-5 pb-8 pt-6 sm:px-8">
+          <div className="grid grid-cols-1 gap-8 lg:min-h-[35.625rem] lg:grid-cols-12">
+            <div className="flex flex-col justify-center lg:col-span-6 lg:pr-8">
+              <p className="editorial-eyebrow">TreeQ Carbon / NSC 2026 / Deep Tech</p>
+              <h1 className="mt-7 max-w-[11ch] text-balance font-display text-5xl font-medium leading-[1.12] tracking-[-0.03em] text-forest-ink sm:text-6xl lg:text-[4rem]">
+                อ่านคาร์บอนจากโครงสร้างจริงของต้นไม้
+              </h1>
+              <p className="mt-7 max-w-xl text-base leading-8 text-canopy sm:text-lg">
+                แพลตฟอร์มต้นแบบประเมิน DBH ความสูง ชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อม
+                provenance ของ pipeline ที่ตรวจสอบย้อนกลับได้
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button render={<Link href="/demo" />} variant="editorial" size="xl">
+                  ทดลอง Demo Dataset
+                </Button>
+                <Button render={<Link href="/demo" />} variant="editorialOutline" size="xl">
+                  อัปโหลด Point Cloud
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              <p className="mt-6 font-mono text-[0.625rem] uppercase leading-5 tracking-[0.08em] text-evidence-amber">
+                {baseline.backend} = Default · {candidate.displayName} = {candidate.status} ·
+                species stage = Stub
+              </p>
+            </div>
 
-      {/* ─────────────── PIPELINE ─────────────── */}
-      <section id="how" className="border-y border-forest-100 bg-forest-50/50 py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="max-w-2xl">
-            <p style={script} className="text-xl text-forest-500">
-              How it works
-            </p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight text-forest-900 sm:text-5xl">
-              จากต้นไม้ สู่ตัวเลขที่ตรวจสอบได้
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-forest-900/55">
-              สี่ขั้นตอนตั้งแต่ข้อมูลดิบถึงค่าประเมินคาร์บอน โดยแยกสิ่งที่ทำได้แล้วออกจาก roadmap
-            </p>
-          </div>
-          <ol className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((s) => (
-              <li
-                key={s.k}
-                className="relative rounded-3xl bg-white p-7 shadow-sm ring-1 ring-forest-100"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-display text-4xl font-bold text-forest-200">{s.k}</span>
-                  <span className="bg-forest-gradient grid h-11 w-11 place-items-center rounded-xl text-white shadow-md shadow-forest-900/20">
-                    <s.icon className="h-5 w-5" strokeWidth={1.7} />
-                  </span>
-                </div>
-                <h3 className="mt-5 font-semibold text-forest-900">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-forest-900/55">{s.desc}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {/* ─────────────── VALIDATION ─────────────── */}
-      <section id="proof" className="bg-forest-gradient relative overflow-hidden py-24 text-white">
-        <LeafBlob className="pointer-events-none absolute -right-16 -top-10 h-72 w-72 rotate-[200deg] text-white/10" />
-        <LeafBlob className="pointer-events-none absolute -left-12 bottom-0 h-56 w-56 text-black/10" />
-        <div className="relative mx-auto max-w-7xl px-6">
-          <div className="max-w-2xl">
-            <p style={script} className="text-xl text-forest-200">
-              Evidence with limitations
-            </p>
-            <h2 className="mt-1 text-4xl font-bold tracking-tight sm:text-5xl">
-              หลักฐานบนข้อมูลต้นไม้จริง
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-white/70">
-              รายงานผลแยก wood/leaf บน Wan held-out และ geometry บน Demol isolated-tree 65
-              ต้นตามขอบเขตที่ทดสอบจริง
-            </p>
-          </div>
-          <div className="mt-14 grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4">
-            {METRICS.map((m) => (
-              <div key={m.l} className="border-l border-white/20 pl-5">
-                <div className="font-display text-5xl font-bold tabular-nums text-white">
-                  {m.n}
-                  {m.u && <span className="ml-1 text-xl font-medium text-white/60">{m.u}</span>}
-                </div>
-                <div className="mt-2 text-sm leading-snug text-white/70">{m.l}</div>
+            <div className="relative min-h-[25rem] overflow-hidden rounded-[1.75rem] shadow-[0_28px_68px_-18px_rgba(14,42,29,0.18)] lg:col-span-6 lg:min-h-[35.625rem]">
+              <Image
+                src={VISUAL_ASSETS.landing.src}
+                alt="ป่าปกคลุมด้วยหมอก"
+                fill
+                priority
+                sizes="(min-width: 1024px) 48vw, 100vw"
+                className="object-cover"
+              />
+              <div className="from-deep-forest/5 via-deep-forest/15 to-deep-forest/80 absolute inset-0 bg-gradient-to-b" />
+              <div className="bg-deep-forest/90 absolute bottom-6 right-6 max-w-[16rem] rounded-[0.875rem] border border-moss px-4 py-3 text-paper backdrop-blur-sm">
+                <p className="font-mono text-[0.5625rem] uppercase tracking-[0.08em]">
+                  Field observation / 01
+                </p>
+                <p className="mt-2 text-sm font-medium">จากโครงสร้าง 3D สู่คาร์บอน</p>
               </div>
-            ))}
-          </div>
-          <p className="mt-12 max-w-3xl text-sm leading-relaxed text-white/60">
-            ฐานสมการ allometric มีข้อมูล 5 ชนิดและใช้ Chave et al. (2014) เป็น fallback แต่ species
-            classifier ยังเป็น Stub และผล Demol ข้างต้นไม่ใช่การ validate biomass, carbon หรือ
-            carbon credit
-          </p>
-        </div>
-      </section>
-
-      {/* ─────────────── CTA ─────────────── */}
-      <section className="bg-[#fbfaf6] px-6 py-24">
-        <div className="relative mx-auto max-w-4xl overflow-hidden rounded-[2.5rem] bg-forest-900 px-8 py-16 text-center text-white shadow-2xl shadow-forest-900/20">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(60%_120%_at_50%_0%,rgba(124,229,156,.25),transparent_70%)]" />
-          <div className="relative">
-            <p style={script} className="text-2xl text-forest-300">
-              Ready when you are
-            </p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-              พร้อมเปลี่ยนต้นไม้ให้เป็นตัวเลขที่ตรวจสอบที่มาได้?
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-white/70">
-              เปิดดู 3D viewer และหลักฐานของ core demo ได้ โดยความสามารถที่ยังเป็น
-              Experimental/Planned จะระบุไว้ตรงไปตรงมา
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link
-                href="/signup"
-                className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-7 text-base font-semibold text-forest-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-forest-50"
-              >
-                เริ่มใช้ฟรี <ArrowRight className="h-5 w-5" />
-              </Link>
-              <Link
-                href="/dashboard/viewer"
-                className="inline-flex h-12 items-center rounded-full border border-white/25 px-7 text-base font-semibold text-white transition hover:bg-white/10"
-              >
-                ทดลอง 3D Viewer
-              </Link>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ─────────────── FOOTER ─────────────── */}
-      <footer className="bg-[#06180f] py-10 text-white/60">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 sm:flex-row">
-          <div className="flex items-center gap-2.5">
-            <span className="bg-forest-gradient grid h-8 w-8 place-items-center rounded-lg">
-              <Leaf className="h-4 w-4 text-white" />
-            </span>
-            <span className="text-sm font-semibold text-white">
-              TreeQ<span className="text-forest-300"> Carbon</span>
-            </span>
+          <div className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-4 shadow-sm">
+            <p className="editorial-eyebrow px-1 pb-3">Measured evidence / do not round</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <EvidenceMetric
+                label="Wood IoU"
+                value={String(wanHeldOut.woodIoU)}
+                note={`Wan held-out / ${candidate.status}`}
+              />
+              <EvidenceMetric
+                label="Leaf IoU"
+                value={String(wanHeldOut.leafIoU)}
+                note={`Wan held-out / ${candidate.status}`}
+              />
+              <EvidenceMetric
+                label="DBH MAE"
+                value={`${demol65.dbhMaeCm} cm`}
+                note="Demol / 65 isolated trees"
+              />
+            </div>
           </div>
-          <span className="text-xs">© 2026 TreeQ Carbon Platform · NSC 2026 หมวด 14</span>
-          <Link
-            href="https://github.com/Remote55/carbonscan-ai"
-            className="inline-flex items-center gap-1.5 text-sm transition hover:text-white"
+        </section>
+
+        <div data-editorial-beat="problem">
+          <EditorialSection
+            className="border-t border-hairline bg-paper"
+            eyebrow="01 / Problem"
+            title="ปัญหาที่การวัดแบบเดิมทิ้งไว้"
+            description="ตัวเลขคาร์บอนมีความหมายก็ต่อเมื่อย้อนกลับไปเห็นได้ว่า geometry มาจากไหน ผ่านขั้นตอนอะไร และข้อจำกัดอยู่ตรงจุดใด"
           >
-            <Github className="h-4 w-4" /> GitHub
-          </Link>
+            <div className="grid items-end gap-8 lg:grid-cols-12">
+              <p className="max-w-3xl font-display text-3xl leading-snug text-deep-forest sm:text-4xl lg:col-span-8">
+                เราไม่ได้เริ่มจากคำว่า “AI แม่นยำ” แต่เริ่มจากหลักฐานที่กรรมการเปิดดู แล้วถามต่อได้
+              </p>
+              <div className="border-l border-moss pl-5 text-sm leading-7 text-canopy lg:col-span-4">
+                ขอบเขต prototype ยังไม่รวม mobile photogrammetry ที่ผ่านการ review, marketplace หรือ
+                certification; ค่าที่แสดงเป็น carbon stock และ CO₂e estimate ไม่ใช่ certified credit
+              </div>
+            </div>
+          </EditorialSection>
+        </div>
+
+        <div id="how" data-editorial-beat="journey">
+          <EditorialSection
+            className="bg-gallery-ivory"
+            eyebrow="02 / Measurement journey"
+            title="เส้นทางการวัดจากจุดสู่คาร์บอน"
+            description="หนึ่ง narrative ต่อเนื่องจากข้อมูลสามมิติไปสู่ค่าประมาณ แทนการแยก feature เป็นการ์ดที่ดูมีน้ำหนักเท่ากัน"
+          >
+            <ol className="border-y border-hairline">
+              {JOURNEY.map((item) => (
+                <li
+                  key={item.step}
+                  className="grid gap-3 border-b border-hairline py-6 last:border-b-0 sm:grid-cols-[5rem_minmax(0,0.7fr)_minmax(0,1.3fr)] sm:items-baseline"
+                >
+                  <span className="font-mono text-xs text-evidence-amber">{item.step}</span>
+                  <h3 className="font-display text-2xl text-forest-ink">{item.title}</h3>
+                  <p className="max-w-2xl text-sm leading-7 text-canopy">{item.description}</p>
+                </li>
+              ))}
+            </ol>
+          </EditorialSection>
+        </div>
+
+        <div id="tech" data-editorial-beat="three-dimensional-evidence">
+          <EditorialSection
+            className="border-y border-hairline bg-paper"
+            eyebrow="03 / Inspect the structure"
+            title="หลักฐาน 3D ที่เปิดให้ตรวจสอบ"
+            description="3D viewer เป็นพื้นที่ตรวจผลที่ทำงานแล้ว: wood, leaf และ provenance อยู่ในเรื่องเดียวกัน โดยไม่เปลี่ยนสถานะโมเดลจากหลักฐานที่ยังไม่ผ่าน gate"
+          >
+            <div className="overflow-hidden rounded-[1.75rem] bg-deep-forest text-paper shadow-[0_24px_60px_-24px_rgba(14,42,29,0.45)]">
+              <div className="grid lg:grid-cols-12">
+                <div className="border-paper/15 relative min-h-[20rem] overflow-hidden border-b lg:col-span-7 lg:border-b-0 lg:border-r">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(199,214,161,0.75)_0_1.4px,transparent_1.8px)] opacity-50 [background-size:18px_18px]" />
+                  <div className="absolute inset-x-[18%] bottom-[12%] top-[12%] rounded-[48%] bg-[radial-gradient(ellipse_at_50%_22%,rgba(199,214,161,0.42),transparent_48%),linear-gradient(90deg,transparent_46%,rgba(178,138,64,0.8)_48%,rgba(178,138,64,0.8)_52%,transparent_54%)] blur-[0.2px]" />
+                  <div className="border-lichen/40 bg-deep-forest/80 absolute left-6 top-6 rounded-full border px-3 py-1 font-mono text-[0.625rem] uppercase tracking-[0.1em] text-lichen">
+                    Inspectable 3D evidence
+                  </div>
+                  <p className="absolute bottom-6 left-6 max-w-xs font-display text-2xl leading-snug">
+                    เห็นจุดที่โมเดลเรียกว่า wood และ leaf ก่อนเชื่อตัวเลขปลายทาง
+                  </p>
+                </div>
+                <dl className="space-y-0 lg:col-span-5">
+                  <div className="border-paper/15 border-b p-6">
+                    <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-lichen">
+                      Default backend
+                    </dt>
+                    <dd className="mt-2 font-display text-3xl">{baseline.backend}</dd>
+                    <p className="mt-2 text-sm leading-6 text-mist">
+                      Implemented baseline และเส้นทางหลักของ demo
+                    </p>
+                  </div>
+                  <div className="border-paper/15 border-b p-6">
+                    <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-evidence-amber">
+                      Candidate status
+                    </dt>
+                    <dd className="mt-2 font-display text-3xl">
+                      {candidate.displayName} / {candidate.status}
+                    </dd>
+                    <p className="mt-2 text-sm leading-6 text-mist">
+                      ไม่ถูก promote เป็น default จากผลที่เห็นบนหน้านี้
+                    </p>
+                  </div>
+                  <div className="p-6">
+                    <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-lichen">
+                      Reproducible core demo
+                    </dt>
+                    <dd className="mt-2 font-display text-3xl tabular-nums">
+                      {coreDemo.totalTrees} trees
+                    </dd>
+                    <p className="mt-2 text-sm leading-6 text-mist">
+                      ค่าจาก deterministic demo ไม่ใช่ accuracy benchmark
+                    </p>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </EditorialSection>
+        </div>
+
+        <div id="proof" data-editorial-beat="validation">
+          <EditorialSection
+            className="bg-gallery-ivory"
+            eyebrow="04 / Evidence with limitations"
+            title="Validation ที่รายงานตามขอบเขต"
+            description="Wan held-out ใช้อธิบายผล segmentation ของ candidate ส่วน Demol 65 isolated trees ใช้อธิบาย geometry เท่านั้น ไม่ใช่ full-pipeline, allometric หรือ carbon validation"
+          >
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
+              <div className="lg:col-span-4">
+                <EvidenceMetric
+                  label={`Wood IoU / ${candidate.status}`}
+                  value={String(wanHeldOut.woodIoU)}
+                  note="Wan held-out · best-epoch selection caveat"
+                  tone="dark"
+                />
+              </div>
+              <div className="lg:col-span-3">
+                <EvidenceMetric
+                  label={`Leaf IoU / ${candidate.status}`}
+                  value={String(wanHeldOut.leafIoU)}
+                  note="Wan held-out · segmentation evidence"
+                  tone="lichen"
+                />
+              </div>
+              <div className="lg:col-span-5">
+                <EvidenceMetric
+                  label="DBH MAE / geometry only"
+                  value={`${demol65.dbhMaeCm} cm`}
+                  note="Demol · 65 isolated trees · full precision"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col justify-between gap-6 border-t border-hairline pt-8 sm:flex-row sm:items-center">
+              <p className="max-w-3xl text-sm leading-7 text-canopy">
+                Species classifier = Stub. ค่า carbon stock และ CO₂e เป็น estimate; coefficients
+                ยังต้อง verify กับ TGO Guideline 2017 และไม่มี claim เรื่อง marketplace
+                หรือการรับรองเครดิต
+              </p>
+              <Button render={<Link href="/demo" />} variant="editorial" size="xl">
+                เปิดหลักฐานใน Demo
+              </Button>
+            </div>
+          </EditorialSection>
+        </div>
+      </main>
+
+      <footer className="border-t border-hairline bg-paper py-8">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 px-5 text-sm text-canopy sm:flex-row sm:px-8">
+          <span className="font-display text-base text-forest-ink">TreeQ Carbon Platform</span>
+          <span>Prototype for NSC 2026 · หมวด 14</span>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }

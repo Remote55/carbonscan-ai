@@ -63,7 +63,7 @@ describe('DemoShell live mode', () => {
 
   it('states the demo accepts only PLY, matching what the API enforces', () => {
     const markup = renderLive({ kind: 'idle' });
-    expect(markup).toContain('.ply');
+    expect(markup).toContain('.ply · 100 MB · 2,000,000 จุด');
     expect(markup).not.toContain('.las');
     expect(markup).not.toContain('.laz');
   });
@@ -71,6 +71,9 @@ describe('DemoShell live mode', () => {
   it('names the file being processed so a slow run is not mistaken for a hang', () => {
     const markup = renderLive({ kind: 'processing', file });
     expect(markup).toContain('กำลังประมวลผล');
+    expect(markup).toContain('plot.ply');
+    expect(markup).toContain('aria-live="polite"');
+    expect(markup).toContain('disabled=""');
   });
 
   // The whole point of the frozen route is that its bytes were checked against a

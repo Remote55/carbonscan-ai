@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -43,6 +44,52 @@ function withChangedByte(
   return changedFiles;
 }
 
+function jsonBytes(value: unknown): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(value));
+}
+
+function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+async function withResultMutation(
+  mutate: (result: Record<string, unknown>) => void,
+): Promise<{ files: ReadonlyMap<string, Uint8Array>; manifestSha256: string }> {
+  const resultBytes = validFiles.get(JUDGE_DEMO_EVIDENCE.resultPath);
+  const manifestBytes = validFiles.get(JUDGE_DEMO_EVIDENCE.manifestPath);
+  if (!resultBytes || !manifestBytes) throw new Error('Missing frozen test fixture');
+
+  const result = JSON.parse(new TextDecoder().decode(resultBytes)) as Record<string, unknown>;
+  mutate(result);
+  const nextResultBytes = jsonBytes(result);
+
+  const manifest = JSON.parse(new TextDecoder().decode(manifestBytes)) as {
+    artifacts: { result: { sha256: string; size_bytes: number } };
+  };
+  manifest.artifacts.result.sha256 = sha256(nextResultBytes);
+  manifest.artifacts.result.size_bytes = nextResultBytes.byteLength;
+  const nextManifestBytes = jsonBytes(manifest);
+
+  const files = new Map(validFiles);
+  files.set(JUDGE_DEMO_EVIDENCE.resultPath, nextResultBytes);
+  files.set(JUDGE_DEMO_EVIDENCE.manifestPath, nextManifestBytes);
+  return { files, manifestSha256: sha256(nextManifestBytes) };
+}
+
+async function expectInvalidResultFixture(fixture: {
+  files: ReadonlyMap<string, Uint8Array>;
+  manifestSha256: string;
+}): Promise<void> {
+  let rejection: unknown;
+  try {
+    await loadFrozenDemo(fakeFetcher(fixture.files), fixture.manifestSha256);
+  } catch (error) {
+    rejection = error;
+  }
+  expect(rejection).toBeInstanceOf(Error);
+  expect((rejection as Error).message).toBe('Frozen demo result is invalid');
+}
+
 beforeAll(async () => {
   const publicRoot = path.resolve(process.cwd(), 'public');
   validFiles = new Map(
@@ -67,6 +114,133 @@ describe('loadFrozenDemo', () => {
 
     expect(bundle.mode).toBe('frozen');
     expect(bundle.result.metadata.wood_leaf_backend).toBe('tlsep');
+  });
+
+  it('preserves verified counts and diagnostics from the current frozen artifact', async () => {
+    const bundle = await loadFrozenDemo(
+      fakeFetcher(validFiles),
+      JUDGE_DEMO_EVIDENCE.manifestSha256,
+    );
+
+    expect(bundle.result.summary).toMatchObject({
+      detected_trees: 5,
+      measured_trees: 3,
+      excluded_trees: 2,
+    });
+    expect(bundle.result.diagnostics?.excluded_segments).toEqual([
+      { tree_id: 1, stage: 'qsm', reason_code: 'QSM_INVALID' },
+      { tree_id: 4, stage: 'qsm', reason_code: 'QSM_INVALID' },
+    ]);
+  });
+
+  it('keeps optional counts and diagnostics absent for a verified legacy bundle', async () => {
+    const fixture = await withResultMutation((result) => {
+      const summary = result.summary as Record<string, unknown>;
+      delete summary.detected_trees;
+      delete summary.measured_trees;
+      delete summary.excluded_trees;
+      delete result.diagnostics;
+    });
+
+    const bundle = await loadFrozenDemo(
+      fakeFetcher(fixture.files),
+      fixture.manifestSha256,
+    );
+    expect(bundle.result.summary.detected_trees).toBeUndefined();
+    expect(bundle.result.summary.measured_trees).toBeUndefined();
+    expect(bundle.result.summary.excluded_trees).toBeUndefined();
+    expect(bundle.result.diagnostics).toBeUndefined();
+  });
+
+  it.each([
+    ['negative count', (result: Record<string, unknown>) => {
+      (result.summary as Record<string, unknown>).detected_trees = -1;
+    }],
+    ['fractional count', (result: Record<string, unknown>) => {
+      (result.summary as Record<string, unknown>).measured_trees = 2.5;
+    }],
+    ['unsafe count', (result: Record<string, unknown>) => {
+      (result.summary as Record<string, unknown>).excluded_trees = Number.MAX_SAFE_INTEGER + 1;
+    }],
+    ['invalid diagnostics shape', (result: Record<string, unknown>) => {
+      result.diagnostics = { excluded_segments: 'not-an-array' };
+    }],
+    ['invalid diagnostics stage', (result: Record<string, unknown>) => {
+      const diagnostics = result.diagnostics as { excluded_segments: Array<Record<string, unknown>> };
+      diagnostics.excluded_segments[0].stage = 'invented';
+    }],
+    ['invalid diagnostics reason code', (result: Record<string, unknown>) => {
+      const diagnostics = result.diagnostics as { excluded_segments: Array<Record<string, unknown>> };
+      diagnostics.excluded_segments[0].reason_code = 'UNKNOWN';
+    }],
+  ] as const)('fails closed on a verified result with %s', async (_label, mutate) => {
+    const fixture = await withResultMutation(mutate);
+    await expectInvalidResultFixture(fixture);
+  });
+
+  it.each([
+    ['detected_trees', (result: Record<string, unknown>) => {
+      delete (result.summary as Record<string, unknown>).detected_trees;
+    }],
+    ['measured_trees', (result: Record<string, unknown>) => {
+      delete (result.summary as Record<string, unknown>).measured_trees;
+    }],
+    ['excluded_trees', (result: Record<string, unknown>) => {
+      delete (result.summary as Record<string, unknown>).excluded_trees;
+    }],
+    ['diagnostics', (result: Record<string, unknown>) => {
+      delete result.diagnostics;
+    }],
+  ] as const)('fails closed when modern field %s is the only field absent', async (_label, mutate) => {
+    const fixture = await withResultMutation(mutate);
+    await expectInvalidResultFixture(fixture);
+  });
+
+  it.each([
+    ['detected count reconciliation', (result: Record<string, unknown>) => {
+      (result.summary as Record<string, unknown>).detected_trees = 6;
+    }],
+    ['measured versus total_trees', (result: Record<string, unknown>) => {
+      (result.summary as Record<string, unknown>).total_trees = 4;
+    }],
+    ['measured versus tree rows', (result: Record<string, unknown>) => {
+      (result.trees as unknown[]).pop();
+    }],
+    ['excluded versus diagnostic rows', (result: Record<string, unknown>) => {
+      const diagnostics = result.diagnostics as { excluded_segments: unknown[] };
+      diagnostics.excluded_segments.pop();
+    }],
+  ] as const)('fails closed on %s mismatch', async (_label, mutate) => {
+    const fixture = await withResultMutation(mutate);
+    await expectInvalidResultFixture(fixture);
+  });
+
+  it.each([
+    ['wood_leaf with QSM_INVALID', 'wood_leaf', 'QSM_INVALID'],
+    ['qsm with WOOD_EMPTY', 'qsm', 'WOOD_EMPTY'],
+  ] as const)('fails closed on impossible diagnostic pair %s', async (_label, stage, reasonCode) => {
+    const fixture = await withResultMutation((result) => {
+      const diagnostics = result.diagnostics as { excluded_segments: Array<Record<string, unknown>> };
+      diagnostics.excluded_segments[0].stage = stage;
+      diagnostics.excluded_segments[0].reason_code = reasonCode;
+    });
+    await expectInvalidResultFixture(fixture);
+  });
+
+  it('fails closed when excluded diagnostic tree IDs repeat', async () => {
+    const fixture = await withResultMutation((result) => {
+      const diagnostics = result.diagnostics as { excluded_segments: Array<Record<string, unknown>> };
+      diagnostics.excluded_segments[1].tree_id = diagnostics.excluded_segments[0].tree_id;
+    });
+    await expectInvalidResultFixture(fixture);
+  });
+
+  it('fails closed when an excluded tree ID overlaps a measured tree row', async () => {
+    const fixture = await withResultMutation((result) => {
+      const diagnostics = result.diagnostics as { excluded_segments: Array<Record<string, unknown>> };
+      diagnostics.excluded_segments[0].tree_id = 2;
+    });
+    await expectInvalidResultFixture(fixture);
   });
 
   it.each([
