@@ -752,6 +752,128 @@ function Wait-TreeQPublicReadiness {
     }
 }
 
+function Publish-TreeQPublicSite {
+    <#
+        .SYNOPSIS
+        Point the deployed site at this run's tunnel, and prove it took.
+
+        .DESCRIPTION
+        NEXT_PUBLIC_* is inlined at build time, so a quick tunnel's new hostname
+        reaches visitors only after the env is changed AND a deploy finishes.
+        Both steps, in that order, or the site keeps calling the previous
+        tunnel - which is exactly what happened: a deploy went out on a
+        hostname that had already stopped resolving, and announced success.
+
+        The old script ran the commands and printed DONE. This one reads the
+        deployed site back through /api/runtime-config and only reports success
+        once the site itself says it has the endpoint that was just published.
+        A publish that cannot be proven is reported as a failure, because a
+        presenter who is told the site is live has no reason to check.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)][string]$Token,
+        [Parameter(Mandatory = $true)][string]$WebDirectory,
+        [Parameter(Mandatory = $false)][string]$SiteUrl = 'https://treeqcarbon.vercel.app',
+        [Parameter(Mandatory = $false)][ValidateRange(1, 900)][int]$TimeoutSec = 420,
+        [Parameter(Mandatory = $false)][scriptblock]$Invoke,
+        [Parameter(Mandatory = $false)][scriptblock]$Probe
+    )
+
+    if ($Token -cnotmatch '^[0-9a-f]{64}$') {
+        return [pscustomobject]@{ Published = $false; Detail = 'invalid token' }
+    }
+    if (-not (Test-Path -LiteralPath $WebDirectory -PathType Container)) {
+        return [pscustomobject]@{ Published = $false; Detail = 'web directory missing' }
+    }
+
+    if ($null -eq $Invoke) {
+        $Invoke = {
+            param($Arguments, $WorkingDirectory)
+            $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $startInfo.FileName = 'cmd.exe'
+            $startInfo.Arguments = '/c npx ' + $Arguments
+            $startInfo.WorkingDirectory = $WorkingDirectory
+            $startInfo.UseShellExecute = $false
+            $startInfo.RedirectStandardOutput = $true
+            $startInfo.RedirectStandardError = $true
+            $process = [System.Diagnostics.Process]::Start($startInfo)
+            # Draining both pipes matters: vercel is chatty, and a full stdout
+            # buffer would wedge the deploy behind a launcher that is waiting
+            # for it to finish.
+            [void]$process.StandardOutput.ReadToEndAsync()
+            [void]$process.StandardError.ReadToEndAsync()
+            if (-not $process.WaitForExit(600000)) {
+                try { $process.Kill() } catch { }
+                return 1
+            }
+            return $process.ExitCode
+        }
+    }
+
+    if ($null -eq $Probe) {
+        $Probe = {
+            param($ProbeSiteUrl)
+            try {
+                return Invoke-RestMethod `
+                    -Method Get `
+                    -Uri "$($ProbeSiteUrl.TrimEnd('/'))/api/runtime-config" `
+                    -Headers @{ 'Cache-Control' = 'no-cache' } `
+                    -TimeoutSec 10 `
+                    -ErrorAction Stop
+            }
+            catch {
+                return $null
+            }
+        }
+    }
+
+    # Removal is allowed to fail: on the first run there is nothing to remove,
+    # and `env add` refuses to replace a value that already exists.
+    foreach ($name in @('NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_DEMO_TOKEN')) {
+        [void](& $Invoke "vercel env rm $name production --yes" $WebDirectory)
+    }
+
+    $settings = @{
+        'NEXT_PUBLIC_API_URL' = $Endpoint
+        'NEXT_PUBLIC_DEMO_TOKEN' = $Token
+    }
+    foreach ($name in $settings.Keys) {
+        $exitCode = & $Invoke (
+            "vercel env add $name production --value $($settings[$name]) --force --yes"
+        ) $WebDirectory
+        if ($exitCode -ne 0) {
+            return [pscustomobject]@{ Published = $false; Detail = "env update failed: $name" }
+        }
+    }
+
+    $deployExit = & $Invoke 'vercel --prod --archive=tgz --yes' $WebDirectory
+    if ($deployExit -ne 0) {
+        return [pscustomobject]@{ Published = $false; Detail = 'deploy failed' }
+    }
+
+    # The deploy command can return before the new build is the one being
+    # served, so the site is asked directly rather than trusted.
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
+    while ($true) {
+        $config = & $Probe $SiteUrl
+        if (
+            $null -ne $config -and
+            $config.apiUrl -eq $Endpoint -and
+            $config.hasToken
+        ) {
+            return [pscustomobject]@{ Published = $true; Detail = 'verified' }
+        }
+        if ([DateTime]::UtcNow -ge $deadline) {
+            break
+        }
+        Start-Sleep -Seconds 3
+    }
+
+    return [pscustomobject]@{ Published = $false; Detail = 'site did not report the new endpoint' }
+}
+
 function ConvertTo-TreeQWindowsArgument {
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Argument)
 
@@ -1342,6 +1464,7 @@ Export-ModuleMember -Function @(
     'Stop-TreeQOwnedProcesses',
     'Test-TreeQReadiness',
     'Wait-TreeQPublicReadiness',
+    'Publish-TreeQPublicSite',
     'ConvertTo-TreeQWindowsCommandLine',
     'Assert-TreeQProcessRegistryPath',
     'Start-TreeQManagedProcess',

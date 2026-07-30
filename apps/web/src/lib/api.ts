@@ -10,6 +10,22 @@ import { createClient } from './supabase';
 
 const BUILT_IN_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+/**
+ * The demo token this deployment was built with, published alongside the tunnel
+ * URL on every Auto run.
+ *
+ * It is deliberately public. The API's upload guard wants a token, and a
+ * visitor who simply opens the site was never handed one - so without this, the
+ * only person who could run an analysis is whoever is sitting at the laptop
+ * that started the launcher, which defeats the point of deploying at all.
+ *
+ * What it still buys: the guard turns away anything that finds the tunnel
+ * hostname without reading the site, and the per-client rate limit behind it is
+ * unchanged. The token rotates every run, so it is a key to one demo session
+ * rather than a standing credential.
+ */
+const BUILT_IN_DEMO_TOKEN = process.env.NEXT_PUBLIC_DEMO_TOKEN || null;
+
 const ENV_API_CONFIGURED =
   typeof process.env.NEXT_PUBLIC_API_URL === 'string' &&
   process.env.NEXT_PUBLIC_API_URL.length > 0 &&
@@ -35,7 +51,7 @@ function resolveBackend(): Backend {
     const runtime = readRuntimeCredentials(window.sessionStorage);
     if (runtime) return { url: runtime.endpoint, demoToken: runtime.token };
   }
-  return { url: BUILT_IN_API_URL, demoToken: null };
+  return { url: BUILT_IN_API_URL, demoToken: BUILT_IN_DEMO_TOKEN };
 }
 
 /**
