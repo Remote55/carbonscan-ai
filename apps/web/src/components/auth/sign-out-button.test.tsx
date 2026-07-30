@@ -13,7 +13,7 @@ describe('SignOutButton', () => {
   // nothing rendered a control for it, so a signed-in user was signed in for good.
   // This is the guard that the control exists and is a real button.
   it('renders an enabled sign-out control', () => {
-    const markup = renderToStaticMarkup(<SignOutButton />);
+    const markup = renderToStaticMarkup(<SignOutButton signedIn={true} />);
 
     expect(markup).toContain('ออกจากระบบ');
     expect(markup).toContain('type="button"');
@@ -22,5 +22,16 @@ describe('SignOutButton', () => {
     // styling rather than on state.
     expect(markup).not.toContain('disabled=""');
     expect(markup).not.toContain('aria-busy="true"');
+  });
+
+  // The 3D viewer is public now, so this header renders for people with no
+  // session. Offering them sign-out is how a visitor concludes they are signed
+  // in as somebody.
+  it('offers a way in, not a way out, when nobody is signed in', () => {
+    const markup = renderToStaticMarkup(<SignOutButton signedIn={false} />);
+
+    expect(markup).not.toContain('ออกจากระบบ');
+    expect(markup).toContain('เข้าสู่ระบบ');
+    expect(markup).toContain('href="/login?redirect=%2Fdashboard%2Fviewer"');
   });
 });

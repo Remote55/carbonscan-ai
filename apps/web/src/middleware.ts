@@ -11,6 +11,24 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 type CookieSetItem = { name: string; value: string; options: CookieOptions };
 
+/**
+ * Dashboard routes anyone may open.
+ *
+ * The 3D viewer is the page a judge is handed the laptop to try, and sending
+ * them to a sign-up form first defeats the point of demonstrating anything. It
+ * loads and renders a point cloud in the browser, and the analysis it can start
+ * is guarded at the API by the demo token and its per-client rate limit - the
+ * session was never what protected that route.
+ *
+ * Exact matches only. `startsWith` here would open anything nested under the
+ * viewer to the same exemption, including pages that do not exist yet.
+ */
+export const PUBLIC_DASHBOARD_ROUTES: ReadonlySet<string> = new Set(['/dashboard/viewer']);
+
+export function isPublicDashboardRoute(pathname: string): boolean {
+  return PUBLIC_DASHBOARD_ROUTES.has(pathname.replace(/\/+$/, '') || '/');
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (pathname === '/demo' || pathname.startsWith('/demo/')) {
@@ -63,7 +81,7 @@ export async function middleware(request: NextRequest) {
 
   // Protect /dashboard/* routes — redirect unauthenticated users to /login
   const url = request.nextUrl;
-  const isProtected = pathname.startsWith('/dashboard');
+  const isProtected = pathname.startsWith('/dashboard') && !isPublicDashboardRoute(pathname);
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
 
   if (isProtected && !user) {
