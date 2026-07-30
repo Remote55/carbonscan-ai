@@ -14,4 +14,12 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   esbuild: { jsx: 'automatic' },
+  test: {
+    // Vitest's default include matches `*.spec.ts`, which is exactly what the
+    // Playwright journey file is called, so adding e2e/ made vitest try to run a
+    // browser suite it has no runner for and the unit gate went red for a reason
+    // that had nothing to do with the unit tests. The two suites are started by
+    // different commands and must stay in separate pools.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**', 'e2e/**'],
+  },
 });

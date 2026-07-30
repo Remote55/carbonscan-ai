@@ -136,3 +136,8 @@ services/ml/data/realdata/
 
 # Output of run-gates.ps1.
 gate-report.txt
+
+# Playwright run artifacts.
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/

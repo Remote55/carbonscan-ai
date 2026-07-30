@@ -54,6 +54,11 @@ $results['lint'] = Invoke-Gate 'Lint' 'npx' @('next', 'lint', '--max-warnings=0'
 #   npx prettier --write <the files you changed>
 $results['build'] = Invoke-Gate 'Build' 'npx' @('next', 'build')
 
+# Last, and after the build on purpose: the journey gates serve the production
+# output on 127.0.0.1:3100, and the frozen route verifies artifact hashes over
+# HTTP, so running them against a stale build would check the wrong bytes.
+$results['journey'] = Invoke-Gate 'Judge journey (browser)' 'npx' @('playwright', 'test')
+
 Write-Host ''
 Write-Host '=============== SUMMARY ===============' -ForegroundColor Yellow
 Add-Content -LiteralPath $report -Value "`n=============== SUMMARY ===============" -Encoding utf8
