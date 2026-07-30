@@ -4,6 +4,13 @@
 scripts are not a source of truth and are never changed or deleted by this
 launcher.
 
+It resolves cloudflared from `-CloudflaredPath`, `TREEQ_CLOUDFLARED`, or `PATH`,
+and this file supplies none of them. Double-clicked on a machine where
+cloudflared is not on `PATH`, `Auto` therefore degrades to `LOCAL LIVE` — it
+says so, and exits 0, so a check that only reads the exit code will not catch
+it. Install the wrapper below and launch that instead whenever public mode
+matters.
+
 ## Modes
 
 - `Auto` starts the local web and authenticated API, then attempts a Cloudflare
