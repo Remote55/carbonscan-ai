@@ -27,8 +27,19 @@ export function LoginForm() {
       return;
     }
 
-    router.push(redirectTo);
+    // `replace`, not `push`: with the session set, the middleware bounces /login
+    // straight to /dashboard, so leaving login in the history means Back lands on
+    // a page that immediately throws you forward again.
+    router.replace(redirectTo);
     router.refresh();
+
+    // Release the form even though we are navigating away. The success path used
+    // to leave `loading` true forever, which disables every control on the page -
+    // so if the navigation was slow or did not visibly happen, the user was left
+    // on a screen where nothing could be clicked. A teammate reported exactly
+    // that. Being able to press the button twice is a far smaller problem than
+    // being locked out of the page.
+    setLoading(false);
   }
 
   return (
@@ -76,7 +87,7 @@ export function LoginForm() {
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            className="border-destructive/30 bg-destructive/10 rounded-lg border px-3 py-2 text-sm text-destructive"
           >
             {error}
           </div>
@@ -85,7 +96,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="hover:bg-primary/90 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors disabled:opacity-50"
         >
           {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
         </button>

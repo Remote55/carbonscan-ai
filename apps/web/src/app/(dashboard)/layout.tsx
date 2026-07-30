@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { type ReactNode } from 'react';
 
+import { SignOutButton } from '../../components/auth/sign-out-button';
+
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+      <header className="bg-background/80 sticky top-0 z-50 border-b border-border backdrop-blur-md">
         <nav className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -24,6 +26,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             >
               3D Viewer
             </Link>
+            <SignOutButton />
           </div>
         </nav>
       </header>
