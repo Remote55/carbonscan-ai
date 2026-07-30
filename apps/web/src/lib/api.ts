@@ -5,19 +5,53 @@
  * Auth token automatically attached if present in localStorage.
  */
 
+import { readRuntimeCredentials } from './demo-runtime';
 import { createClient } from './supabase';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+const BUILT_IN_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-/**
- * True when a real backend API is configured (env var set to a non-localhost URL).
- * The deployed demo has no backend, so the carbon-analysis UI checks this to show
- * a clear message instead of a raw "Failed to fetch" network error.
- */
-export const IS_API_CONFIGURED =
+const ENV_API_CONFIGURED =
   typeof process.env.NEXT_PUBLIC_API_URL === 'string' &&
   process.env.NEXT_PUBLIC_API_URL.length > 0 &&
   !process.env.NEXT_PUBLIC_API_URL.includes('localhost');
+
+type Backend = Readonly<{ url: string; demoToken: string | null }>;
+
+/**
+ * Where to send this request, decided per call rather than at build time.
+ *
+ * NEXT_PUBLIC_* is baked in when the site is built, but a quick tunnel gets a
+ * new hostname every time it starts. A deployed page pinned to one of those
+ * hostnames is pointing at a dead backend by the second run, which is exactly
+ * what happened: the viewer kept calling a tunnel that no longer existed.
+ *
+ * So prefer the runtime handoff the launcher already hands to /demo. It is
+ * validated on the way in - only a trycloudflare host or 127.0.0.1:8000 is
+ * accepted - and it travels with the visitor, so anyone who opens the launcher
+ * link reaches whichever backend is live right now, with no redeploy.
+ */
+function resolveBackend(): Backend {
+  if (typeof window !== 'undefined') {
+    const runtime = readRuntimeCredentials(window.sessionStorage);
+    if (runtime) return { url: runtime.endpoint, demoToken: runtime.token };
+  }
+  return { url: BUILT_IN_API_URL, demoToken: null };
+}
+
+/**
+ * True when this browser can actually reach a backend right now.
+ *
+ * A function, not a constant: a handoff can arrive after the module loads, and
+ * a constant captured at import time would answer for the wrong moment. Callers
+ * use it to explain themselves up front instead of letting someone press a
+ * button that can only fail.
+ */
+export function isApiConfigured(): boolean {
+  if (typeof window !== 'undefined' && readRuntimeCredentials(window.sessionStorage)) {
+    return true;
+  }
+  return ENV_API_CONFIGURED;
+}
 
 class ApiError extends Error {
   constructor(
@@ -48,8 +82,10 @@ async function getAccessToken(): Promise<string | null> {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { params, ...init } = options;
 
+  const backend = resolveBackend();
+
   // Build URL with query params
-  const url = new URL(`/api/v1${path}`, API_URL);
+  const url = new URL(`/api/v1${path}`, backend.url);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) {
@@ -62,6 +98,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const headers = new Headers(init.headers);
   const token = await getAccessToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  // The demo API guards its synchronous upload route with this header. It is a
+  // separate secret from the Supabase session: one says who the visitor is, the
+  // other says this browser was handed the running demo.
+  if (backend.demoToken) headers.set('x-treeq-demo-token', backend.demoToken);
 
   // Default content type for JSON requests
   if (init.body && !headers.has('Content-Type') && typeof init.body === 'string') {

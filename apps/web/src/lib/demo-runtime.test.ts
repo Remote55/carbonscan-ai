@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { consumeRuntimeHandoff, RUNTIME_STORAGE_KEY, validateDemoEndpoint } from './demo-runtime';
+import {
+  consumeRuntimeHandoff,
+  readRuntimeCredentials,
+  RUNTIME_STORAGE_KEY,
+  validateDemoEndpoint,
+} from './demo-runtime';
 
-function makeFakeBrowser(hash: string) {
+function makeFakeBrowser(hash: string, pathname = '/demo') {
   const values = new Map<string, string>();
   return {
-    location: { hash },
+    location: { hash, pathname },
     history: { replaceState: vi.fn() },
     storage: {
       getItem: (key: string) => values.get(key) ?? null,
@@ -55,5 +60,46 @@ describe('consumeRuntimeHandoff', () => {
     expect(consumeRuntimeHandoff(browser)).toBeNull();
     expect(browser.storage.getItem(RUNTIME_STORAGE_KEY)).toBeNull();
     expect(browser.history.replaceState).toHaveBeenCalledWith(null, '', '/demo');
+  });
+
+  it('leaves the visitor on the page that received the handoff', () => {
+    // The scrub used to send every handoff to /demo, so a launcher link opened
+    // on the viewer bounced the visitor off the page they asked for.
+    const browser = makeFakeBrowser(
+      '#api=https%3A%2F%2Fgreen-tree.trycloudflare.com&token=' + 'b'.repeat(64),
+      '/dashboard/viewer',
+    );
+
+    expect(consumeRuntimeHandoff(browser)?.endpoint).toBe('https://green-tree.trycloudflare.com');
+    expect(browser.history.replaceState).toHaveBeenCalledWith(null, '', '/dashboard/viewer');
+  });
+});
+
+describe('readRuntimeCredentials', () => {
+  it('returns what a consumed handoff stored, without a fragment present', () => {
+    const source = makeFakeBrowser(
+      '#api=https%3A%2F%2Fgreen-tree.trycloudflare.com&token=' + 'c'.repeat(64),
+    );
+    consumeRuntimeHandoff(source);
+
+    expect(readRuntimeCredentials(source.storage)).toEqual({
+      endpoint: 'https://green-tree.trycloudflare.com',
+      token: 'c'.repeat(64),
+    });
+  });
+
+  it('refuses a stored endpoint that would not survive validation', () => {
+    // Storage is writable by anything running on the origin, so what comes back
+    // out is re-checked rather than trusted for having once been checked.
+    const storage = {
+      getItem: () =>
+        JSON.stringify({ endpoint: 'https://attacker.test', token: 'd'.repeat(64) }),
+    };
+
+    expect(readRuntimeCredentials(storage)).toBeNull();
+  });
+
+  it('is null when nothing was handed off', () => {
+    expect(readRuntimeCredentials({ getItem: () => null })).toBeNull();
   });
 });
