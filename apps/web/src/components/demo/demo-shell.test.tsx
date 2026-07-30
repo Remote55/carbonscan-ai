@@ -23,10 +23,13 @@ async function loadCurrentFrozenBundle() {
         JUDGE_DEMO_EVIDENCE.inputPath,
         JUDGE_DEMO_EVIDENCE.segmentedPath,
         JUDGE_DEMO_EVIDENCE.resultPath,
-      ].map(async (resourcePath) => [
-        resourcePath,
-        new Uint8Array(await readFile(path.join(publicRoot, resourcePath))),
-      ] as const),
+      ].map(
+        async (resourcePath) =>
+          [
+            resourcePath,
+            new Uint8Array(await readFile(path.join(publicRoot, resourcePath))),
+          ] as const,
+      ),
     ),
   );
   const fetcher: FrozenDemoFetcher = async (resource) => {
@@ -97,5 +100,60 @@ describe('DemoShell frozen evidence result', () => {
     expect(markup).toContain('PIPELINE');
     expect(markup).toContain('RESULT');
     expect(markup).toContain('PROVENANCE');
+  });
+});
+
+describe('DemoShell input-mode semantics', () => {
+  const credentials = { endpoint: 'http://127.0.0.1:8000', token: 'a'.repeat(64) } as const;
+
+  // The active mode used to be a <span aria-current="page">, which claims "page"
+  // about something that is not a page and still left assistive tech no way to
+  // tell the two labels were alternatives. It is a state readout plus the single
+  // action that exists, so it must read as exactly that.
+  it('announces the current mode as text instead of misusing aria-current', () => {
+    for (const mode of [
+      { kind: 'frozen', reason: 'sample-first' } as const,
+      { kind: 'local-live', credentials, pipelineVersion: '0.4.0' } as const,
+    ]) {
+      const markup = renderToStaticMarkup(
+        <DemoShell mode={mode} frozenLoad={{ kind: 'loading' }} onUseFrozen={() => undefined} />,
+      );
+
+      expect(markup).not.toContain('aria-current');
+      expect(markup).toContain('โหมดปัจจุบัน:');
+    }
+  });
+
+  it('exposes switching back to the frozen route as a real labelled button', () => {
+    const markup = renderToStaticMarkup(
+      <DemoShell
+        mode={{ kind: 'local-live', credentials, pipelineVersion: '0.4.0' }}
+        frozenLoad={{ kind: 'loading' }}
+        onUseFrozen={() => undefined}
+      />,
+    );
+
+    const button = (markup.match(/<button\b[^>]*>/g) ?? []).find((tag) =>
+      tag.includes('สลับไปใช้ Frozen Sample'),
+    );
+    expect(button).toBeDefined();
+    expect(button).toContain('type="button"');
+  });
+
+  // Live mode is only reachable through a runtime handoff, so advertising a
+  // control that could switch into it would be a lie about what the page can do.
+  it('offers no control that claims to switch into live mode', () => {
+    const markup = renderToStaticMarkup(
+      <DemoShell
+        mode={{ kind: 'frozen', reason: 'unreachable' }}
+        frozenLoad={{ kind: 'loading' }}
+        onUseFrozen={() => undefined}
+      />,
+    );
+
+    expect(markup).not.toContain('role="tablist"');
+    expect(markup).not.toContain('aria-pressed');
+    const buttons = markup.match(/<button\b[^>]*>[^<]*/g) ?? [];
+    expect(buttons.some((tag) => tag.includes('Live Upload'))).toBe(false);
   });
 });

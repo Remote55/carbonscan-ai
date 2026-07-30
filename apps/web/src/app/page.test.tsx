@@ -40,4 +40,45 @@ describe('Landing evidence contract', () => {
     expect(markup).toContain('หลักฐาน 3D ที่เปิดให้ตรวจสอบ');
     expect(markup).toContain('Validation ที่รายงานตามขอบเขต');
   });
+
+  // The header and footer used to sit inside <main>, which put a navigation and
+  // a contentinfo landmark inside the one landmark meant to hold only the page's
+  // main content - so "jump to main" landed a screen reader at the top of the nav.
+  it('keeps navigation and contentinfo outside the main landmark', () => {
+    const markup = renderToStaticMarkup(<HomePage />);
+
+    const mainStart = markup.indexOf('<main');
+    const mainEnd = markup.indexOf('</main>');
+    expect(mainStart).toBeGreaterThan(-1);
+    expect(mainEnd).toBeGreaterThan(mainStart);
+
+    const main = markup.slice(mainStart, mainEnd);
+    expect(main).not.toContain('<nav');
+    expect(main).not.toContain('<footer');
+
+    // Deliberately not asserting the absence of every <header>: EditorialSection
+    // uses one per beat, and a <header> nested in sectioning content is not a
+    // banner landmark, so those are correct. The site header is the one that
+    // matters, and AppHeader is the only header carrying data-tone.
+    const siteHeader = markup.indexOf('<header data-tone');
+    expect(siteHeader).toBeGreaterThan(-1);
+    expect(siteHeader).toBeLessThan(mainStart);
+    expect(main).not.toContain('<header data-tone');
+    expect(markup.indexOf('<footer')).toBeGreaterThan(mainEnd);
+  });
+
+  it('offers a keyboard skip link that targets the main landmark', () => {
+    const markup = renderToStaticMarkup(<HomePage />);
+
+    expect(getAnchorHrefByLabel(markup, 'ข้ามไปยังเนื้อหาหลัก')).toBe('#main-content');
+    expect(markup).toContain('id="main-content"');
+
+    const skip = (markup.match(/<a\b[^>]*>.*?<\/a>/g) ?? []).find((tag) =>
+      tag.includes('#main-content'),
+    );
+    // Hidden until focused, then visible - not permanently hidden, which would
+    // make it useless, and not permanently visible either.
+    expect(skip).toContain('sr-only');
+    expect(skip).toContain('focus:not-sr-only');
+  });
 });

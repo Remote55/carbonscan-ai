@@ -65,10 +65,20 @@ UI ต้องรักษาความหมายของ `Production Live
 | Paper | `#FCFBF7` | Card และ form surface |
 | Mist | `#D9DED5` | Section contrast และ disabled surface |
 | Evidence Amber | `#B28A40` | Frozen, limitation และ excluded result |
-| Clay | `#A65F46` | Error และ destructive state |
+| Clay | `#8F5039` | Error และ destructive state (แก้จาก `#A65F46` — ดูหมายเหตุใต้ตาราง) |
 | Hairline | `#D6D7CF` | Border และ divider |
 
 สีสถานะต้องไม่พึ่งสีเพียงอย่างเดียว ทุก badge มีข้อความหรือ icon ประกอบ และข้อความทุกขนาดผ่าน WCAG AA
+
+> **หมายเหตุ Clay (`#A65F46` → `#8F5039`)** — ค่าเดิมผ่าน AA เฉพาะบน Paper (4.67:1) เท่านั้น
+> แต่ token นี้ถูกใช้บนพื้นอื่นด้วย: `EXCLUDED` ในตารางรายต้นอยู่บนแถว Gallery Ivory (**4.28:1**)
+> และข้อความ error ใน UploadDropzone อยู่บน tint `bg-clay/10` ที่ composite แล้วได้ `#F3EBE5`
+> (**4.10:1**) — สองในสามการใช้งานจริงจึงไม่ผ่าน
+>
+> แก้ที่ token ไม่ใช่ที่ call site เพราะปัญหาอยู่ที่ตัวสี ไม่ใช่ที่จุดใดจุดหนึ่ง ค่าใหม่ให้
+> 5.5:1 บน Gallery Ivory, 6.0:1 บน Paper และ 5.2:1 บน tint — มีระยะเหลือทุกกรณี
+>
+> **เป็น deviation จาก Figma** ต้องบันทึกใน Task 11 visual compare
 
 ### 4.2 Typography
 

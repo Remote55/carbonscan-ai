@@ -83,6 +83,21 @@ const config: Config = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      // The design spec puts hover and focus at 180-220ms. Tailwind's bare
+      // `transition` and `transition-colors` default to 150ms, so every
+      // interactive element was quicker than the system it is meant to follow -
+      // including the editorial Button, whose `transition-all` carries no
+      // duration of its own. Moving the DEFAULT means a component gets the right
+      // timing from using a transition utility at all, rather than every call
+      // site having to remember a `duration-*` class and one of them forgetting.
+      //
+      // The spec's second tier - 240-320ms for section and viewer transitions -
+      // has no token here on purpose: nothing in the redesign animates a section
+      // or the viewer, so a `duration-surface` would be config with no consumer.
+      // Add it at 280ms alongside the first transition that needs it.
+      transitionDuration: {
+        DEFAULT: '200ms',
+      },
       fontFamily: {
         sans: ['var(--font-ui)', 'system-ui', 'sans-serif'],
         heading: ['var(--font-editorial)', 'serif'],

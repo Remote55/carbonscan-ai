@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import type { ResultViewModel } from '../../lib/result-view-model';
+import { contrastRatio, tokenHex } from '../../test-support/wcag';
 import { TreeResultTable } from './tree-result-table';
 
 const view: ResultViewModel = {
@@ -77,5 +78,38 @@ describe('TreeResultTable', () => {
 
     expect(measuredRow).toContain('text-canopy');
     expect(measuredRow).not.toContain('text-moss');
+  });
+
+  // Asserting the class name alone let a real failure through: EXCLUDED is 10px
+  // text on the excluded row's own Gallery Ivory background, and the token used
+  // there sat at 4.28:1 while the review recorded the fix as complete. Compute
+  // the ratio against the surface each badge actually renders on.
+  //
+  // Read the token off the element that holds the badge text, never off the whole
+  // row. Both rows carry `text-canopy` on their row header, which comes first in
+  // the markup, so a row-wide match would report canopy for the excluded badge
+  // and pass without ever looking at the colour that was actually broken.
+  it('keeps both status badges at AA against the surface they render on', () => {
+    const markup = renderToStaticMarkup(<TreeResultTable view={view} />);
+
+    function badgeToken(label: string): string {
+      const element = markup.match(new RegExp(`<[a-z]+ class="([^"]*)"[^>]*>${label}<`))?.[1];
+      if (!element) throw new Error(`Missing badge element for ${label}`);
+      const token = element.match(/text-(canopy|moss|clay|forest-ink|deep-forest)\b/)?.[1];
+      if (!token) throw new Error(`Badge ${label} has no resolvable colour token: ${element}`);
+      return token;
+    }
+
+    const rows = markup.match(/<tr[^>]*>.*?<\/tr>/g) ?? [];
+    const excludedRow = rows.find((row) => row.includes('EXCLUDED'));
+    // The excluded row tints itself; the measured row inherits the card surface.
+    expect(excludedRow).toContain('bg-gallery-ivory');
+
+    expect(contrastRatio(tokenHex(badgeToken('READY')), tokenHex('paper'))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+    expect(
+      contrastRatio(tokenHex(badgeToken('EXCLUDED')), tokenHex('gallery-ivory')),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });

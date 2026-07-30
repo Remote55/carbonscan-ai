@@ -1,5 +1,5 @@
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,7 +15,13 @@
     --paper: #fcfbf7;
     --mist: #d9ded5;
     --evidence-amber: #b28a40;
-    --clay: #a65f46;
+    /* Darkened from the original #a65f46, which only cleared AA against Paper.
+       Error text is never confined to one surface: the same token labels an
+       EXCLUDED tree on a Gallery Ivory row (4.28:1) and an upload error on a
+       bg-clay/10 tint (4.10:1), so two of its three real uses failed. Fixing
+       the token rather than each call site closes the class of bug and keeps
+       every use above 5:1. Deviates from Figma; record in Task 11. */
+    --clay: #8f5039;
     --hairline: #d6d7cf;
     --radius: 1.25rem;
 
@@ -91,7 +97,9 @@
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 }
 

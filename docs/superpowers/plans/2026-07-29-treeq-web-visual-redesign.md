@@ -260,7 +260,7 @@ Define these variables in `:root` and map Tailwind colors to them:
 --paper: #fcfbf7;
 --mist: #d9ded5;
 --evidence-amber: #b28a40;
---clay: #a65f46;
+--clay: #8f5039;
 --hairline: #d6d7cf;
 --radius: 1.25rem;
 ```

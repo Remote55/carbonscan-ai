@@ -133,3 +133,6 @@ services/ml/data/realdata/
 # regeneration on any machine that has run pnpm or the plugin.
 .pnpm-store/
 .superpowers/
+
+# Output of run-gates.ps1.
+gate-report.txt

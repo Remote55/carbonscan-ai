@@ -251,7 +251,15 @@ export function DemoShell({
         {frozenLoad.kind === 'failed' ? (
           <section className="mt-6 rounded-[1.25rem] border border-clay bg-paper p-6 sm:p-8">
             <p className="editorial-eyebrow text-clay">Artifact verification</p>
-            <p className="mt-3 font-mono text-sm font-semibold text-clay">loading failed</p>
+            {/* The outcome replaces "Verifying every evidence byte…" after the
+                page has already settled, so without a live region a screen
+                reader is left on the pending message and never learns that the
+                evidence failed its hash check. Scoped to this line rather than
+                the section, so the announcement is the verdict and not the
+                whole panel. */}
+            <p className="mt-3 font-mono text-sm font-semibold text-clay" role="status">
+              loading failed
+            </p>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-canopy">
               ระบบปิดผลลัพธ์ไว้ เพราะยืนยัน bytes ของหลักฐาน frozen ไม่สำเร็จ
             </p>
@@ -302,29 +310,41 @@ function ModeChoice({
           <h2 className="mt-2 font-display text-2xl text-forest-ink">เลือกวิธีเริ่มวิเคราะห์</h2>
         </div>
 
+        {/* A current-state readout plus the one action that exists - not a tab
+            set. Live mode can only be entered by a runtime handoff, so a tablist
+            or a pair of pressed toggles would advertise a control the page does
+            not have. The previous markup put `aria-current="page"` on a span,
+            which claimed "page" about something that is not a page and still
+            left assistive tech no way to tell that the other label was the
+            alternative; the active mode is now announced as text instead. */}
         <div className="flex items-center gap-2 rounded-full bg-gallery-ivory p-1">
           {isLive ? (
-            <Button type="button" variant="editorial" size="xl" onClick={onUseFrozen}>
-              Frozen Sample
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="editorial"
+                size="xl"
+                onClick={onUseFrozen}
+                aria-label="สลับไปใช้ Frozen Sample"
+              >
+                Frozen Sample
+              </Button>
+              <p className="rounded-full px-5 py-3 text-sm font-medium text-canopy">
+                <span className="sr-only">โหมดปัจจุบัน: </span>
+                Live Upload
+              </p>
+            </>
           ) : (
-            <span className="rounded-full bg-canopy px-5 py-3 text-sm font-medium text-paper">
+            <p className="rounded-full bg-canopy px-5 py-3 text-sm font-medium text-paper">
+              <span className="sr-only">โหมดปัจจุบัน: </span>
               Frozen Sample
-            </span>
-          )}
-          {isLive && (
-            <span
-              className="rounded-full px-5 py-3 text-sm font-medium text-canopy"
-              aria-current="page"
-            >
-              Live Upload
-            </span>
+            </p>
           )}
         </div>
       </div>
 
       {isLive ? (
-        <div className="mt-5 rounded-xl border border-lichen bg-lichen/35 p-4">
+        <div className="bg-lichen/35 mt-5 rounded-xl border border-lichen p-4">
           <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-moss">
             pipeline {mode.pipelineVersion}
           </p>
@@ -400,7 +420,7 @@ function ReliabilityPanel({
         {rows.map(([label, value]) => (
           <div
             key={label}
-            className="grid grid-cols-[6rem_1fr] gap-3 rounded-xl bg-canopy/70 px-4 py-3 font-mono text-[0.625rem]"
+            className="bg-canopy/70 grid grid-cols-[6rem_1fr] gap-3 rounded-xl px-4 py-3 font-mono text-[0.625rem]"
           >
             <dt className="text-lichen">{label}</dt>
             <dd className={value === 'VERIFICATION FAILED' ? 'text-[#efad91]' : 'text-lichen'}>
@@ -442,7 +462,7 @@ function ResultSummary({ view }: { view: ResultViewModel }) {
       </div>
 
       {view.diagnosticsStatus === 'available' ? (
-        <div className="mt-4 rounded-2xl border border-hairline bg-gallery-ivory/55 p-4 text-sm">
+        <div className="bg-gallery-ivory/55 mt-4 rounded-2xl border border-hairline p-4 text-sm">
           <p className="font-medium text-forest-ink">
             {view.countsLabel.detected} {number.format(view.counts.detected ?? 0)} ·{' '}
             {view.countsLabel.measured} {number.format(view.counts.measured)} ·{' '}
@@ -487,4 +507,3 @@ function EvidenceMetric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
