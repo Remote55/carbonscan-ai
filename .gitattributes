@@ -20,3 +20,8 @@ apps/web/src/generated/** text eol=lf
 *.laz binary
 *.npz binary
 *.pt binary
+
+# Office documents are ZIP archives. Git usually detects that on its own, but this
+# repository has already lost bytes to autocrlf once, and a single rewritten LF
+# inside a ZIP makes the whole file unopenable rather than subtly wrong.
+*.docx binary
