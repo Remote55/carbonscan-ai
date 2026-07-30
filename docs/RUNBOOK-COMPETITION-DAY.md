@@ -8,8 +8,12 @@
 ## 0. การ์ดสามสิบวินาที
 
 ```
-เสียบไฟ → เปิด TreeQ-Demo-Start.bat → รอจนขึ้น Mode: → เริ่มพูด
+เสียบไฟ → เปิด TreeQ-Demo-Start.bat บน Desktop → รอจนขึ้น Mode: → เริ่มพูด
 ```
+
+> ⚠️ **ต้องเป็นตัวใน `C:\Users\Acer\OneDrive\Desktop\CarbonScrip\`**
+> ตัวที่อยู่ใน `scripts\demo\` ของ repo หา cloudflared ไม่เจอ → ได้ `LOCAL LIVE` ทุกครั้ง
+> โดยไม่มีอะไรบอกว่าพลาดตรงไหน (ยืนยันจากการซ้อม 30 ก.ค. 69)
 
 | สิ่งที่ขึ้นบนจอ | แปลว่า | ทำต่อยังไง |
 |---|---|---|
@@ -36,6 +40,9 @@ git checkout main && git pull --ff-only
 - [ ] `pnpm --filter web exec vitest run` → ผ่านทั้งหมด
       (ต้องใส่ `run` — `pnpm --filter web test` เข้า watch mode แล้วค้าง ไม่จบให้)
 - [ ] ซ้อม Frozen 1 รอบ, Local 1 รอบ, Auto 1 รอบ — **ต้องได้ `exit=0` ทุกรอบ**
+- [ ] รอบ Auto ต้องขึ้น **`Mode: AUTO PUBLIC LIVE`** — `exit=0` อย่างเดียวไม่พอ
+      Auto ที่หา cloudflared ไม่เจอก็จบด้วย `exit=0` เหมือนกัน แต่ได้ `LOCAL LIVE`
+      ถ้าได้ `LOCAL LIVE` แปลว่าเปิดผิดไฟล์ หรือยังไม่ได้ติดตั้ง wrapper (ดู setup B9)
 - [ ] ชาร์จโน้ตบุ๊กเต็ม + เอาอะแดปเตอร์ไปด้วย
 - [ ] เตรียมไฟล์ `.ply` ที่รู้ว่าใช้ได้ ไว้ใน USB (ก๊อป `apps/web/public/demo/input.ply` ไปก็ได้)
 - [ ] จดเลข commit ที่ freeze ไว้: `git rev-parse --short HEAD`
@@ -47,7 +54,7 @@ git checkout main && git pull --ff-only
 ## 2. 15 นาทีก่อนขึ้นเวที
 
 1. ปิดโปรแกรมที่กินพอร์ต 3000 กับ 8000 ให้หมด (โดยเฉพาะ dev server ที่ลืมปิด)
-2. เปิด `TreeQ-Demo-Start.bat`
+2. เปิด `Desktop\CarbonScrip\TreeQ-Demo-Start.bat` — **ตัวบน Desktop เท่านั้น**
 3. รอจนบรรทัด `Mode:` ขึ้น
 4. **ทดสอบอัปโหลดหนึ่งครั้งด้วยไฟล์จาก USB** — อย่าให้ครั้งแรกที่กดคือตอนกรรมการดู
 5. กด `เริ่มใหม่` ให้จอสะอาด แล้วปล่อยทิ้งไว้

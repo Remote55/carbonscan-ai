@@ -21,12 +21,16 @@ foreach ($t in @('node','pnpm','git','py')) {
 }
 foreach ($v in @('D:\Project_Carbon\services\api\.venv\Scripts\python.exe',
                  'D:\Project_Carbon\services\ml\.venv\Scripts\python.exe',
-                 'C:\Users\Acer\OneDrive\Desktop\CarbonScrip\cloudflared.exe')) {
+                 'C:\Users\Acer\OneDrive\Desktop\CarbonScrip\cloudflared.exe',
+                 'C:\Users\Acer\OneDrive\Desktop\CarbonScrip\TreeQ-Demo-Start.bat')) {
   if (Test-Path $v) { Write-Host "  OK   $v" } else { Write-Host "  MISS $v" }
 }
 ```
 
-**ผลที่ต้องได้เมื่อ 29 ก.ค. 69 — ต้องเป็น OK ทั้ง 7 บรรทัด**
+**ผลที่ต้องได้เมื่อ 30 ก.ค. 69 — ต้องเป็น OK ทั้ง 8 บรรทัด**
+
+> บรรทัดสุดท้ายคือ wrapper ที่บอก launcher ว่า cloudflared อยู่ไหน
+> ถ้า MISS ให้ทำ **B9** ก่อนอย่างอื่น — ขาดตัวนี้แล้ว Auto จะได้ `LOCAL LIVE` ทุกครั้ง
 
 | สิ่งที่ต้องมี | เวอร์ชันที่ยืนยันแล้วว่าใช้ได้ |
 |---|---|
@@ -331,24 +335,43 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -c "import open3d, laspy, numpy; print('ML OK')"
 ```
 
-## B9. ติดตั้ง cloudflared (5 นาที)
+## B9. ติดตั้ง cloudflared + wrapper (10 นาที) — **ข้ามข้อนี้ = ไม่มี public mode**
 
 โหลด `cloudflared-windows-amd64.exe` จาก
 <https://github.com/cloudflare/cloudflared/releases>
 
-เปลี่ยนชื่อเป็น `cloudflared.exe` แล้วเก็บไว้ในโฟลเดอร์เดียว เช่น `C:\tools\`
+เปลี่ยนชื่อเป็น `cloudflared.exe` แล้วเก็บไว้ในโฟลเดอร์เดียว
+บนเครื่องหลักคือ `C:\Users\Acer\OneDrive\Desktop\CarbonScrip\`
+(เครื่องใหม่จะใช้ที่ไหนก็ได้ แต่ต้องใช้ path เดียวกันตลอดทั้งข้อนี้)
 
 ```powershell
-C:\tools\cloudflared.exe --version
+C:\Users\Acer\OneDrive\Desktop\CarbonScrip\cloudflared.exe --version
 ```
 
-บอก launcher ว่าอยู่ไหน:
+**แล้วสร้าง wrapper** — นี่คือขั้นที่ทำให้ launcher หา cloudflared เจอ:
 
 ```powershell
-$env:TREEQ_CLOUDFLARED = 'C:\tools\cloudflared.exe'
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\Project_Carbon\scripts\demo\install-desktop-wrapper.ps1 -DestinationDirectory C:\Users\Acer\OneDrive\Desktop\CarbonScrip
 ```
 
-หรือส่งเป็นพารามิเตอร์ทุกครั้ง: `-CloudflaredPath C:\tools\cloudflared.exe`
+ต้องขึ้น `Installed TreeQ-Demo-Start.bat` — ได้ไฟล์ใหม่ในโฟลเดอร์เดียวกับ cloudflared
+**วันแข่งเปิดไฟล์นี้ ไม่ใช่ตัวใน `scripts\demo\`**
+
+ตรวจว่าใช้ได้จริง (ต้องขึ้น `Mode: AUTO PUBLIC LIVE` ไม่ใช่ `LOCAL LIVE`):
+
+```powershell
+cmd /c "C:\Users\Acer\OneDrive\Desktop\CarbonScrip\TreeQ-Demo-Start.bat" -Mode Auto -NoBrowser -ExitAfterReady
+```
+
+> ใช้เวลา ~40 วินาที เพราะ launcher รอ 25 วินาทีก่อนถาม DNS ครั้งแรก
+> ถามเร็วกว่านั้น hostname จะติด negative cache 30 นาที แล้วรอบนั้นเสีย public mode
+
+**ทางเลี่ยงถ้าไม่อยากสร้าง wrapper** — ตั้ง env var เองทุกครั้งที่เปิด PowerShell ใหม่
+หรือส่ง `-CloudflaredPath <path>` ทุกครั้ง แต่วันแข่ง**อย่าใช้วิธีนี้** เพราะลืมง่าย
+
+```powershell
+$env:TREEQ_CLOUDFLARED = 'C:\Users\Acer\OneDrive\Desktop\CarbonScrip\cloudflared.exe'
+```
 
 ## B10. ติดตั้งเบราว์เซอร์สำหรับเทสต์ (5 นาที)
 
@@ -378,7 +401,8 @@ npx playwright install chromium
 | `next build` ขึ้น EPERM symlink | Windows ไม่ให้สร้าง symlink | โปรเจกต์ปิด `output: standalone` ไว้แล้ว ถ้ายังเจอ ให้เปิด Developer Mode |
 | launcher บอก `Port 8000 is already in use` | มี API ค้างอยู่ | `Get-NetTCPConnection -LocalPort 8000 -State Listen \| ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }` |
 | launcher บอกว่า build ไม่สมบูรณ์ | ลืม build หรือ build ค้าง | ลบ `apps\web\.next` แล้ว `pnpm --filter web build` ใหม่ |
-| Auto ตกไป LOCAL LIVE ทุกครั้ง | เน็ตบล็อก cloudflared หรือ tunnel ขึ้นไม่ได้ | ใช้ Local ได้เลย ไม่ต้องแก้ |
+| Auto ตกไป LOCAL LIVE + มีบรรทัด `Cloudflared unavailable` | **ยังไม่ได้ทำ B9** หรือเปิดไฟล์ `.bat` ตัวใน repo แทนตัวบน Desktop | ทำ **B9** แล้วเปิดตัวบน Desktop — นี่คือสาเหตุที่พบบ่อยที่สุด |
+| Auto ตกไป LOCAL LIVE + มีบรรทัด `Public readiness was not proven` | tunnel ขึ้นได้แต่เน็ตในห้องบล็อก หรือ DNS ยังไม่ทัน | ใช้ Local ได้เลย ไม่ต้องแก้ |
 | อัปโหลดแล้ว 401 | มี API ที่เปิด demo mode ค้างบนพอร์ต 8000 | ปิด API นั้น แล้วเปิดผ่าน launcher เท่านั้น |
 | browser gate หา Chromium ไม่เจอ | ยังไม่ได้ทำ B10 | `npx playwright install chromium` |
 | อีเมลยืนยันชี้ `localhost:3000` | Supabase Site URL ยังเป็น localhost | ทำ **C2** — แก้โค้ดอย่างเดียวไม่พอ |
