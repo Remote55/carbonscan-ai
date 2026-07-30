@@ -140,6 +140,35 @@ describe('DemoShell input-mode semantics', () => {
     expect(button).toContain('type="button"');
   });
 
+  // The reliability panel's stated purpose is not hiding status, so it must not
+  // claim a verification is in progress when none was ever started. In live mode
+  // the frozen bundle is deliberately not fetched, and the old code read that as
+  // VERIFYING for the whole length of the demo.
+  it('does not claim to be verifying artifacts it never fetched in live mode', () => {
+    const markup = renderToStaticMarkup(
+      <DemoShell
+        mode={{ kind: 'local-live', credentials, pipelineVersion: '0.4.0' }}
+        frozenLoad={{ kind: 'loading' }}
+        onUseFrozen={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('NOT CHECKED IN LIVE MODE');
+    expect(markup).not.toContain('VERIFYING');
+  });
+
+  it('still reports a real verification in progress on the frozen route', () => {
+    const markup = renderToStaticMarkup(
+      <DemoShell
+        mode={{ kind: 'frozen', reason: 'sample-first' }}
+        frozenLoad={{ kind: 'loading' }}
+        onUseFrozen={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('VERIFYING');
+  });
+
   // Live mode is only reachable through a runtime handoff, so advertising a
   // control that could switch into it would be a lie about what the page can do.
   it('offers no control that claims to switch into live mode', () => {

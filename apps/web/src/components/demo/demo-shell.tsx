@@ -392,12 +392,19 @@ function ReliabilityPanel({
   frozenLoad: FrozenDemoLoadState;
 }) {
   const isLive = mode.kind === 'production-live' || mode.kind === 'local-live';
+  // In live mode the frozen bundle is never fetched - that effect is gated on the
+  // frozen mode - so `loading` here does not mean a check is running, it means one
+  // was never started. Reporting VERIFYING would have this panel, whose whole
+  // claim is that it does not hide status, assert an action that is not happening,
+  // and it would sit there for the length of the demo.
   const artifactStatus =
     frozenLoad.kind === 'ready'
       ? 'CHECKSUM VERIFIED'
       : frozenLoad.kind === 'failed'
         ? 'VERIFICATION FAILED'
-        : 'VERIFYING';
+        : isLive
+          ? 'NOT CHECKED IN LIVE MODE'
+          : 'VERIFYING';
   const rows = [
     ['WEB', 'READY'],
     ['API', isLive ? 'READINESS PASSED' : 'OPTIONAL IN FROZEN MODE'],
