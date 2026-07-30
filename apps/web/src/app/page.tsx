@@ -66,12 +66,21 @@ export default function HomePage() {
                 แพลตฟอร์มต้นแบบประเมิน DBH ความสูง ชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อม
                 provenance ของ pipeline ที่ตรวจสอบย้อนกลับได้
               </p>
+              {/* Both actions used to point at /demo, which cannot upload
+                  anything: the live upload panel only appears once the launcher
+                  hands the page a runtime token, so a visitor who clicked
+                  "อัปโหลด Point Cloud" arrived at a read-only fixture. The
+                  upload action now goes where uploading actually works. */}
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button render={<Link href="/demo" />} variant="editorial" size="xl">
-                  ทดลอง Demo Dataset
+                  ดูหลักฐานที่ตรวจแฮชแล้ว
                 </Button>
-                <Button render={<Link href="/demo" />} variant="editorialOutline" size="xl">
-                  อัปโหลด Point Cloud
+                <Button
+                  render={<Link href="/login?redirect=%2Fdashboard%2Fviewer" />}
+                  variant="editorialOutline"
+                  size="xl"
+                >
+                  เข้าสู่ระบบเพื่ออัปโหลดไฟล์
                 </Button>
               </div>
               <p className="mt-6 font-mono text-[0.625rem] uppercase leading-5 tracking-[0.08em] text-evidence-amber">

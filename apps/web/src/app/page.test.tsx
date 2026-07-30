@@ -12,11 +12,31 @@ function getAnchorHrefByLabel(markup: string, label: string) {
 }
 
 describe('Landing evidence contract', () => {
-  it('routes each labelled hero action to the judge demo', () => {
+  // The previous version of this test asserted that BOTH hero actions point at
+  // /demo, and passed - which is how a button labelled "อัปโหลด Point Cloud"
+  // shipped pointing at a page with no file input. /demo only grows an upload
+  // panel once the launcher hands it a runtime token, so the public route is
+  // read-only evidence. A CTA has to land somewhere that can do what it says.
+  it('sends the evidence action to the demo and the upload action where uploading works', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
-    expect(getAnchorHrefByLabel(markup, 'ทดลอง Demo Dataset')).toBe('/demo');
-    expect(getAnchorHrefByLabel(markup, 'อัปโหลด Point Cloud')).toBe('/demo');
+    expect(getAnchorHrefByLabel(markup, 'ดูหลักฐานที่ตรวจแฮชแล้ว')).toBe('/demo');
+    expect(getAnchorHrefByLabel(markup, 'เข้าสู่ระบบเพื่ออัปโหลดไฟล์')).toBe(
+      '/login?redirect=%2Fdashboard%2Fviewer',
+    );
+  });
+
+  it('never points an upload promise at the read-only demo route', () => {
+    const markup = renderToStaticMarkup(<HomePage />);
+    const anchors = markup.match(/<a\b[^>]*>.*?<\/a>/g) ?? [];
+
+    for (const anchor of anchors) {
+      const label = anchor.replace(/<[^>]+>/g, '').trim();
+      if (!label.includes('อัปโหลด')) continue;
+      const href = anchor.match(/\bhref="([^"]+)"/)?.[1];
+      expect(href).toBeDefined();
+      expect(href).not.toBe('/demo');
+    }
   });
 
   it('reports validation without rounding or promoting incomplete stages', () => {

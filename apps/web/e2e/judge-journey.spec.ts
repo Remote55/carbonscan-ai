@@ -113,8 +113,53 @@ test.describe('frozen evidence route', () => {
   });
 });
 
+// A CTA is a promise. This checks the promise against the destination rather than
+// against the label, which is what the unit test could not do: it asserted both
+// hero buttons pointed at /demo and passed, while one of them said "upload" and
+// landed on a page with no file input at all.
+test.describe('landing actions can do what they say', () => {
+  test('the public demo route offers no upload, so nothing may promise one there', async ({
+    page,
+  }) => {
+    await page.goto('/demo');
+    await page.waitForLoadState('networkidle');
+
+    // Read-only without a launcher handoff. If this ever gains a file input, the
+    // demo route started accepting uploads from anyone and that is a decision to
+    // make deliberately, not to discover here.
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const uploadLinks = page.locator('a', { hasText: 'อัปโหลด' });
+    for (let index = 0; index < (await uploadLinks.count()); index += 1) {
+      const href = await uploadLinks.nth(index).getAttribute('href');
+      expect(href).not.toBe('/demo');
+    }
+  });
+
+  test('following the upload action reaches a page that can take a file', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    await page
+      .getByRole('link', { name: /อัปโหลด/ })
+      .first()
+      .click();
+    await page.waitForLoadState('networkidle');
+
+    // Sign-in stands between the visitor and the upload, by design. What matters
+    // is that the journey continues to the workspace instead of dead-ending.
+    await expect(page).toHaveURL(/\/login/);
+    expect(new URL(page.url()).searchParams.get('redirect')).toBe('/dashboard/viewer');
+  });
+});
+
 test.describe('landmarks and keyboard entry', () => {
-  test('the landing skip link is the first tab stop and moves focus into main', async ({ page }) => {
+  test('the landing skip link is the first tab stop and moves focus into main', async ({
+    page,
+  }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
