@@ -1,7 +1,15 @@
 # TreeQ Web Visual Redesign — Design Specification
 
 **วันที่:** 2026-07-29  
-**สถานะ:** Approved Figma design; ready for implementation planning
+**สถานะ:** Partially implemented and verified — Tasks 1–6, 9, 10 ผ่าน gate ครบ ·
+**Tasks 7 (Auth) และ 8 (Dashboard) ยังไม่ได้ implement** · Code Connect ยังไม่ทำ
+เพราะ plan กำหนดเงื่อนไขว่าต้องรอ source component ครบก่อน
+
+หลักฐาน gate และ accepted deviations: [`docs/design/treeq-forest-observatory-implementation.md`](../../design/treeq-forest-observatory-implementation.md)
+
+> ยังไม่เขียนว่า "Implemented and verified" เฉยๆ เพราะสองในสิบเอ็ด task ไม่ได้ทำ
+> การสรุปว่าเสร็จโดยไม่บอกว่าเหลืออะไร คือความผิดแบบเดียวกับที่ระบบ truth boundary
+> ทั้งระบบถูกสร้างมาเพื่อกัน
 **แนวทางภาพ:** Forest Editorial Observatory + Cinematic Field Photography
 **ขอบเขต:** Web เท่านั้น
 
