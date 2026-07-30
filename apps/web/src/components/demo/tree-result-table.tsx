@@ -82,8 +82,14 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
                     type sizes - a 10px badge, a 12px reason, and the row's own 14px
                     - so the column looked accidental. Now it is two, and they mean
                     something: 11px mono for the label, body size for the prose. */}
-                <td className="px-3 py-3 text-deep-forest">
-                  <span className="block font-mono text-[0.6875rem] font-bold tracking-wide text-ember">
+                {/* The whole cell is red, badge and reason together, at the
+                    designer's second pass: a red label above dark-green prose read as
+                    two separate things, when it is one message - this tree produced no
+                    measurement, and here is why. Ember clears AA on this row's own
+                    Gallery Ivory background at 5.79:1, so the reason line is legible
+                    at body size rather than merely coloured. */}
+                <td className="px-3 py-3 text-ember">
+                  <span className="block font-mono text-[0.6875rem] font-bold tracking-wide">
                     EXCLUDED
                   </span>
                   <span className="mt-1 block text-sm leading-6">

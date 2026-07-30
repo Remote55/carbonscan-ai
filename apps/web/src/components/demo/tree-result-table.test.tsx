@@ -85,13 +85,17 @@ describe('TreeResultTable', () => {
 
   it('marks an excluded row in the dedicated red, not the softer error tone', () => {
     const markup = renderToStaticMarkup(<TreeResultTable view={view} />);
-    const badge = markup.match(/<[a-z]+ class="([^"]*)"[^>]*>EXCLUDED</)?.[1];
+    // The colour sits on the cell now, not the badge span: the badge and its reason
+    // line are one message, so they share one colour rather than the label being red
+    // above dark-green prose. The badge keeps only its own weight and size.
+    const cell = markup.match(/<td class="([^"]*)"[^>]*>(?:(?!<\/td>).)*EXCLUDED/)?.[1];
+    const badge = markup.match(/<span class="([^"]*)"[^>]*>\s*EXCLUDED/)?.[1];
 
-    expect(badge).toContain('text-ember');
+    expect(cell).toContain('text-ember');
     expect(badge).toContain('font-bold');
     // clay still labels "Experimental" elsewhere, which is a state and not a
     // failure, so the two must not collapse into one colour.
-    expect(badge).not.toContain('text-clay');
+    expect(cell).not.toContain('text-clay');
   });
 
   it('uses the AA light-surface text token for the small READY status', () => {
@@ -109,18 +113,23 @@ describe('TreeResultTable', () => {
   // there sat at 4.28:1 while the review recorded the fix as complete. Compute
   // the ratio against the surface each badge actually renders on.
   //
-  // Read the token off the element that holds the badge text, never off the whole
-  // row. Both rows carry `text-canopy` on their row header, which comes first in
-  // the markup, so a row-wide match would report canopy for the excluded badge
-  // and pass without ever looking at the colour that was actually broken.
+  // Read the token off the cell that holds the status, never off the whole row.
+  // Both rows carry `text-canopy` on their row header, which comes first in the
+  // markup, so a row-wide match would report canopy for the excluded status and
+  // pass without ever looking at the colour that was actually broken.
   it('keeps both status badges at AA against the surface they render on', () => {
     const markup = renderToStaticMarkup(<TreeResultTable view={view} />);
 
-    function badgeToken(label: string): string {
-      const element = markup.match(new RegExp(`<[a-z]+ class="([^"]*)"[^>]*>${label}<`))?.[1];
-      if (!element) throw new Error(`Missing badge element for ${label}`);
-      const token = element.match(/text-(canopy|moss|clay|ember|forest-ink|deep-forest)\b/)?.[1];
-      if (!token) throw new Error(`Badge ${label} has no resolvable colour token: ${element}`);
+    function statusToken(label: string): string {
+      // The cell, not the innermost element: EXCLUDED's colour lives on the <td> so
+      // the badge and its reason share it, while READY's sits on its own <td>.
+      // Asking the cell works for both and matches what the reader actually sees.
+      const cell = markup.match(
+        new RegExp(`<td class="([^"]*)"[^>]*>(?:(?!</td>).)*${label}`),
+      )?.[1];
+      if (!cell) throw new Error(`Missing status cell for ${label}`);
+      const token = cell.match(/text-(canopy|moss|clay|ember|forest-ink|deep-forest)\b/)?.[1];
+      if (!token) throw new Error(`Status ${label} has no resolvable colour token: ${cell}`);
       return token;
     }
 
@@ -129,11 +138,11 @@ describe('TreeResultTable', () => {
     // The excluded row tints itself; the measured row inherits the card surface.
     expect(excludedRow).toContain('bg-gallery-ivory');
 
-    expect(contrastRatio(tokenHex(badgeToken('READY')), tokenHex('paper'))).toBeGreaterThanOrEqual(
+    expect(contrastRatio(tokenHex(statusToken('READY')), tokenHex('paper'))).toBeGreaterThanOrEqual(
       4.5,
     );
     expect(
-      contrastRatio(tokenHex(badgeToken('EXCLUDED')), tokenHex('gallery-ivory')),
+      contrastRatio(tokenHex(statusToken('EXCLUDED')), tokenHex('gallery-ivory')),
     ).toBeGreaterThanOrEqual(4.5);
   });
 });

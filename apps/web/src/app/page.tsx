@@ -59,8 +59,18 @@ export default function HomePage() {
           <div className="grid grid-cols-1 gap-8 lg:min-h-[35.625rem] lg:grid-cols-12">
             <div className="flex flex-col justify-center lg:col-span-6 lg:pr-8">
               <p className="editorial-eyebrow">TreeQ Carbon / NSC 2026 / Deep Tech</p>
-              <h1 className="mt-7 max-w-[11ch] text-balance font-display text-5xl font-medium leading-[1.12] tracking-[-0.03em] text-forest-ink sm:text-6xl lg:text-[4rem]">
-                อ่านคาร์บอนจากโครงสร้างจริงของต้นไม้
+              {/* "ประเมิน", not "อ่าน". The headline used to say the platform reads
+                  carbon off a tree, which is the one claim this project cannot make:
+                  the number comes from an allometric estimate carrying 18.8% volume
+                  MAPE, not from a reading. A page whose whole argument is that it
+                  reports its own limits cannot overclaim in its largest type.
+                  "ทางกายภาพ" over "จริง" for the same reason - it names what is
+                  actually measured, which is geometry.
+                  Wider max-width and a smaller lg size because the honest phrasing is
+                  49 characters against 33; measured at both demo viewports so the
+                  metrics card below still clears the fold. */}
+              <h1 className="mt-7 max-w-[15ch] text-balance font-display text-[2.6rem] font-medium leading-[1.14] tracking-[-0.03em] text-forest-ink sm:text-5xl lg:text-[3.4rem]">
+                ประเมินคาร์บอนสะสม จากโครงสร้างทางกายภาพของต้นไม้
               </h1>
               <p className="mt-7 max-w-xl text-base leading-8 text-canopy sm:text-lg">
                 แพลตฟอร์มต้นแบบประเมิน DBH ความสูง ชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อม
@@ -264,14 +274,14 @@ export default function HomePage() {
             className="bg-gallery-ivory"
             eyebrow="04 / Evidence with limitations"
             title="Validation ที่รายงานตามขอบเขต"
-            description="Wan held-out ใช้อธิบายผล segmentation ของ candidate ส่วน Demol 65 isolated trees ใช้อธิบาย geometry เท่านั้น ไม่ใช่ full-pipeline, allometric หรือ carbon validation"
+            description="ตัวเลขชุด Wan held-out บอกได้แค่ผลการแยกลำต้นกับใบ ของโมเดลที่ยังไม่ถูกใช้จริง และตัวเลขชุด DemoL 65 ต้น บอกได้แค่ความแม่นของการวัดขนาด — ทั้งสองชุดไม่ได้ตรวจไปป์ไลน์ทั้งเส้น ไม่ได้ตรวจสมการชีวมวล และไม่ได้ตรวจค่าคาร์บอน"
           >
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
               <div className="lg:col-span-4">
                 <EvidenceMetric
                   label={`Wood IoU / ${candidate.status}`}
                   value={String(wanHeldOut.woodIoU)}
-                  note="Wan held-out · best-epoch selection caveat"
+                  note="ชุด Wan held-out · เป็นค่าจาก epoch ที่ดีที่สุด จึงเข้าข้างตัวเองเล็กน้อย"
                   tone="dark"
                 />
               </div>
@@ -279,7 +289,7 @@ export default function HomePage() {
                 <EvidenceMetric
                   label={`Leaf IoU / ${candidate.status}`}
                   value={String(wanHeldOut.leafIoU)}
-                  note="Wan held-out · segmentation evidence"
+                  note="ชุด Wan held-out · วัดการแยกลำต้นกับใบ เท่านั้น"
                   tone="lichen"
                 />
               </div>
@@ -287,16 +297,16 @@ export default function HomePage() {
                 <EvidenceMetric
                   label="DBH MAE / geometry only"
                   value={`${demol65.dbhMaeCm} cm`}
-                  note="Demol · 65 isolated trees · full precision"
+                  note="ชุด DemoL · ต้นไม้แยกเดี่ยว 65 ต้น · แสดงเต็มไม่ปัดเศษ"
                 />
               </div>
             </div>
 
             <div className="mt-8 flex flex-col justify-between gap-6 border-t border-hairline pt-8 sm:flex-row sm:items-center">
-              <p className="max-w-3xl text-sm leading-7 text-canopy">
-                Species classifier = Stub. ค่า carbon stock และ CO₂e เป็น estimate; coefficients
-                ยังต้อง verify กับ TGO Guideline 2017 และไม่มี claim เรื่อง marketplace
-                หรือการรับรองเครดิต
+              <p className="max-w-3xl text-base leading-7 text-canopy">
+                การจำแนกชนิดพันธุ์ยังเป็น Stub · ค่าคาร์บอนที่กักเก็บและ CO₂e เป็นค่าประมาณ ·
+                ค่าสัมประสิทธิ์ยังต้องสอบทานกับแนวทาง TGO ปี 2017 ·
+                และเราไม่ได้กล่าวอ้างเรื่องตลาดซื้อขายหรือการรับรองเครดิต
               </p>
               <Button render={<Link href="/demo" />} variant="editorial" size="xl">
                 เปิดหลักฐานใน Demo
