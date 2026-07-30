@@ -1005,6 +1005,80 @@ try {
             Join-Path $missingDestination 'TreeQ-Demo-Start.bat'
         ))
     ) 'failed installer does not create wrapper'
+
+    # A failing launcher used to close its own window before anyone could read
+    # why. Occupying port 8000 is the failure a presenter actually hits, so it
+    # is the one worth reproducing here.
+    #
+    # If the port is already taken - a demo left running on this machine - the
+    # precondition is met without help, so bind only when the port is free and
+    # release it either way.
+    $portHold = $null
+    try {
+        $portHold = [System.Net.Sockets.TcpListener]::new(
+            [System.Net.IPAddress]::Parse('127.0.0.1'), 8000
+        )
+        $portHold.Start()
+    }
+    catch {
+        $portHold = $null
+    }
+    try {
+        $launcherPath = Join-Path $repoRoot 'scripts\demo\start-treeq-demo.ps1'
+        $busyOutput = '' | & $powerShellPath `
+            -NoProfile `
+            -ExecutionPolicy Bypass `
+            -File $launcherPath `
+            -Mode Local `
+            -NoBrowser 2>&1 | Out-String
+        Assert-True ($LASTEXITCODE -ne 0) 'launcher fails when port 8000 is held'
+        Assert-True (
+            $busyOutput.Contains('Port 8000 is already in use')
+        ) 'launcher names the port conflict'
+
+        # Read-Host writes its prompt to the console host rather than to the
+        # output stream, so a failed run cannot be recognised by its text. The
+        # pause is only observable as the thing it is: the process stays alive
+        # with nothing left to do. Give it no stdin and watch.
+        #
+        # This failure takes about two seconds to reach, so a launcher that does
+        # not pause is long gone by the time the window below closes.
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName = $powerShellPath
+        $psi.Arguments = (
+            '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Mode Local -NoBrowser' -f
+            $launcherPath
+        )
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $waiter = [System.Diagnostics.Process]::Start($psi)
+        try {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($watch.Elapsed.TotalSeconds -lt 8 -and -not $waiter.HasExited) {
+                Start-Sleep -Milliseconds 250
+            }
+            Assert-True (-not $waiter.HasExited) `
+                'failed launcher holds the window open instead of vanishing'
+            if (-not $waiter.HasExited) {
+                $waiter.StandardInput.WriteLine('')
+                [void]$waiter.WaitForExit(15000)
+            }
+            Assert-True $waiter.HasExited 'the held window closes on Enter'
+        }
+        finally {
+            if (-not $waiter.HasExited) {
+                $waiter.Kill()
+            }
+            $waiter.Dispose()
+        }
+    }
+    finally {
+        if ($null -ne $portHold) {
+            $portHold.Stop()
+        }
+    }
 }
 catch {
     $script:Failed++
