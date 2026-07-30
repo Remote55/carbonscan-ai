@@ -826,4 +826,24 @@ finally {
     }
 }
 
+# A double-clicked console closes the instant this script returns, so until now
+# the failure path put the error on screen for a few milliseconds and then took
+# it away. That error is the most useful thing the launcher ever prints - it
+# names the offending PID and what to do about it - and the runbook's whole
+# failure tree asks the presenter to read what is on screen. Hold the window
+# open so there is something left to read.
+#
+# The success path pauses too (see above), so the only run that must never block
+# is an automated one, which is exactly what -ExitAfterReady means. Read-Host
+# also throws when stdin is not a console, as in a piped or redirected run, and
+# failing to pause must not turn into a second failure on top of the first.
+if ($script:ExitCode -ne 0 -and -not $ExitAfterReady) {
+    try {
+        [void](Read-Host 'Press Enter to close this window')
+    }
+    catch {
+        Write-TreeQMessage 'No console to wait on; closing.'
+    }
+}
+
 exit $script:ExitCode
