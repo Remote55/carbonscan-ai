@@ -896,6 +896,97 @@ try {
     Assert-Equal $readyResult.PipelineVersion '0.4.0' `
         'public readiness carries the pipeline version through'
 
+    # Publishing to the live site is the step the previous script got wrong: it
+    # ran the commands and announced success, so a failed env update still
+    # produced a confident DONE and a site pointing at a dead tunnel. These
+    # assertions exist so that cannot come back.
+    $publishEndpoint = 'https://publish-probe.trycloudflare.com'
+    $webDirectory = Join-Path $repoRoot 'apps\web'
+    $issued = New-Object System.Collections.ArrayList
+    $recordingInvoke = {
+        param($Arguments, $WorkingDirectory)
+        [void]$issued.Add($Arguments)
+        return 0
+    }
+    $agreeingProbe = {
+        param($ProbeSiteUrl)
+        [pscustomobject]@{ apiUrl = $publishEndpoint; hasToken = $true }
+    }
+    $publishOk = Publish-TreeQPublicSite `
+        -Endpoint $publishEndpoint `
+        -Token $token `
+        -WebDirectory $webDirectory `
+        -TimeoutSec 30 `
+        -Invoke $recordingInvoke `
+        -Probe $agreeingProbe
+    Assert-True $publishOk.Published 'publish succeeds when the site reports the new endpoint'
+    Assert-True (
+        @($issued | Where-Object { $_ -like '*env add NEXT_PUBLIC_API_URL*' }).Count -eq 1
+    ) 'publish sets the API URL'
+    Assert-True (
+        @($issued | Where-Object { $_ -like '*env add NEXT_PUBLIC_DEMO_TOKEN*' }).Count -eq 1
+    ) 'publish sets the demo token, without which a cold visitor gets 401'
+    Assert-True (
+        @($issued | Where-Object { $_ -like 'vercel --prod*' }).Count -eq 1
+    ) 'publish redeploys, because NEXT_PUBLIC_* only changes at build time'
+
+    # A site still serving the previous endpoint is the exact symptom the old
+    # script hid. Commands succeeding is not evidence.
+    $staleProbe = {
+        param($ProbeSiteUrl)
+        [pscustomobject]@{ apiUrl = 'https://yesterday.trycloudflare.com'; hasToken = $true }
+    }
+    $publishStale = Publish-TreeQPublicSite `
+        -Endpoint $publishEndpoint `
+        -Token $token `
+        -WebDirectory $webDirectory `
+        -TimeoutSec 1 `
+        -Invoke $recordingInvoke `
+        -Probe $staleProbe
+    Assert-True (-not $publishStale.Published) `
+        'publish refuses to claim success while the site serves the old endpoint'
+    Assert-Equal $publishStale.Detail 'site did not report the new endpoint' `
+        'publish names what it could not prove'
+
+    $tokenlessProbe = {
+        param($ProbeSiteUrl)
+        [pscustomobject]@{ apiUrl = $publishEndpoint; hasToken = $false }
+    }
+    $publishHalf = Publish-TreeQPublicSite `
+        -Endpoint $publishEndpoint `
+        -Token $token `
+        -WebDirectory $webDirectory `
+        -TimeoutSec 1 `
+        -Invoke $recordingInvoke `
+        -Probe $tokenlessProbe
+    Assert-True (-not $publishHalf.Published) `
+        'publish refuses a half-finished deploy that carries no token'
+
+    $failingInvoke = {
+        param($Arguments, $WorkingDirectory)
+        if ($Arguments -like '*env add NEXT_PUBLIC_API_URL*') { return 1 }
+        return 0
+    }
+    $deployAttempted = $false
+    $watchfulProbe = {
+        param($ProbeSiteUrl)
+        $script:PublishProbeCalled = $true
+        [pscustomobject]@{ apiUrl = $publishEndpoint; hasToken = $true }
+    }
+    $script:PublishProbeCalled = $false
+    $publishFailed = Publish-TreeQPublicSite `
+        -Endpoint $publishEndpoint `
+        -Token $token `
+        -WebDirectory $webDirectory `
+        -TimeoutSec 1 `
+        -Invoke $failingInvoke `
+        -Probe $watchfulProbe
+    Assert-True (-not $publishFailed.Published) 'a failed env update fails the publish'
+    Assert-Equal $publishFailed.Detail 'env update failed: NEXT_PUBLIC_API_URL' `
+        'publish names the setting it could not write'
+    Assert-True (-not $script:PublishProbeCalled) `
+        'publish stops at the failed step instead of deploying over it'
+
     $self = Get-Process -Id $PID
     $selfEntry = New-TestProcessEntry -Process $self -Role 'test-self'
     Assert-True (

@@ -162,9 +162,10 @@ describe("backend resolution", () => {
     expect(new Headers(init.headers).get("x-treeq-demo-token")).toBe(TOKEN);
   });
 
-  it("sends no demo token when there is no handoff", async () => {
-    // Without a handoff the request goes to the built-in URL, and inventing a
-    // header there would leak a value this browser was never given.
+  it("sends no demo token when neither a handoff nor a built-in one exists", async () => {
+    // NEXT_PUBLIC_DEMO_TOKEN is unset in this test environment, so nothing is
+    // available to send. Inventing a header here would put a value on the wire
+    // that this browser was never given.
     stubBrowser();
     const fetchMock = stubOkFetch();
 

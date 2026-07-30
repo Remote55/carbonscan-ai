@@ -11,7 +11,14 @@ param(
     [switch]$NoBrowser,
 
     [Parameter(Mandatory = $false)]
-    [switch]$ExitAfterReady
+    [switch]$ExitAfterReady,
+
+    # Auto normally republishes the live site so visitors who just open
+    # treeqcarbon.vercel.app reach this run's backend. That is a Vercel build
+    # and costs minutes, so rehearsals and tests can skip it and still exercise
+    # everything else.
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipPublish
 )
 
 Set-StrictMode -Version Latest
@@ -701,6 +708,7 @@ try {
     $token = $null
     $apiReady = $false
     $publicReady = $false
+    $sitePublished = $false
     $pipelineVersion = $null
     $tunnelUrl = $null
     if ($Mode -ne 'Frozen') {
@@ -745,6 +753,30 @@ try {
                     }
                     if ($publicReady) {
                         Write-TreeQMessage 'Authenticated public readiness passed.'
+                        if (-not $SkipPublish) {
+                            Write-TreeQMessage (
+                                'Publishing this tunnel to the live site so anyone who opens ' +
+                                'treeqcarbon.vercel.app can use it. This is a Vercel build, so ' +
+                                'give it a few minutes.'
+                            )
+                            $publish = Publish-TreeQPublicSite `
+                                -Endpoint $tunnelUrl `
+                                -Token $token `
+                                -WebDirectory (Join-Path $script:RepoRoot 'apps\web')
+                            $sitePublished = $publish.Published
+                            if ($sitePublished) {
+                                Write-TreeQMessage (
+                                    'Live site verified: it reports this run''s backend.'
+                                )
+                            }
+                            else {
+                                Write-TreeQMessage (
+                                    "Live site NOT updated ($($publish.Detail)). The demo still " +
+                                    'works in the browser this launcher opens, but anyone opening ' +
+                                    'the site themselves will reach the previous backend.'
+                                )
+                            }
+                        }
                     }
                     else {
                         Write-TreeQMessage (
@@ -767,6 +799,15 @@ try {
             -Token $token
         Write-TreeQMessage 'Mode: AUTO PUBLIC LIVE'
         Write-TreeQMessage "Pipeline: $pipelineVersion"
+        # Two different things a judge can be told, so they are said separately.
+        # The tunnel being public is proven either way; whether a stranger who
+        # types the address reaches it is a second fact with its own evidence.
+        if ($sitePublished) {
+            Write-TreeQMessage 'Site: anyone can open treeqcarbon.vercel.app and use this demo.'
+        }
+        else {
+            Write-TreeQMessage 'Site: use the browser tab this launcher opens.'
+        }
     }
     elseif ($Mode -ne 'Frozen' -and $apiReady -and $webReady) {
         $targetUrl = New-TreeQHandoffUrl `
