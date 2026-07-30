@@ -70,6 +70,30 @@ describe('TreeResultTable', () => {
     expect(markup).toContain('min-w-[44rem]');
   });
 
+  // A reviewer said the type sizes looked wrong, and they were: the status column
+  // carried a 10px badge, a 12px reason and the row's own 14px, so three sizes sat
+  // in one cell. Two are allowed now and each means something - 11px mono for
+  // labels, body size for prose - so this fails if a third creeps back in.
+  it('uses one label size and one content size, not three', () => {
+    const markup = renderToStaticMarkup(<TreeResultTable view={view} />);
+    const sizes = new Set(
+      (markup.match(/text-(\[[^\]]+\]|xs|sm|base|lg|xl)/g) ?? []).map((match) => match),
+    );
+
+    expect(sizes).toEqual(new Set(['text-[0.6875rem]', 'text-sm']));
+  });
+
+  it('marks an excluded row in the dedicated red, not the softer error tone', () => {
+    const markup = renderToStaticMarkup(<TreeResultTable view={view} />);
+    const badge = markup.match(/<[a-z]+ class="([^"]*)"[^>]*>EXCLUDED</)?.[1];
+
+    expect(badge).toContain('text-ember');
+    expect(badge).toContain('font-bold');
+    // clay still labels "Experimental" elsewhere, which is a state and not a
+    // failure, so the two must not collapse into one colour.
+    expect(badge).not.toContain('text-clay');
+  });
+
   it('uses the AA light-surface text token for the small READY status', () => {
     const markup = renderToStaticMarkup(<TreeResultTable view={view} />);
     const measuredRow = (markup.match(/<tr[^>]*>.*?<\/tr>/g) ?? []).find((row) =>
@@ -95,7 +119,7 @@ describe('TreeResultTable', () => {
     function badgeToken(label: string): string {
       const element = markup.match(new RegExp(`<[a-z]+ class="([^"]*)"[^>]*>${label}<`))?.[1];
       if (!element) throw new Error(`Missing badge element for ${label}`);
-      const token = element.match(/text-(canopy|moss|clay|forest-ink|deep-forest)\b/)?.[1];
+      const token = element.match(/text-(canopy|moss|clay|ember|forest-ink|deep-forest)\b/)?.[1];
       if (!token) throw new Error(`Badge ${label} has no resolvable colour token: ${element}`);
       return token;
     }

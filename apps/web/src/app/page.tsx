@@ -83,10 +83,41 @@ export default function HomePage() {
                   เข้าสู่ระบบเพื่ออัปโหลดไฟล์
                 </Button>
               </div>
-              <p className="mt-6 font-mono text-[0.625rem] uppercase leading-5 tracking-[0.08em] text-evidence-amber">
-                {baseline.backend} = Default · {candidate.displayName} = {candidate.status} ·
-                species stage = Stub
-              </p>
+              {/* These three facts are the point of the whole project, and they
+                  were set as one line of 10px uppercase text that read like
+                  leftover debug output - a reviewer asked whether it mattered or
+                  should just be deleted. It matters: it is what stops the page
+                  claiming a trained classifier and a promoted model it does not
+                  have. So each fact gets a label, a readable size, and a border
+                  that says at a glance which are shipped and which are not.
+                  Solid backgrounds on purpose - the palette tokens hold hex
+                  values, so Tailwind's `/opacity` shorthand on them can emit CSS
+                  the browser drops, and the tint silently disappears. */}
+              <dl className="mt-7 flex flex-wrap gap-2">
+                {[
+                  { term: 'แยกลำต้น–ใบ ที่ใช้จริง', value: baseline.backend, shipped: true },
+                  { term: candidate.displayName, value: candidate.status, shipped: false },
+                  { term: 'จำแนกชนิดพันธุ์', value: 'Stub', shipped: false },
+                ].map((fact) => (
+                  <div
+                    key={fact.term}
+                    className={`rounded-xl border bg-paper px-3.5 py-2.5 ${
+                      fact.shipped ? 'border-moss' : 'border-evidence-amber'
+                    }`}
+                  >
+                    <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-canopy">
+                      {fact.term}
+                    </dt>
+                    <dd
+                      className={`mt-1 text-sm font-semibold ${
+                        fact.shipped ? 'text-forest-ink' : 'text-evidence-amber'
+                      }`}
+                    >
+                      {fact.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             </div>
 
             <div className="relative min-h-[25rem] overflow-hidden rounded-[1.75rem] shadow-[0_28px_68px_-18px_rgba(14,42,29,0.18)] lg:col-span-6 lg:min-h-[35.625rem]">

@@ -16,8 +16,8 @@ const config: Config = {
       screens: {
         '2xl': '1400px',
       },
-      },
-      extend: {
+    },
+    extend: {
       colors: {
         'forest-ink': 'var(--forest-ink)',
         'deep-forest': 'var(--deep-forest)',
@@ -29,6 +29,7 @@ const config: Config = {
         mist: 'var(--mist)',
         'evidence-amber': 'var(--evidence-amber)',
         clay: 'var(--clay)',
+        ember: 'var(--ember)',
         hairline: 'var(--hairline)',
 
         // Legacy aliases remain while existing surfaces migrate to semantic tokens.

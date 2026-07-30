@@ -22,6 +22,13 @@
        the token rather than each call site closes the class of bug and keeps
        every use above 5:1. Deviates from Figma; record in Task 11. */
     --clay: #8f5039;
+    /* A real red, for the one status a judge must not skim past: a tree the
+       pipeline could not measure. Kept separate from --clay rather than turning
+       clay red, because clay also labels "Experimental" in the provenance panel -
+       a state, not a failure - and painting that red would claim something broke.
+       Clears AA on both light surfaces: 5.8:1 on Gallery Ivory (the excluded row's
+       own background) and 6.3:1 on Paper. Not in Figma yet; sync it. */
+    --ember: #b3261e;
     --hairline: #d6d7cf;
     --radius: 1.25rem;
 
