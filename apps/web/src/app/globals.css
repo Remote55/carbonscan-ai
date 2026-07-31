@@ -119,6 +119,19 @@
     @apply font-mono text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-canopy;
   }
 
+  /* Thai companion to .editorial-eyebrow. Same job, three differences that
+     matter: a sans face because JetBrains Mono has no Thai glyphs, no
+     uppercase because Thai has no case, and far less tracking because letter
+     spacing pushes vowels and tone marks away from the consonant they belong
+     to.
+
+     No colour here on purpose. These labels sit on ivory, on paper and on
+     deep forest, so the caller sets it. Baking one in would mean every dark
+     surface fighting the class with an override that may or may not win. */
+  .editorial-eyebrow-th {
+    @apply text-xs font-semibold tracking-[0.04em];
+  }
+
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss focus-visible:ring-offset-2 focus-visible:ring-offset-paper;
   }

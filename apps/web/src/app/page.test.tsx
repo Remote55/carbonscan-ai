@@ -116,4 +116,23 @@ describe('Landing evidence contract', () => {
     expect(skip).toContain('sr-only');
     expect(skip).toContain('focus:not-sr-only');
   });
+
+  // JetBrains Mono has no Thai glyphs. Thai set in it silently falls back to
+  // another face at 11px, which is how this project shipped an unreadable
+  // label once already. This scans the rendered markup rather than the source,
+  // because the source is where the mistake looks correct.
+  it('never sets Thai text in the monospace face', () => {
+    const markup = renderToStaticMarkup(<HomePage />);
+
+    // Direct text inside an element carrying font-mono. Eyebrows and badges are
+    // all plain <p>/<span> with no nested markup, which is exactly this shape.
+    const monoWithText = /<(?:p|span|dt|dd)[^>]*class="[^"]*font-mono[^"]*"[^>]*>([^<]+)</g;
+    const THAI = /[\u0E00-\u0E7F]/;
+    const offenders: string[] = [];
+    for (const match of markup.matchAll(monoWithText)) {
+      if (THAI.test(match[1])) offenders.push(match[1].trim());
+    }
+
+    expect(offenders).toEqual([]);
+  });
 });
