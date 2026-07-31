@@ -36,9 +36,7 @@ export function JudgeDemoHeader({ state }: { state: Exclude<DemoModeState, { kin
 
         <div className="grid min-h-[15.5rem] gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(32rem,0.9fr)] lg:items-end">
           <div>
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-lichen">
-              Judge Demo / 3–5 minutes / reliable path
-            </p>
+            <p className="editorial-eyebrow-th text-lichen">โหมดสาธิต · ใช้ไฟล์ชุดที่ล็อกไว้</p>
             <h1 className="mt-4 max-w-2xl text-balance font-display text-3xl font-medium leading-tight sm:text-4xl">
               {isLive ? (
                 <>
@@ -48,9 +46,9 @@ export function JudgeDemoHeader({ state }: { state: Exclude<DemoModeState, { kin
                 </>
               ) : (
                 <>
-                  เริ่มจากหลักฐานที่ freeze แล้ว
+                  ชุดหลักฐานที่ล็อกไว้
                   <br />
-                  และบอกข้อจำกัดทุกขั้น
+                  ตรวจไฟล์ก่อนแสดงทุกครั้ง
                 </>
               )}
             </h1>

@@ -356,12 +356,12 @@ function ModeChoice({
       ) : (
         <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="rounded-xl border border-moss bg-gallery-ivory p-5">
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-moss">
-              Recommended / zero network dependency
-            </p>
-            <h3 className="mt-3 font-display text-xl">Verified demo plot</h3>
+            <p className="editorial-eyebrow-th text-moss">แนะนำ · ไม่ต้องพึ่งเครือข่าย</p>
+            <h3 className="mt-3 font-display text-xl">ชุดตัวอย่างที่ตรวจแล้ว</h3>
             <p className="mt-2 text-sm leading-6 text-canopy">
-              ไฟล์ตัวอย่างและผลลัพธ์ถูกผูกกับ manifest; หน้านี้จะแสดงตัวเลขก็ต่อเมื่อ hash ผ่าน
+              ไฟล์ตัวอย่างและผลลัพธ์ในหน้านี้ เป็นชุดเดียวกับตอนที่เราทดสอบไว้
+              เบราว์เซอร์จะคำนวณลายนิ้วมือไฟล์เทียบกับที่บันทึกไว้ก่อนทุกครั้ง ถ้าไม่ตรง
+              หน้านี้จะไม่แสดงตัวเลขเลย
             </p>
           </div>
           <p className="max-w-xs text-sm leading-6 text-canopy">{frozenReason(mode.reason)}</p>
