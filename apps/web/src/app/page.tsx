@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { EditorialSection } from '../components/editorial/editorial-section';
+import { TechnicalDetail } from '../components/editorial/technical-detail';
 import { EvidenceMetric } from '../components/evidence/evidence-metric';
 import { AppHeader } from '../components/layout/app-header';
 import { Button } from '../components/ui/button';
@@ -14,25 +15,32 @@ const { wanHeldOut, demol65 } = CORE_DEMO_EVIDENCE.validation;
 const JOURNEY = [
   {
     step: '01',
-    title: 'รับ point cloud',
-    description: 'เริ่มจากข้อมูลจุดสามมิติที่เปิดดูและตรวจสอบย้อนกลับได้ใน judge demo',
+    title: 'รับภาพสามมิติของต้นไม้',
+    description:
+      'ไฟล์จากเครื่องสแกนเลเซอร์ หรือจากการถ่ายต้นไม้หลายมุมแล้วประกอบเป็นทรงสามมิติ ระบบแสดงเป็นกลุ่มจุดที่หมุนดูได้',
+    technical: 'point cloud รูปแบบ .ply · จำกัด 2 ล้านจุด หรือ 100 MB ต่อไฟล์',
   },
   {
     step: '02',
-    title: 'แยก wood / leaf',
-    description: `${baseline.backend} เป็น default baseline; ${candidate.displayName} ยังเป็น ${candidate.status}`,
+    title: 'แยกลำต้นออกจากใบ',
+    description:
+      'ต้องรู้ก่อนว่าจุดไหนคือเนื้อไม้ จุดไหนคือใบ เพราะคาร์บอนเก็บอยู่ในเนื้อไม้เป็นหลัก ตอนนี้ใช้วิธีคำนวณจากรูปทรง ยังไม่ได้ใช้ AI',
+    technical: `${baseline.backend} เป็นตัวที่ใช้จริง · ${candidate.displayName} ยังเป็น ${candidate.status} ไม่ได้ถูกนำมาใช้ · Wood IoU ${wanHeldOut.woodIoU}`,
   },
   {
     step: '03',
-    title: 'วัด geometry',
+    title: 'วัดขนาดต้นไม้',
     description:
-      'หา DBH ความสูง และปริมาตรจากโครงสร้างของต้นไม้ โดยรายงานขอบเขต validation แยกจากกัน',
+      'วัดเส้นผ่านศูนย์กลางลำต้นที่ระดับอก ความสูงทั้งต้น และปริมาตรเนื้อไม้ จากรูปทรงที่แยกได้',
+    technical: `DBH ที่ระดับ 1.3 เมตร · ปริมาตรจาก QSM ทรงกระบอก · คลาดเคลื่อนเฉลี่ย ${demol65.dbhMaeCm} ซม. บนต้นไม้จริง 65 ต้น`,
   },
   {
     step: '04',
-    title: 'ประมาณ carbon stock',
+    title: 'คำนวณคาร์บอน',
     description:
-      'แปลง geometry ผ่าน allometric equation พร้อม provenance; species classification ยังเป็น Stub',
+      'เอาขนาดที่วัดได้เข้าสมการมาตรฐาน ได้เป็นน้ำหนักชีวมวล คาร์บอน และ CO₂ พร้อมบันทึกว่าใช้สมการไหน',
+    technical:
+      'สมการ Chave 2014 · ชีวมวลใต้ดิน = เหนือดิน × 0.24 · คาร์บอน = ชีวมวล × 0.47 · CO₂e = คาร์บอน × 44/12 (IPCC 2006) · การแยกชนิดพันธุ์ยังเป็นโครงเปล่า',
   },
 ] as const;
 
@@ -195,7 +203,10 @@ export default function HomePage() {
                 >
                   <span className="font-mono text-xs text-evidence-amber">{item.step}</span>
                   <h3 className="font-display text-2xl text-forest-ink">{item.title}</h3>
-                  <p className="max-w-2xl text-sm leading-7 text-canopy">{item.description}</p>
+                  <div className="max-w-2xl">
+                    <p className="text-base leading-7 text-canopy">{item.description}</p>
+                    <TechnicalDetail>{item.technical}</TechnicalDetail>
+                  </div>
                 </li>
               ))}
             </ol>
