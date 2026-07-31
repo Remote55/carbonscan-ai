@@ -181,8 +181,8 @@ export default function HomePage() {
                 เราไม่ได้เริ่มจากคำว่า “AI แม่นยำ” แต่เริ่มจากหลักฐานที่ใครก็เปิดดู แล้วถามต่อได้
               </p>
               <div className="border-l border-moss pl-5 text-sm leading-7 text-canopy lg:col-span-4">
-                ขอบเขต prototype ยังไม่รวม mobile photogrammetry ที่ผ่านการ review, marketplace หรือ
-                certification; ค่าที่แสดงเป็น carbon stock และ CO₂e estimate ไม่ใช่ certified credit
+                ตอนนี้ทำได้กับไฟล์สามมิติที่มีอยู่แล้วเท่านั้น ยังไม่รองรับการถ่ายด้วยมือถือ
+                ไม่มีระบบซื้อขาย และไม่ใช่การรับรองเครดิตคาร์บอน
               </div>
             </div>
           </EditorialSection>
@@ -225,43 +225,37 @@ export default function HomePage() {
                 <div className="border-paper/15 relative min-h-[20rem] overflow-hidden border-b lg:col-span-7 lg:border-b-0 lg:border-r">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(199,214,161,0.75)_0_1.4px,transparent_1.8px)] opacity-50 [background-size:18px_18px]" />
                   <div className="absolute inset-x-[18%] bottom-[12%] top-[12%] rounded-[48%] bg-[radial-gradient(ellipse_at_50%_22%,rgba(199,214,161,0.42),transparent_48%),linear-gradient(90deg,transparent_46%,rgba(178,138,64,0.8)_48%,rgba(178,138,64,0.8)_52%,transparent_54%)] blur-[0.2px]" />
-                  <div className="border-lichen/40 bg-deep-forest/80 absolute left-6 top-6 rounded-full border px-3 py-1 font-mono text-[0.625rem] uppercase tracking-[0.1em] text-lichen">
-                    Inspectable 3D evidence
+                  <div className="border-lichen/40 bg-deep-forest/80 editorial-eyebrow-th absolute left-6 top-6 rounded-full border px-3 py-1 text-lichen">
+                    เปิดดูได้ทุกจุด
                   </div>
                   <p className="absolute bottom-6 left-6 max-w-xs font-display text-2xl leading-snug">
-                    เห็นจุดที่โมเดลเรียกว่า wood และ leaf ก่อนเชื่อตัวเลขปลายทาง
+                    ดูให้เห็นก่อนว่าระบบแบ่งลำต้นกับใบตรงไหน แล้วค่อยเชื่อตัวเลข
                   </p>
                 </div>
                 <dl className="space-y-0 lg:col-span-5">
                   <div className="border-paper/15 border-b p-6">
-                    <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-lichen">
-                      Default backend
-                    </dt>
+                    <dt className="editorial-eyebrow-th text-lichen">วิธีที่ใช้จริง</dt>
                     <dd className="mt-2 font-display text-3xl">{baseline.backend}</dd>
                     <p className="mt-2 text-sm leading-6 text-mist">
-                      Implemented baseline และเส้นทางหลักของ demo
+                      คำนวณจากรูปทรง เป็นเส้นทางหลักของระบบตอนนี้
                     </p>
                   </div>
                   <div className="border-paper/15 border-b p-6">
-                    <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-evidence-amber">
-                      Candidate status
-                    </dt>
+                    <dt className="editorial-eyebrow-th text-evidence-amber">ตัวที่ยังทดลองอยู่</dt>
                     <dd className="mt-2 font-display text-3xl">
                       {candidate.displayName} / {candidate.status}
                     </dd>
                     <p className="mt-2 text-sm leading-6 text-mist">
-                      ไม่ถูก promote เป็น default จากผลที่เห็นบนหน้านี้
+                      ผลยังสู้วิธีเดิมไม่ได้ จึงยังไม่ได้เอามาใช้จริง
                     </p>
                   </div>
                   <div className="p-6">
-                    <dt className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-lichen">
-                      Reproducible core demo
-                    </dt>
+                    <dt className="editorial-eyebrow-th text-lichen">ชุดสาธิตที่รันซ้ำได้</dt>
                     <dd className="mt-2 font-display text-3xl tabular-nums">
-                      {coreDemo.totalTrees} trees
+                      {coreDemo.totalTrees} ต้น
                     </dd>
                     <p className="mt-2 text-sm leading-6 text-mist">
-                      ค่าจาก deterministic demo ไม่ใช่ accuracy benchmark
+                      เป็นชุดข้อมูลตายตัวไว้ตรวจว่ารันซ้ำแล้วได้ผลเดิม ไม่ใช่ตัววัดความแม่นยำ
                     </p>
                   </div>
                 </dl>
