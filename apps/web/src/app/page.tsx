@@ -73,24 +73,22 @@ export default function HomePage() {
                 ประเมินคาร์บอนสะสม จากโครงสร้างทางกายภาพของต้นไม้
               </h1>
               <p className="mt-7 max-w-xl text-base leading-8 text-canopy sm:text-lg">
-                แพลตฟอร์มต้นแบบประเมิน DBH ความสูง ชีวมวล คาร์บอน และ CO₂e จาก 3D point cloud พร้อม
-                provenance ของ pipeline ที่ตรวจสอบย้อนกลับได้
+                ใส่ภาพสามมิติของต้นไม้เข้าไป ระบบจะวัดขนาดลำต้นกับความสูง
+                แล้วคำนวณว่าต้นไม้ต้นนั้นเก็บคาร์บอนไว้เท่าไร พร้อมบอกที่มาของตัวเลขทุกตัว
               </p>
-              {/* Both actions used to point at /demo, which cannot upload
-                  anything: the live upload panel only appears once the launcher
-                  hands the page a runtime token, so a visitor who clicked
-                  "อัปโหลด Point Cloud" arrived at a read-only fixture. The
-                  upload action now goes where uploading actually works. */}
+              {/* The viewer is open to visitors, so this goes straight there.
+                  It used to route through /login, which was true until the
+                  sign-in requirement was lifted and then quietly was not. */}
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button render={<Link href="/demo" />} variant="editorial" size="xl">
                   ดูหลักฐานที่ตรวจแฮชแล้ว
                 </Button>
                 <Button
-                  render={<Link href="/login?redirect=%2Fdashboard%2Fviewer" />}
+                  render={<Link href="/dashboard/viewer" />}
                   variant="editorialOutline"
                   size="xl"
                 >
-                  เข้าสู่ระบบเพื่ออัปโหลดไฟล์
+                  ลองอัปโหลดไฟล์ของคุณ
                 </Button>
               </div>
               {/* These three facts are the point of the whole project, and they
@@ -115,9 +113,7 @@ export default function HomePage() {
                       fact.shipped ? 'border-moss' : 'border-evidence-amber'
                     }`}
                   >
-                    <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-canopy">
-                      {fact.term}
-                    </dt>
+                    <dt className="editorial-eyebrow-th text-canopy">{fact.term}</dt>
                     <dd
                       className={`mt-1 text-sm font-semibold ${
                         fact.shipped ? 'text-forest-ink' : 'text-evidence-amber'
@@ -140,17 +136,11 @@ export default function HomePage() {
                 className="object-cover"
               />
               <div className="from-deep-forest/5 via-deep-forest/15 to-deep-forest/80 absolute inset-0 bg-gradient-to-b" />
-              <div className="bg-deep-forest/90 absolute bottom-6 right-6 max-w-[16rem] rounded-[0.875rem] border border-moss px-4 py-3 text-paper backdrop-blur-sm">
-                <p className="font-mono text-[0.5625rem] uppercase tracking-[0.08em]">
-                  Field observation / 01
-                </p>
-                <p className="mt-2 text-sm font-medium">จากโครงสร้าง 3D สู่คาร์บอน</p>
-              </div>
             </div>
           </div>
 
           <div className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-4 shadow-sm">
-            <p className="editorial-eyebrow px-1 pb-3">Measured evidence / do not round</p>
+            <p className="editorial-eyebrow-th px-1 pb-3 text-canopy">ตัวเลขที่วัดได้จริง — ไม่ปัดเศษ</p>
             <div className="grid gap-3 md:grid-cols-3">
               <EvidenceMetric
                 label="Wood IoU"

@@ -21,9 +21,7 @@ describe('Landing evidence contract', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
     expect(getAnchorHrefByLabel(markup, 'ดูหลักฐานที่ตรวจแฮชแล้ว')).toBe('/demo');
-    expect(getAnchorHrefByLabel(markup, 'เข้าสู่ระบบเพื่ออัปโหลดไฟล์')).toBe(
-      '/login?redirect=%2Fdashboard%2Fviewer',
-    );
+    expect(getAnchorHrefByLabel(markup, 'ลองอัปโหลดไฟล์ของคุณ')).toBe('/dashboard/viewer');
   });
 
   it('never points an upload promise at the read-only demo route', () => {
