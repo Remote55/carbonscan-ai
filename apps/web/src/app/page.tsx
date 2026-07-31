@@ -314,8 +314,13 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p className="font-semibold text-ember">ยังไม่ได้ทดสอบ</p>
+                  {/* TGO 2017 is named on purpose. The plain-language rewrite
+                      dropped it once, and it is the one line that shows this was
+                      checked against the Thai standard rather than against a
+                      paper from somewhere else. */}
                   <p className="mt-1">
-                    ระบบทั้งเส้นตั้งแต่รับไฟล์จนได้ค่าคาร์บอน · สมการชีวมวลกับข้อมูลต้นไม้จริงในไทย ·
+                    ระบบทั้งเส้นตั้งแต่รับไฟล์จนได้ค่าคาร์บอน · สมการชีวมวลกับข้อมูลต้นไม้จริงในไทย
+                    และค่าสัมประสิทธิ์ที่ยังต้องสอบทานกับแนวทาง TGO ปี 2017 ·
                     การแยกชนิดพันธุ์ที่ยังเป็นโครงเปล่า
                   </p>
                 </div>
