@@ -172,13 +172,13 @@ export default function HomePage() {
         <div data-editorial-beat="problem">
           <EditorialSection
             className="border-t border-hairline bg-paper"
-            eyebrow="01 / Problem"
-            title="ปัญหาที่การวัดแบบเดิมทิ้งไว้"
-            description="ตัวเลขคาร์บอนมีความหมายก็ต่อเมื่อย้อนกลับไปเห็นได้ว่า geometry มาจากไหน ผ่านขั้นตอนอะไร และข้อจำกัดอยู่ตรงจุดใด"
+            eyebrow="01"
+            title="ทำไมต้องวัดใหม่"
+            description="การวัดคาร์บอนต้นไม้ทุกวันนี้ต้องส่งคนเข้าไปวัดทีละต้น ใช้เวลา และพอได้ตัวเลขมาแล้วก็ตรวจย้อนไม่ได้ว่ามาจากต้นไหน วัดด้วยวิธีอะไร"
           >
             <div className="grid items-end gap-8 lg:grid-cols-12">
               <p className="max-w-3xl font-display text-3xl leading-snug text-deep-forest sm:text-4xl lg:col-span-8">
-                เราไม่ได้เริ่มจากคำว่า “AI แม่นยำ” แต่เริ่มจากหลักฐานที่กรรมการเปิดดู แล้วถามต่อได้
+                เราไม่ได้เริ่มจากคำว่า “AI แม่นยำ” แต่เริ่มจากหลักฐานที่ใครก็เปิดดู แล้วถามต่อได้
               </p>
               <div className="border-l border-moss pl-5 text-sm leading-7 text-canopy lg:col-span-4">
                 ขอบเขต prototype ยังไม่รวม mobile photogrammetry ที่ผ่านการ review, marketplace หรือ
@@ -191,9 +191,9 @@ export default function HomePage() {
         <div id="how" data-editorial-beat="journey">
           <EditorialSection
             className="bg-gallery-ivory"
-            eyebrow="02 / Measurement journey"
-            title="เส้นทางการวัดจากจุดสู่คาร์บอน"
-            description="หนึ่ง narrative ต่อเนื่องจากข้อมูลสามมิติไปสู่ค่าประมาณ แทนการแยก feature เป็นการ์ดที่ดูมีน้ำหนักเท่ากัน"
+            eyebrow="02"
+            title="วัดยังไง"
+            description="จากกลุ่มจุดสามมิติ กลายเป็นตัวเลขคาร์บอนได้ด้วยสี่ขั้น แต่ละขั้นบอกได้ว่าทำอะไรและใช้อะไรคำนวณ"
           >
             <ol className="border-y border-hairline">
               {JOURNEY.map((item) => (
@@ -216,9 +216,9 @@ export default function HomePage() {
         <div id="tech" data-editorial-beat="three-dimensional-evidence">
           <EditorialSection
             className="border-y border-hairline bg-paper"
-            eyebrow="03 / Inspect the structure"
-            title="หลักฐาน 3D ที่เปิดให้ตรวจสอบ"
-            description="3D viewer เป็นพื้นที่ตรวจผลที่ทำงานแล้ว: wood, leaf และ provenance อยู่ในเรื่องเดียวกัน โดยไม่เปลี่ยนสถานะโมเดลจากหลักฐานที่ยังไม่ผ่าน gate"
+            eyebrow="03"
+            title="ขอดูของจริง"
+            description="หมุนดูต้นไม้ได้เอง จุดสีน้ำตาลคือส่วนที่ระบบตัดสินว่าเป็นเนื้อไม้ สีเขียวคือใบ ถ้าไม่เห็นด้วยกับที่ระบบแบ่ง จะเห็นตั้งแต่ตรงนี้ ก่อนไปดูตัวเลข"
           >
             <div className="overflow-hidden rounded-[1.75rem] bg-deep-forest text-paper shadow-[0_24px_60px_-24px_rgba(14,42,29,0.45)]">
               <div className="grid lg:grid-cols-12">
@@ -273,9 +273,9 @@ export default function HomePage() {
         <div id="proof" data-editorial-beat="validation">
           <EditorialSection
             className="bg-gallery-ivory"
-            eyebrow="04 / Evidence with limitations"
-            title="Validation ที่รายงานตามขอบเขต"
-            description="ตัวเลขชุด Wan held-out บอกได้แค่ผลการแยกลำต้นกับใบ ของโมเดลที่ยังไม่ถูกใช้จริง และตัวเลขชุด DemoL 65 ต้น บอกได้แค่ความแม่นของการวัดขนาด — ทั้งสองชุดไม่ได้ตรวจไปป์ไลน์ทั้งเส้น ไม่ได้ตรวจสมการชีวมวล และไม่ได้ตรวจค่าคาร์บอน"
+            eyebrow="04"
+            title="เชื่อได้แค่ไหน"
+            description="เราทดสอบไปสามชุด แต่ละชุดบอกได้แค่บางเรื่อง และมีขั้นที่ยังไม่ได้ทดสอบเลย"
           >
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
               <div className="lg:col-span-4">
@@ -304,11 +304,26 @@ export default function HomePage() {
             </div>
 
             <div className="mt-8 flex flex-col justify-between gap-6 border-t border-hairline pt-8 sm:flex-row sm:items-center">
-              <p className="max-w-3xl text-base leading-7 text-canopy">
-                การจำแนกชนิดพันธุ์ยังเป็น Stub · ค่าคาร์บอนที่กักเก็บและ CO₂e เป็นค่าประมาณ ·
-                ค่าสัมประสิทธิ์ยังต้องสอบทานกับแนวทาง TGO ปี 2017 ·
-                และเราไม่ได้กล่าวอ้างเรื่องตลาดซื้อขายหรือการรับรองเครดิต
-              </p>
+              <div className="max-w-3xl space-y-4 text-base leading-7 text-canopy">
+                <div>
+                  <p className="font-semibold text-forest-ink">ทดสอบแล้ว</p>
+                  <p className="mt-1">
+                    การแยกลำต้นกับใบ — แต่ใช้ชุดข้อมูลเดียวกันนี้ตอนเลือกรอบเทรนที่ดีที่สุด
+                    ค่าที่ได้จึงเข้าข้างตัวเอง · การวัดขนาดต้นไม้จริง 65 ต้น — วัดขนาดอย่างเดียว
+                  </p>
+                </div>
+                <div>
+                  <p className="font-semibold text-ember">ยังไม่ได้ทดสอบ</p>
+                  <p className="mt-1">
+                    ระบบทั้งเส้นตั้งแต่รับไฟล์จนได้ค่าคาร์บอน · สมการชีวมวลกับข้อมูลต้นไม้จริงในไทย ·
+                    การแยกชนิดพันธุ์ที่ยังเป็นโครงเปล่า
+                  </p>
+                </div>
+                <p>
+                  ค่าคาร์บอนและ CO₂e ที่แสดงเป็นค่าประมาณ ไม่ใช่เครดิตคาร์บอนที่ผ่านการรับรอง
+                  และเราไม่ได้กล่าวอ้างเรื่องตลาดซื้อขายเครดิต
+                </p>
+              </div>
               <Button render={<Link href="/demo" />} variant="editorial" size="xl">
                 เปิดหลักฐานใน Demo
               </Button>

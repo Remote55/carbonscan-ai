@@ -68,10 +68,10 @@ describe('Landing evidence contract', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
     expect(markup.split('data-editorial-beat=').length - 1).toBe(4);
-    expect(markup).toContain('ปัญหาที่การวัดแบบเดิมทิ้งไว้');
-    expect(markup).toContain('เส้นทางการวัดจากจุดสู่คาร์บอน');
-    expect(markup).toContain('หลักฐาน 3D ที่เปิดให้ตรวจสอบ');
-    expect(markup).toContain('Validation ที่รายงานตามขอบเขต');
+    expect(markup).toContain('ทำไมต้องวัดใหม่');
+    expect(markup).toContain('วัดยังไง');
+    expect(markup).toContain('ขอดูของจริง');
+    expect(markup).toContain('เชื่อได้แค่ไหน');
   });
 
   // The header and footer used to sit inside <main>, which put a navigation and
