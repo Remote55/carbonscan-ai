@@ -4,13 +4,18 @@ export interface AppHeaderProps {
   tone?: 'paper' | 'transparent';
 }
 
+// The labels are the section headings, verbatim, in the order the page runs.
+// They used to read Technology / Method / Evidence, which named nothing a
+// visitor could find once the sections were renamed to the questions they
+// answer - a menu whose words do not appear at the destination is a menu that
+// has to be guessed at.
 const navigation = [
-  { href: '/#tech', label: 'Technology' },
-  { href: '/#how', label: 'Method' },
-  { href: '/#proof', label: 'Evidence' },
-  { href: '/dashboard/viewer', label: 'Workspace' },
-  { href: '/login', label: 'Sign in' },
-  { href: '/demo', label: 'Demo' },
+  { href: '/#how', label: 'วัดยังไง' },
+  { href: '/#tech', label: 'ขอดูของจริง' },
+  { href: '/#proof', label: 'เชื่อได้แค่ไหน' },
+  { href: '/dashboard/viewer', label: 'ลองอัปโหลดเอง' },
+  { href: '/demo', label: 'ตัวอย่างที่ตรวจแล้ว' },
+  { href: '/login', label: 'เข้าสู่ระบบ' },
 ];
 
 export function AppHeader({ tone = 'paper' }: AppHeaderProps) {
