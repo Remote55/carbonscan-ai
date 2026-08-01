@@ -24,7 +24,7 @@ export function ResultRail({ view, modeLabel }: ResultRailProps) {
         Carbon summary / {modeLabel}
       </p>
       <h2 className="mt-3 font-display text-2xl font-semibold leading-tight">
-        ผลคาร์บอนจากการวิเคราะห์
+        ผลการประเมินที่ผ่านการยืนยันความสมบูรณ์
       </h2>
 
       <div className="mt-5 rounded-xl bg-lichen p-[1.125rem]">
@@ -45,19 +45,24 @@ export function ResultRail({ view, modeLabel }: ResultRailProps) {
         />
         <MetricRow
           label={view.countsLabel.measured}
-          note="Measured"
+          note="ต้นไม้ที่ผ่านการประเมินโครงสร้างทางเรขาคณิตสำเร็จ"
           value={`${view.counts.measured.toLocaleString()} ต้น`}
         />
         {diagnosticsAvailable ? (
           <>
             <MetricRow
               label={view.countsLabel.detected}
-              note="Detected"
+              note="จำนวนต้นไม้ทั้งหมดที่ระบบจำแนกได้จาก Point Cloud"
               value={`${view.counts.detected?.toLocaleString()} ต้น`}
             />
+            {/* The supplied line said these fail a density threshold. There is
+                no density threshold in the pipeline - a segment is excluded
+                when the wood points come back empty or the QSM fit is invalid,
+                which is what the per-tree reason underneath already says. This
+                keeps the writer's sentence and its actual cause. */}
             <MetricRow
               label={view.countsLabel.excluded}
-              note="Excluded from carbon total"
+              note="ข้อมูลที่วัดค่า DBH หรือความสูงไม่สำเร็จ และไม่ถูกนำไปคำนวณยอดคาร์บอนสุทธิ"
               value={`${view.counts.excluded?.toLocaleString()} ต้น`}
             />
           </>

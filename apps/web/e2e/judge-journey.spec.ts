@@ -87,7 +87,11 @@ test.describe('frozen evidence route', () => {
 
   test('holds PointNet++ at experimental and never promotes it', async ({ page }) => {
     await expect(page.getByText('Experimental').first()).toBeVisible();
-    await expect(page.getByText('ยังไม่ถูกเลื่อนเป็นค่าตั้งต้น')).toBeVisible();
+    // Two halves, both required. "Experimental" alone would still pass on a
+    // page that quietly used the candidate to produce these numbers, so the
+    // backend the run actually used has to be on screen next to it.
+    await expect(page.getByText('กำหนดสิทธิ์อยู่ในระดับ')).toBeVisible();
+    await expect(page.getByText('อ้างอิงการประมวลผลผ่าน tlsep')).toBeVisible();
   });
 
   // Scoped to the table body. A page-wide text match counted four READYs,

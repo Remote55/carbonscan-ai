@@ -41,7 +41,7 @@ export interface ResultForView {
 
 const REASON_LABELS_TH: Record<ExcludedReasonCode, string> = {
   WOOD_EMPTY: 'ไม่พบจุดลำต้นหลังแยกลำต้น–ใบ จึงวัดขนาดไม่ได้',
-  QSM_INVALID: 'วัดค่า DBH หรือความสูงไม่สำเร็จ',
+  QSM_INVALID: 'ไม่สามารถประเมินค่า DBH หรือความสูงได้',
 };
 
 const COUNT_LABELS_TH = {

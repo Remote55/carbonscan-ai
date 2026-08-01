@@ -46,9 +46,9 @@ export function JudgeDemoHeader({ state }: { state: Exclude<DemoModeState, { kin
                 </>
               ) : (
                 <>
-                  ชุดหลักฐานที่ล็อกไว้
+                  โหมดสาธิตออฟไลน์
                   <br />
-                  ตรวจไฟล์ก่อนแสดงทุกครั้ง
+                  พร้อมระบบยืนยันความสมบูรณ์ของข้อมูล
                 </>
               )}
             </h1>

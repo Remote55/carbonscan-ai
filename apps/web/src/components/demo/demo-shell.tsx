@@ -356,12 +356,11 @@ function ModeChoice({
       ) : (
         <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="rounded-xl border border-moss bg-gallery-ivory p-5">
-            <p className="editorial-eyebrow-th text-moss">แนะนำ · ไม่ต้องพึ่งเครือข่าย</p>
+            <p className="editorial-eyebrow-th text-moss">แนะนำ ไม่ต้องพึ่งเครือข่าย</p>
             <h3 className="mt-3 font-display text-xl">ชุดตัวอย่างที่ตรวจแล้ว</h3>
             <p className="mt-2 text-sm leading-6 text-canopy">
-              ไฟล์ตัวอย่างและผลลัพธ์ในหน้านี้ เป็นชุดเดียวกับตอนที่เราทดสอบไว้
-              เบราว์เซอร์จะคำนวณลายนิ้วมือไฟล์เทียบกับที่บันทึกไว้ก่อนทุกครั้ง ถ้าไม่ตรง
-              หน้านี้จะไม่แสดงตัวเลขเลย
+              แสดงผลจากชุดทดสอบที่ยืนยันแล้ว เบราว์เซอร์จะตรวจสอบค่าแฮชทุกครั้ง
+              หากข้อมูลไม่ตรงกันระบบจะไม่แสดงผลลัพธ์
             </p>
           </div>
           <p className="max-w-xs text-sm leading-6 text-canopy">{frozenReason(mode.reason)}</p>
@@ -415,12 +414,10 @@ function ReliabilityPanel({
 
   return (
     <aside className="rounded-[1.25rem] bg-deep-forest p-6 text-paper sm:p-7">
-      <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-lichen">
-        Pre-flight / health
-      </p>
-      <h2 className="mt-3 font-display text-2xl">พร้อมสาธิตโดยไม่ซ่อนสถานะ</h2>
+      <p className="editorial-eyebrow-th text-lichen">ตรวจก่อนเริ่มสาธิต</p>
+      <h2 className="mt-3 font-display text-2xl">สถานะความพร้อมของระบบ</h2>
       <p className="mt-3 text-sm leading-6 text-mist">
-        ระบบแยกความพร้อมของเว็บ, API และหลักฐานออกจากกัน
+        ตรวจสอบความพร้อมการทำงานแยกส่วนระหว่าง Frontend, API และชุดข้อมูลอ้างอิง
       </p>
 
       <dl className="mt-6 space-y-2">
@@ -437,8 +434,13 @@ function ReliabilityPanel({
         ))}
       </dl>
 
+      {/* "ไม่ถูกแทนที่ด้วยผล live โดยอัตโนมัติ" is kept on the end of the
+          supplied line. Independence from the API is half the promise; the
+          other half is that a live run never silently overwrites the frozen
+          evidence, which is what lets a presenter fall back mid-demo. */}
       <p className="mt-5 text-xs leading-5 text-mist">
-        Frozen Evidence ไม่พึ่ง API และไม่ถูกแทนที่ด้วยผล live โดยอัตโนมัติ
+        โหมด Frozen Evidence ทำงานโดยอิสระจาก API เพื่อรับประกันความเสถียรระหว่างการสาธิต
+        และไม่ถูกแทนที่ด้วยผล live โดยอัตโนมัติ
       </p>
     </aside>
   );

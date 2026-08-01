@@ -74,7 +74,14 @@ describe('ProvenancePanel', () => {
     expect(markup).toContain('stub');
     expect(markup).toContain('PointNet++');
     expect(markup).toContain('Experimental');
-    expect(markup).toContain('ยังไม่ถูกเลื่อนเป็นค่าตั้งต้น');
+    // The claim moved from "not promoted to default" to naming the backend the
+    // run actually used. Both halves have to be present for that to say the
+    // same thing: the candidate is Experimental, and these numbers came from
+    // somewhere else.
+    expect(markup).toContain('กำหนดสิทธิ์อยู่ในระดับ');
+    expect(markup).toContain('อ้างอิงการประมวลผลผ่าน tlsep');
+    // The species line must still deny an AI inference, however it is worded.
+    expect(markup).toContain('ไม่อ้างอิงจากการอนุมานของโมเดล AI');
     expect(markup).toContain('Dataset scope');
     expect(markup).toContain('deterministic fixture');
     expect(markup).toContain('Allometric source');

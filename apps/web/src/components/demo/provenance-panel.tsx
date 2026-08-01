@@ -16,8 +16,8 @@ export function ProvenancePanel({ manifest }: { manifest: FrozenDemoManifest }) 
         ที่มาของผลลัพธ์
       </h2>
       <p className="mt-2 max-w-3xl leading-6 text-canopy">
-        ทุกค่าระบุจาก manifest ที่ผ่านการตรวจ checksum เพื่อให้ตามกลับไปยัง run และ artifact
-        ที่แสดงอยู่ได้
+        ข้อมูลอ้างอิงถูกดึงจาก Manifest ที่ผ่านการตรวจสอบ Checksum
+        เพื่อรับประกันความสามารถในการทำซ้ำ
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -65,15 +65,17 @@ export function ProvenancePanel({ manifest }: { manifest: FrozenDemoManifest }) 
           <AuditFact label="Pipeline version" value={manifest.pipeline.version} mono />
           <AuditFact label="Wood / leaf backend" value={manifest.pipeline.backend} mono />
           <p className="mt-3 border-t border-hairline pt-3 text-xs leading-5 text-canopy">
-            PointNet++ = <strong className="font-medium text-clay">Experimental</strong> ·
-            ยังไม่ถูกเลื่อนเป็นค่าตั้งต้น · backend ที่ run นี้ระบุคือ {manifest.pipeline.backend}
+            โมเดล PointNet++ กำหนดสิทธิ์อยู่ในระดับ{' '}
+            <strong className="font-medium text-clay">Experimental</strong>{' '}
+            โดยผลลัพธ์ชุดนี้อ้างอิงการประมวลผลผ่าน {manifest.pipeline.backend}
           </p>
         </AuditGroup>
 
         <AuditGroup title="Species status">
           <AuditFact label="Stage 7" value={manifest.pipeline.species} mono />
           <p className="mt-3 border-t border-hairline pt-3 text-xs leading-5 text-canopy">
-            Species classifier ยังเป็น stub จึงไม่อ้างว่าเป็นผลจำแนกชนิดพันธุ์จากโมเดลที่ผ่านการเทรน
+            ระบบจำแนกสายพันธุ์ปัจจุบันเป็นเพียงโครงสร้างจำลอง
+            ผลลัพธ์จึงไม่อ้างอิงจากการอนุมานของโมเดล AI
           </p>
         </AuditGroup>
 
