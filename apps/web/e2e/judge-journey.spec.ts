@@ -149,10 +149,11 @@ test.describe('landing actions can do what they say', () => {
       .click();
     await page.waitForLoadState('networkidle');
 
-    // Sign-in stands between the visitor and the upload, by design. What matters
-    // is that the journey continues to the workspace instead of dead-ending.
-    await expect(page).toHaveURL(/\/login/);
-    expect(new URL(page.url()).searchParams.get('redirect')).toBe('/dashboard/viewer');
+    // The viewer is open to visitors now, so the journey ends at the workspace
+    // rather than at a sign-in form. What matters is unchanged: the action that
+    // says upload arrives somewhere that accepts a file.
+    await expect(page).toHaveURL(/\/dashboard\/viewer/);
+    await expect(page.locator('input[type="file"]')).toHaveCount(1);
   });
 });
 

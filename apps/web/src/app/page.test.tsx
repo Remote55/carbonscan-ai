@@ -21,9 +21,7 @@ describe('Landing evidence contract', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
     expect(getAnchorHrefByLabel(markup, 'ดูหลักฐานที่ตรวจแฮชแล้ว')).toBe('/demo');
-    expect(getAnchorHrefByLabel(markup, 'เข้าสู่ระบบเพื่ออัปโหลดไฟล์')).toBe(
-      '/login?redirect=%2Fdashboard%2Fviewer',
-    );
+    expect(getAnchorHrefByLabel(markup, 'ลองอัปโหลดไฟล์ของคุณ')).toBe('/dashboard/viewer');
   });
 
   it('never points an upload promise at the read-only demo route', () => {
@@ -70,10 +68,10 @@ describe('Landing evidence contract', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
     expect(markup.split('data-editorial-beat=').length - 1).toBe(4);
-    expect(markup).toContain('ปัญหาที่การวัดแบบเดิมทิ้งไว้');
-    expect(markup).toContain('เส้นทางการวัดจากจุดสู่คาร์บอน');
-    expect(markup).toContain('หลักฐาน 3D ที่เปิดให้ตรวจสอบ');
-    expect(markup).toContain('Validation ที่รายงานตามขอบเขต');
+    expect(markup).toContain('ทำไมต้องวัดใหม่');
+    expect(markup).toContain('วัดยังไง');
+    expect(markup).toContain('ขอดูของจริง');
+    expect(markup).toContain('เชื่อได้แค่ไหน');
   });
 
   // The header and footer used to sit inside <main>, which put a navigation and
@@ -115,5 +113,24 @@ describe('Landing evidence contract', () => {
     // make it useless, and not permanently visible either.
     expect(skip).toContain('sr-only');
     expect(skip).toContain('focus:not-sr-only');
+  });
+
+  // JetBrains Mono has no Thai glyphs. Thai set in it silently falls back to
+  // another face at 11px, which is how this project shipped an unreadable
+  // label once already. This scans the rendered markup rather than the source,
+  // because the source is where the mistake looks correct.
+  it('never sets Thai text in the monospace face', () => {
+    const markup = renderToStaticMarkup(<HomePage />);
+
+    // Direct text inside an element carrying font-mono. Eyebrows and badges are
+    // all plain <p>/<span> with no nested markup, which is exactly this shape.
+    const monoWithText = /<(?:p|span|dt|dd)[^>]*class="[^"]*font-mono[^"]*"[^>]*>([^<]+)</g;
+    const THAI = /[\u0E00-\u0E7F]/;
+    const offenders: string[] = [];
+    for (const match of markup.matchAll(monoWithText)) {
+      if (THAI.test(match[1])) offenders.push(match[1].trim());
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
