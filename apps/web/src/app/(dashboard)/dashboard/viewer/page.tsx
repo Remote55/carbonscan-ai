@@ -10,6 +10,7 @@ import { ResultRail } from '@/components/demo/result-rail';
 import { ViewerAnalysisBadge } from '@/components/demo/mode-badge';
 import { TreeResultTable } from '@/components/demo/tree-result-table';
 import { CompactWorkspaceHeader } from '@/components/layout/compact-workspace-header';
+import { ScrollToTop } from '@/components/layout/scroll-to-top';
 import { ViewerStage } from '@/components/viewer/viewer-stage';
 import { CORE_DEMO_EVIDENCE } from '@/generated/core-demo-evidence';
 import { generateDemoTree, type PointCloud } from '@/lib/demo-pointcloud';
@@ -347,6 +348,7 @@ export default function ViewerPage() {
           ) : null}
         </div>
       </main>
+      <ScrollToTop />
     </>
   );
 }

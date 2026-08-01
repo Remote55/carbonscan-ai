@@ -80,8 +80,12 @@ test.describe('frozen evidence route', () => {
   });
 
   test('keeps the non-certification sentence on screen', async ({ page }) => {
+    // Reworded, same job: a number on this page must never be mistaken for a
+    // credit that can be traded. Matched on the clause that carries that, not
+    // on the whole sentence, so a rewrite has to keep the meaning rather than
+    // the wording.
     await expect(
-      page.getByText('ไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรอง', { exact: false }).first(),
+      page.getByText('ไม่สามารถใช้อ้างอิงเป็นคาร์บอนเครดิต', { exact: false }).first(),
     ).toBeVisible();
   });
 

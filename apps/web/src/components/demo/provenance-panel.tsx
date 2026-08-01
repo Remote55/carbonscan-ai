@@ -81,24 +81,24 @@ export function ProvenancePanel({ manifest }: { manifest: FrozenDemoManifest }) 
 
         <AuditGroup title="Allometric source">
           <p className="leading-6 text-canopy">
-            Pipeline รองรับ <span className="font-mono text-forest-ink">species_db.csv</span> และ
-            Chave fallback แต่ manifest นี้ไม่บันทึกว่า artifact ใช้เส้นทางใด
-            จึงไม่อ้างแหล่งสมการเฉพาะ run
+            ระบบรองรับฐานข้อมูล Species และสมการ Chave อย่างไรก็ตาม
+            ข้อมูลสาธิตนี้ไม่ได้ระบุที่มาของสมการแยกรายต้น
           </p>
         </AuditGroup>
 
         <AuditGroup title="Limitations" emphasis>
-          <p className="font-mono text-[0.625rem] uppercase tracking-wide text-evidence-amber">
-            Dataset scope
-          </p>
+          <p className="editorial-eyebrow-th text-evidence-amber">ขอบเขตข้อมูล</p>
           <p className="mt-2 leading-6 text-mist">
-            deterministic fixture สำหรับตรวจ reproducibility ไม่ใช่ชุดตรวจสอบ accuracy หรือ carbon
-            validation
+            ข้อมูลสาธิตแบบ Deterministic เพื่อยืนยันความเสถียรของระบบ ไม่ใช่ชุดประเมินความแม่นยำ
           </p>
-          <p className="mt-3 border-t border-canopy pt-3 leading-6 text-mist">
-            ค่า CO₂e เป็นค่าประมาณจากชีวมวล{' '}
+          <p className="editorial-eyebrow-th mt-4 text-evidence-amber">สถานะทางกฎหมาย</p>
+          {/* The certification denial keeps its emphasis. It is the one claim on
+              this panel that stops a number here being mistaken for a tradable
+              credit, and it reads as boilerplate the moment it is set flat. */}
+          <p className="mt-2 border-t border-canopy pt-3 leading-6 text-mist">
+            ค่า CO₂e เป็นเพียงการประเมินทางสถิติเบื้องต้น{' '}
             <strong className="font-semibold text-paper">
-              ไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรองหรือซื้อขายได้
+              ไม่สามารถใช้อ้างอิงเป็นคาร์บอนเครดิตเพื่อการทำธุรกรรมได้
             </strong>
           </p>
         </AuditGroup>

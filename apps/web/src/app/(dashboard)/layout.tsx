@@ -39,18 +39,25 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <img src="/logo.png" alt="TreeQ Carbon" className="h-8 w-8 object-contain" />
             <span className="font-display text-base font-bold tracking-tight">TreeQ Carbon</span>
           </Link>
+          {/* "Dashboard" pointed at an account page and a reviewer read it as
+              the way home, clicked, and landed somewhere they did not expect.
+              The labels now name their destinations: the front page is หน้าแรก
+              and goes to /, and the account page says what it holds. */}
           <div className="flex items-center gap-4 text-sm font-medium">
-            <Link
-              href="/dashboard"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Dashboard
+            <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
+              หน้าแรก
             </Link>
             <Link
               href="/dashboard/viewer"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
               3D Viewer
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              บัญชีของฉัน
             </Link>
             <SignOutButton signedIn={signedIn} />
           </div>

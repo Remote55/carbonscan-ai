@@ -82,12 +82,19 @@ describe('ProvenancePanel', () => {
     expect(markup).toContain('อ้างอิงการประมวลผลผ่าน tlsep');
     // The species line must still deny an AI inference, however it is worded.
     expect(markup).toContain('ไม่อ้างอิงจากการอนุมานของโมเดล AI');
-    expect(markup).toContain('Dataset scope');
-    expect(markup).toContain('deterministic fixture');
+    // The scope box says the same two things in Thai now: the fixture proves
+    // repeatability, and it is not an accuracy benchmark. Both are asserted so
+    // the second cannot quietly drop out and leave a demo set reading as
+    // validation.
+    expect(markup).toContain('ขอบเขตข้อมูล');
+    expect(markup).toContain('Deterministic เพื่อยืนยันความเสถียร');
+    expect(markup).toContain('ไม่ใช่ชุดประเมินความแม่นยำ');
     expect(markup).toContain('Allometric source');
-    expect(markup).toContain('species_db.csv');
+    expect(markup).toContain('ไม่ได้ระบุที่มาของสมการแยกรายต้น');
     expect(markup).toContain('Limitations');
-    expect(markup).toContain('ไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรองหรือซื้อขายได้');
+    // The certification denial is the one line on this panel that stops a
+    // number here being read as tradable. Worded differently, still required.
+    expect(markup).toContain('ไม่สามารถใช้อ้างอิงเป็นคาร์บอนเครดิตเพื่อการทำธุรกรรมได้');
   });
 
   it('keeps critical small audit labels at WCAG AA contrast on light evidence surfaces', () => {

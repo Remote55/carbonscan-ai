@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { DemoShellController } from '@/components/demo/demo-shell';
+import { ScrollToTop } from '@/components/layout/scroll-to-top';
 
 export const metadata: Metadata = {
   title: 'Verified Judge Demo',
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function DemoPage() {
-  return <DemoShellController />;
+  return (
+    <>
+      <DemoShellController />
+      <ScrollToTop />
+    </>
+  );
 }

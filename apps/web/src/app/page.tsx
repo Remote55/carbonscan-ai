@@ -5,6 +5,7 @@ import { EditorialSection } from '../components/editorial/editorial-section';
 import { TechnicalDetail } from '../components/editorial/technical-detail';
 import { EvidenceMetric } from '../components/evidence/evidence-metric';
 import { AppHeader } from '../components/layout/app-header';
+import { ScrollToTop } from '../components/layout/scroll-to-top';
 import { Button } from '../components/ui/button';
 import { CORE_DEMO_EVIDENCE } from '../generated/core-demo-evidence';
 import { VISUAL_ASSETS } from '../lib/visual-assets';
@@ -390,6 +391,7 @@ export default function HomePage() {
           <span>Prototype for NSC 2026 · หมวด 14</span>
         </div>
       </footer>
+      <ScrollToTop />
     </div>
   );
 }

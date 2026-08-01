@@ -477,10 +477,23 @@ function ResultSummary({ view }: { view: ResultViewModel }) {
             {view.countsLabel.measured} {number.format(view.counts.measured)} ·{' '}
             {view.countsLabel.excluded} {number.format(view.counts.excluded ?? 0)}
           </p>
-          <p className="mt-2 leading-6 text-canopy">
-            “ตรวจพบ” คือ segment ต้นไม้ทั้งหมด; “คำนวณสำเร็จ” คือแถวที่ผ่านการวัด geometry;
-            “ไม่รวมผล” คือ segment ที่วัดไม่ได้และไม่ถูกนำไปรวมยอดคาร์บอน
-          </p>
+          {/* Three definitions on one line, each wrapped in quotation marks and
+              joined by semicolons, at the designer's report that it reads as
+              machine-written. It does. A definition list is what this was. */}
+          <dl className="mt-2 space-y-1 leading-6 text-canopy">
+            <div className="flex gap-2">
+              <dt className="font-medium text-forest-ink">{view.countsLabel.detected}</dt>
+              <dd>ต้นไม้ทั้งหมดที่ระบบจำแนกได้</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="font-medium text-forest-ink">{view.countsLabel.measured}</dt>
+              <dd>ต้นที่วัดขนาดและความสูงสำเร็จ</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="font-medium text-forest-ink">{view.countsLabel.excluded}</dt>
+              <dd>ต้นที่วัดไม่ได้ และไม่ถูกนำไปรวมยอดคาร์บอน</dd>
+            </div>
+          </dl>
           {view.excludedRows.length > 0 && (
             <ul className="mt-3 space-y-1 text-canopy">
               {view.excludedRows.map((row) => (
