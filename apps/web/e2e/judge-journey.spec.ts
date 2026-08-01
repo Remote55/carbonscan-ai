@@ -201,11 +201,17 @@ test.describe('landmarks and keyboard entry', () => {
 });
 
 test.describe('results workspace', () => {
+  // The designer asked for this label in Thai and for the badge repeating it to
+  // go. Both were done; what this guards is the part that is not cosmetic. The
+  // sample tree is generated, and a judge looking at it has to be told so on the
+  // same screen. Matched on the clause that carries that, so a future rewording
+  // has to keep the meaning rather than the wording.
   test('marks the synthetic preview as not being pipeline evidence', async ({ page }) => {
     await page.goto('/dashboard/viewer');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('SYNTHETIC · NOT PIPELINE EVIDENCE')).toBeVisible();
+    await expect(page.getByText('ตัวอย่างการจำลอง', { exact: false })).toBeVisible();
+    await expect(page.getByText('ไม่ใช่ผลจาก pipeline', { exact: false })).toBeVisible();
   });
 
   // Below 1024 the viewer has to come before the rail: the point cloud is the

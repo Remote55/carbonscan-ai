@@ -24,9 +24,10 @@ export function ViewerStage({
     >
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-4 pt-5 sm:px-6">
         <div className="min-w-0">
-          <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-lichen">
-            Tree 3D / {evidenceLabel}
-          </p>
+          {/* Thai, and therefore not font-mono: the mono face carries no Thai
+              glyphs, so it would fall back silently and render a size smaller
+              than everything around it. */}
+          <p className="editorial-eyebrow-th text-lichen">{evidenceLabel}</p>
           <h2 className="mt-1 truncate text-sm font-medium text-paper">{title}</h2>
         </div>
         {children}
@@ -36,7 +37,7 @@ export function ViewerStage({
         positions={positions}
         classes={classes}
         pointSize={pointSize}
-        className="border-lichen/15 h-[30rem] w-full border-y"
+        className="border-lichen/15 h-[30rem] w-full border-y lg:h-[40rem]"
       />
 
       <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">

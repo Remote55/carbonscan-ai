@@ -42,7 +42,7 @@ export default async function DashboardPage() {
             className="group rounded-xl border border-primary/30 bg-primary/5 p-6 transition-all hover:border-primary/60 hover:shadow-md"
           >
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold">🌲 ดูโมเดล 3 มิติ</h2>
+              <h2 className="text-lg font-semibold">🌲 โมเดล 3 มิติ</h2>
               <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
                 พร้อมใช้
               </span>
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
               หรือลากไฟล์ .ply ที่แยกลำต้นกับใบแล้วเข้ามาดู
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary transition-all group-hover:gap-2">
-              เปิดหน้าดูโมเดล <span aria-hidden>→</span>
+              เปิดโมเดล 3 มิติ <span aria-hidden>→</span>
             </span>
           </Link>
 

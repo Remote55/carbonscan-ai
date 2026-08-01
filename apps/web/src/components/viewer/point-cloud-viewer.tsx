@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { Color, SRGBColorSpace } from "three";
 
 import { CLASS_GROUND, CLASS_LEAF, CLASS_WOOD } from "@/lib/demo-pointcloud";
+import { frameCloud } from "@/lib/viewer-framing";
 
 /** RGB (0–1) per class — wood (brown), leaf (green), ground (tan). sRGB, matches the legend. */
 export const CLASS_COLORS: Record<number, [number, number, number]> = {
@@ -38,8 +39,8 @@ export interface PointCloudViewerProps {
 function PointCloud({
   positions,
   classes,
-  pointSize = 0.05,
-}: Pick<PointCloudViewerProps, "positions" | "classes" | "pointSize">) {
+  pointSize,
+}: Pick<PointCloudViewerProps, "positions" | "classes"> & { pointSize: number }) {
   const colors = useMemo(() => {
     const arr = new Float32Array(classes.length * 3);
     for (let i = 0; i < classes.length; i++) {
@@ -73,15 +74,25 @@ export function PointCloudViewer({
   pointSize,
   className,
 }: PointCloudViewerProps) {
+  const framing = useMemo(() => frameCloud(positions), [positions]);
+
   return (
     <div className={className}>
+      {/* The camera prop is read when the canvas is created and ignored after,
+          so opening a differently sized cloud has to remount it. That is the
+          same moment the geometry is replaced anyway. */}
       <Canvas
-        camera={{ position: [10, 8, 14], fov: 50 }}
+        key={`${framing.position.join()}|${framing.target.join()}`}
+        camera={{ position: framing.position, fov: 50 }}
         style={{ background: "#0f1411" }}
         dpr={[1, 2]}
       >
-        <PointCloud positions={positions} classes={classes} pointSize={pointSize} />
-        <OrbitControls target={[0, 5, 0]} enableDamping makeDefault />
+        <PointCloud
+          positions={positions}
+          classes={classes}
+          pointSize={pointSize ?? framing.pointSize}
+        />
+        <OrbitControls target={framing.target} enableDamping makeDefault />
       </Canvas>
     </div>
   );

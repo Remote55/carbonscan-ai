@@ -129,7 +129,7 @@ export default function ViewerPage() {
   return (
     <>
       <CompactWorkspaceHeader
-        title="ผลการวิเคราะห์โมเดล 3 มิติ"
+        title="ตรวจสอบแบบจำลอง 3 มิติ"
         mode={
           loaded === null
             ? 'ตัวอย่างจำลอง'
@@ -177,7 +177,7 @@ export default function ViewerPage() {
                   </Button>
                   {loaded ? (
                     <Button type="button" variant="outline" onClick={resetToDemo}>
-                      กลับไปตัวอย่าง synthetic
+                      กลับไปตัวอย่างจำลอง
                     </Button>
                   ) : null}
                 </div>
@@ -205,12 +205,18 @@ export default function ViewerPage() {
             <div className={resultView ? 'lg:col-span-8' : ''}>
               <ViewerStage
                 title={loaded === null ? 'ต้นไม้ตัวอย่างจำลอง' : (fileName ?? 'ไฟล์ที่อัปโหลด')}
+                /* The designer asked for this line in Thai and shorter, and for
+                   the SYNTHETIC pill beside it to go. What it may not lose is
+                   what it is for: a judge must never take the sample tree for
+                   pipeline output. So the disclosure moves into the Thai line
+                   and the pill, which only repeated it, is now the point
+                   count. */
                 evidenceLabel={
                   loaded === null
-                    ? 'SYNTHETIC · NOT PIPELINE EVIDENCE'
+                    ? 'ตัวอย่างการจำลอง · ไม่ใช่ผลจาก pipeline'
                     : analysis === null
-                      ? 'BROWSER PLY · NOT ANALYZED'
-                      : 'LIVE ANALYSIS · VIEWER IDENTITY UNVERIFIED'
+                      ? 'ไฟล์จากเครื่องคุณ · ยังไม่ได้วิเคราะห์'
+                      : 'วิเคราะห์แล้ว · ภาพ 3 มิตินี้ยังไม่ได้ตรวจ hash'
                 }
                 positions={cloud.positions}
                 classes={cloud.classes}
@@ -218,8 +224,8 @@ export default function ViewerPage() {
                 <ViewerAnalysisBadge
                   analysis={analysis}
                   fallback={
-                    <span className="rounded-full border border-moss px-3 py-1.5 font-mono text-[0.625rem] uppercase tracking-wide text-lichen">
-                      {loaded === null ? 'Synthetic' : `${nPoints.toLocaleString()} points`}
+                    <span className="editorial-eyebrow-th rounded-full border border-moss px-3 py-1.5 text-lichen">
+                      {nPoints.toLocaleString()} จุด
                     </span>
                   }
                 />
