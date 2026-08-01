@@ -10,11 +10,11 @@ export interface AppHeaderProps {
 // answer - a menu whose words do not appear at the destination is a menu that
 // has to be guessed at.
 const navigation = [
-  { href: '/#how', label: 'วัดยังไง' },
-  { href: '/#tech', label: 'ขอดูของจริง' },
-  { href: '/#proof', label: 'เชื่อได้แค่ไหน' },
-  { href: '/dashboard/viewer', label: 'ลองอัปโหลดเอง' },
-  { href: '/demo', label: 'ตัวอย่างที่ตรวจแล้ว' },
+  { href: '/#how', label: 'วิธีทำงาน' },
+  { href: '/#tech', label: 'ตรวจสอบโมเดล' },
+  { href: '/#proof', label: 'ความแม่นยำ' },
+  { href: '/dashboard/viewer', label: 'ทดลองอัปโหลดไฟล์' },
+  { href: '/demo', label: 'ดูตัวอย่างผลการประเมิน' },
   { href: '/login', label: 'เข้าสู่ระบบ' },
 ];
 

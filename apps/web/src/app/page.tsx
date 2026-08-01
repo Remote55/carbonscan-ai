@@ -16,15 +16,16 @@ const JOURNEY = [
   {
     step: '01',
     title: 'รับภาพสามมิติของต้นไม้',
-    description:
-      'ไฟล์จากเครื่องสแกนเลเซอร์ หรือจากการถ่ายต้นไม้หลายมุมแล้วประกอบเป็นทรงสามมิติ ระบบแสดงเป็นกลุ่มจุดที่หมุนดูได้',
+    description: 'รองรับข้อมูล Point Cloud จากเครื่องสแกน LiDAR หรือภาพถ่ายทางอากาศ',
     technical: ['point cloud รูปแบบ .ply', 'จำกัด 2 ล้านจุด หรือ 100 MB ต่อไฟล์'],
   },
   {
     step: '02',
     title: 'แยกลำต้นออกจากใบ',
+    // "อย่างแม่นยำ" was in the supplied copy and is out, at the writer's
+    // agreement: Wood IoU is 0.418 and that number is printed on this page.
     description:
-      'ต้องรู้ก่อนว่าจุดไหนคือเนื้อไม้ จุดไหนคือใบ เพราะคาร์บอนเก็บอยู่ในเนื้อไม้เป็นหลัก ตอนนี้ใช้วิธีคำนวณจากรูปทรง ยังไม่ได้ใช้ AI',
+      'คัดแยกจุดที่เป็นลำต้นออกจากใบไม้ด้วยอัลกอริทึมเชิงเรขาคณิต เพื่อลดความคลาดเคลื่อนในการคำนวณชีวมวล',
     technical: [
       `${baseline.backend} เป็นตัวที่ใช้จริง`,
       `${candidate.displayName} ยังเป็น ${candidate.status} ไม่ได้ถูกนำมาใช้`,
@@ -35,7 +36,7 @@ const JOURNEY = [
     step: '03',
     title: 'วัดขนาดต้นไม้',
     description:
-      'วัดเส้นผ่านศูนย์กลางลำต้นที่ระดับอก ความสูงทั้งต้น และปริมาตรเนื้อไม้ จากรูปทรงที่แยกได้',
+      'ประเมินขนาดลำต้นและความสูงรวม และสร้างแบบจำลองทรงกระบอก เพื่อคำนวณปริมาตรเนื้อไม้',
     technical: [
       'DBH ที่ระดับ 1.3 เมตร',
       'ปริมาตรจาก QSM ทรงกระบอก',
@@ -46,7 +47,7 @@ const JOURNEY = [
     step: '04',
     title: 'คำนวณคาร์บอน',
     description:
-      'เอาขนาดที่วัดได้เข้าสมการมาตรฐาน ได้เป็นน้ำหนักชีวมวล คาร์บอน และ CO₂ พร้อมบันทึกว่าใช้สมการไหน',
+      'คำนวณปริมาณชีวมวล คาร์บอนสะสม และ CO₂e ตามสมการแอลโลเมตริกอ้างอิงมาตรฐาน พร้อมระบบบันทึกแหล่งที่มาของข้อมูล',
     technical: [
       'สมการ Chave 2014',
       'ชีวมวลใต้ดิน = เหนือดิน × 0.24',
@@ -93,23 +94,29 @@ export default function HomePage() {
               <h1 className="mt-7 max-w-[15ch] text-balance font-display text-[2.6rem] font-medium leading-[1.14] tracking-[-0.03em] text-forest-ink sm:text-5xl lg:text-[3.4rem]">
                 ประเมินคาร์บอนสะสม จากโครงสร้างทางกายภาพของต้นไม้
               </h1>
+              {/* "ในทุกขั้นตอน" was in the supplied copy and is out, at the
+                  writer's agreement. The supervisor read that exact claim on
+                  the demo page and asked whether we really state a limit at
+                  every step. We do not - there are limits recorded for three
+                  validation sets and stages with none - so the page says
+                  "ของแต่ละขั้นตอน" instead. */}
               <p className="mt-7 max-w-xl text-base leading-8 text-canopy sm:text-lg">
-                ใส่ภาพสามมิติของต้นไม้เข้าไป ระบบจะวัดขนาดลำต้นกับความสูง
-                แล้วคำนวณว่าต้นไม้ต้นนั้นเก็บคาร์บอนไว้เท่าไร พร้อมบอกที่มาของตัวเลขทุกตัว
+                เพียงอัปโหลดข้อมูล Point Cloud ระบบจะวิเคราะห์ขนาดและโครงสร้างเพื่อประเมินปริมาณ
+                คาร์บอนสะสมอัตโนมัติ พร้อมแสดงหลักฐานอ้างอิงของแต่ละขั้นตอนอย่างโปร่งใส
               </p>
               {/* The viewer is open to visitors, so this goes straight there.
                   It used to route through /login, which was true until the
                   sign-in requirement was lifted and then quietly was not. */}
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button render={<Link href="/demo" />} variant="editorial" size="xl">
-                  ดูหลักฐานที่ตรวจแฮชแล้ว
+                  ดูตัวอย่างผลการประเมิน
                 </Button>
                 <Button
                   render={<Link href="/dashboard/viewer" />}
                   variant="editorialOutline"
                   size="xl"
                 >
-                  ลองอัปโหลดไฟล์ของคุณ
+                  ทดลองอัปโหลดไฟล์
                 </Button>
               </div>
               {/* These three facts are the point of the whole project, and they
@@ -161,7 +168,13 @@ export default function HomePage() {
           </div>
 
           <div className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-4 shadow-sm">
-            <p className="editorial-eyebrow-th px-1 pb-3 text-canopy">ตัวเลขที่วัดได้จริง — ไม่ปัดเศษ</p>
+            {/* "ไม่ปัดเศษ" stays on the end of the supplied label. The three
+                numbers below are printed at full precision on purpose, and the
+                label is what tells a reader that is deliberate rather than
+                sloppy. */}
+            <p className="editorial-eyebrow-th px-1 pb-3 text-canopy">
+              ผลการประเมินจากชุดทดสอบอิสระ — แสดงเต็มไม่ปัดเศษ
+            </p>
             <div className="grid gap-3 md:grid-cols-3">
               <EvidenceMetric
                 label="Wood IoU"
@@ -186,12 +199,13 @@ export default function HomePage() {
           <EditorialSection
             className="border-t border-hairline bg-paper"
             eyebrow="01"
-            title="ทำไมต้องวัดใหม่"
-            description="การวัดคาร์บอนต้นไม้ทุกวันนี้ต้องส่งคนเข้าไปวัดทีละต้น ใช้เวลา และพอได้ตัวเลขมาแล้วก็ตรวจย้อนไม่ได้ว่ามาจากต้นไหน วัดด้วยวิธีอะไร"
+            title="ข้อจำกัดของการสำรวจแบบเดิม"
+            description="การประเมินคาร์บอนในปัจจุบันต้องอาศัยการลงพื้นที่สำรวจทีละต้น ซึ่งใช้ต้นทุนสูง ใช้เวลานาน และยากต่อการตรวจสอบแหล่งที่มาของตัวเลขในภายหลัง"
           >
             <div className="grid items-end gap-8 lg:grid-cols-12">
               <p className="max-w-3xl font-display text-3xl leading-snug text-deep-forest sm:text-4xl lg:col-span-8">
-                เราไม่ได้เริ่มจากคำว่า “AI แม่นยำ” แต่เริ่มจากหลักฐานที่ใครก็เปิดดู แล้วถามต่อได้
+                เราไม่ได้มุ่งเน้นแค่ความแม่นยำของ AI
+                แต่เราสร้างแพลตฟอร์มที่เปิดหลักฐานให้ตรวจสอบย้อนกลับได้
               </p>
               <div className="border-l border-moss pl-5 text-sm leading-7 text-canopy lg:col-span-4">
                 ตอนนี้ทำได้กับไฟล์สามมิติที่มีอยู่แล้วเท่านั้น ยังไม่รองรับการถ่ายด้วยมือถือ
@@ -205,8 +219,8 @@ export default function HomePage() {
           <EditorialSection
             className="bg-gallery-ivory"
             eyebrow="02"
-            title="วัดยังไง"
-            description="จากกลุ่มจุดสามมิติ กลายเป็นตัวเลขคาร์บอนได้ด้วยสี่ขั้น แต่ละขั้นบอกได้ว่าทำอะไรและใช้อะไรคำนวณ"
+            title="วิธีทำงาน"
+            description="ระบบแปลงข้อมูล Point Cloud สู่ตัวเลขคาร์บอนสะสมผ่าน 4 ขั้นตอนหลัก โดยระบุเทคนิคและสมการที่ใช้อย่างชัดเจน"
           >
             <ol className="border-y border-hairline">
               {JOURNEY.map((item) => (
@@ -240,8 +254,8 @@ export default function HomePage() {
           <EditorialSection
             className="border-y border-hairline bg-paper"
             eyebrow="03"
-            title="ขอดูของจริง"
-            description="หมุนดูต้นไม้ได้เอง จุดสีน้ำตาลคือส่วนที่ระบบตัดสินว่าเป็นเนื้อไม้ สีเขียวคือใบ ถ้าไม่เห็นด้วยกับที่ระบบแบ่ง จะเห็นตั้งแต่ตรงนี้ ก่อนไปดูตัวเลข"
+            title="ตรวจสอบโมเดล"
+            description="ผู้ใช้สามารถหมุนดูโมเดล 3 มิติ เพื่อตรวจสอบผลการจำแนกส่วนลำต้นเป็นสีน้ำตาลและใบเป็นสีเขียวได้อย่างอิสระ ให้คุณมั่นใจในความถูกต้องของโครงสร้างก่อนเข้าสู่กระบวนการคำนวณชีวมวล"
           >
             <div className="overflow-hidden rounded-[1.75rem] bg-deep-forest text-paper shadow-[0_24px_60px_-24px_rgba(14,42,29,0.45)]">
               <div className="grid lg:grid-cols-12">
@@ -260,7 +274,7 @@ export default function HomePage() {
                     <dt className="editorial-eyebrow-th text-lichen">วิธีที่ใช้จริง</dt>
                     <dd className="mt-2 font-display text-3xl">{baseline.backend}</dd>
                     <p className="mt-2 text-sm leading-6 text-mist">
-                      คำนวณจากรูปทรง เป็นเส้นทางหลักของระบบตอนนี้
+                      วิเคราะห์ด้วยหลักการทางเรขาคณิต
                     </p>
                   </div>
                   <div className="border-paper/15 border-b p-6">
@@ -268,8 +282,13 @@ export default function HomePage() {
                     <dd className="mt-2 font-display text-3xl">
                       {candidate.displayName} / {candidate.status}
                     </dd>
+                    {/* The supplied line read "อยู่ระหว่างเตรียมความพร้อมสู่การ
+                        ใช้งานจริง", which reads as on track to ship. The
+                        recorded verdict is FAIL_METRICS - it lost to the
+                        baseline - so this says that instead, at the writer's
+                        agreement. */}
                     <p className="mt-2 text-sm leading-6 text-mist">
-                      ผลยังสู้วิธีเดิมไม่ได้ จึงยังไม่ได้เอามาใช้จริง
+                      โมเดลทดลอง ผลยังไม่ผ่านเกณฑ์ จึงยังไม่ได้ใช้งานจริง
                     </p>
                   </div>
                   <div className="p-6">
@@ -278,7 +297,7 @@ export default function HomePage() {
                       {coreDemo.totalTrees} ต้น
                     </dd>
                     <p className="mt-2 text-sm leading-6 text-mist">
-                      เป็นชุดข้อมูลตายตัวไว้ตรวจว่ารันซ้ำแล้วได้ผลเดิม ไม่ใช่ตัววัดความแม่นยำ
+                      ชุดข้อมูลสาธิตเพื่อยืนยันความเสถียร มีผลลัพธ์คงที่เสมอ
                     </p>
                   </div>
                 </dl>
@@ -291,8 +310,8 @@ export default function HomePage() {
           <EditorialSection
             className="bg-gallery-ivory"
             eyebrow="04"
-            title="เชื่อได้แค่ไหน"
-            description="เราทดสอบไปสามชุด แต่ละชุดบอกได้แค่บางเรื่อง และมีขั้นที่ยังไม่ได้ทดสอบเลย"
+            title="ความแม่นยำ"
+            description="ผลการประเมินอ้างอิงจากการทดสอบชุดข้อมูล 3 ชุด โดยเราเปิดเผยข้อจำกัดของระบบอย่างตรงไปตรงมา เพื่อให้เห็นขอบเขตที่แพลตฟอร์มสามารถทำได้ในปัจจุบัน"
           >
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
               <div className="lg:col-span-4">
@@ -326,10 +345,13 @@ export default function HomePage() {
                   <p className="font-semibold text-forest-ink">ทดสอบแล้ว</p>
                   <ul className="mt-1 list-disc space-y-1 pl-5">
                     <li>
-                      การแยกลำต้นกับใบ — แต่ใช้ชุดข้อมูลเดียวกันนี้ตอนเลือกรอบเทรนที่ดีที่สุด
-                      ค่าที่ได้จึงเข้าข้างตัวเอง
+                      การแยกลำต้นและใบ: อ้างอิงผลลัพธ์จากรอบการฝึกที่ดีที่สุด
+                      ซึ่งอาจมีค่าประเมินสูงกว่าการใช้งานจริงเล็กน้อย
                     </li>
-                    <li>การวัดขนาดต้นไม้จริง 65 ต้น — วัดขนาดอย่างเดียว</li>
+                    <li>
+                      การประเมินโครงสร้าง: ทดสอบเฉพาะความแม่นยำทางเรขาคณิต ขนาดและความสูง
+                      จากข้อมูลต้นไม้จริง 65 ต้น
+                    </li>
                   </ul>
                 </div>
                 <div>
@@ -340,11 +362,12 @@ export default function HomePage() {
                       paper from somewhere else. */}
                   <ul className="mt-1 list-disc space-y-1 pl-5">
                     <li>ระบบทั้งเส้นตั้งแต่รับไฟล์จนได้ค่าคาร์บอน</li>
-                    <li>
-                      สมการชีวมวลกับข้อมูลต้นไม้จริงในไทย
-                      และค่าสัมประสิทธิ์ที่ยังต้องสอบทานกับแนวทาง TGO ปี 2017
-                    </li>
                     <li>การแยกชนิดพันธุ์ที่ยังเป็นโครงเปล่า</li>
+                    <li>
+                      ระบบจำเป็นต้องได้รับการทดสอบภาคสนามเพิ่มเติมกับชนิดพันธุ์ไม้ในป่าเขตร้อนของไทย
+                      รวมถึงการสอบเทียบสมการกับแนวทางขององค์การบริหารจัดการก๊าซเรือนกระจก (TGO ปี 2017)
+                      เพื่อเตรียมความพร้อมสู่การเป็นเครื่องมือ Digital MRV ในอนาคต
+                    </li>
                   </ul>
                 </div>
                 <p>

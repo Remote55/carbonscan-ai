@@ -20,8 +20,8 @@ describe('Landing evidence contract', () => {
   it('sends the evidence action to the demo and the upload action where uploading works', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
-    expect(getAnchorHrefByLabel(markup, 'ดูหลักฐานที่ตรวจแฮชแล้ว')).toBe('/demo');
-    expect(getAnchorHrefByLabel(markup, 'ลองอัปโหลดไฟล์ของคุณ')).toBe('/dashboard/viewer');
+    expect(getAnchorHrefByLabel(markup, 'ดูตัวอย่างผลการประเมิน')).toBe('/demo');
+    expect(getAnchorHrefByLabel(markup, 'ทดลองอัปโหลดไฟล์')).toBe('/dashboard/viewer');
   });
 
   it('never points an upload promise at the read-only demo route', () => {
@@ -68,10 +68,10 @@ describe('Landing evidence contract', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
     expect(markup.split('data-editorial-beat=').length - 1).toBe(4);
-    expect(markup).toContain('ทำไมต้องวัดใหม่');
-    expect(markup).toContain('วัดยังไง');
-    expect(markup).toContain('ขอดูของจริง');
-    expect(markup).toContain('เชื่อได้แค่ไหน');
+    expect(markup).toContain('ข้อจำกัดของการสำรวจแบบเดิม');
+    expect(markup).toContain('วิธีทำงาน');
+    expect(markup).toContain('ตรวจสอบโมเดล');
+    expect(markup).toContain('ความแม่นยำ');
   });
 
   // The header and footer used to sit inside <main>, which put a navigation and
