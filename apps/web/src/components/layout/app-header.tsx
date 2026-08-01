@@ -13,7 +13,9 @@ const navigation = [
   { href: '/#how', label: 'วิธีทำงาน' },
   { href: '/#tech', label: 'ตรวจสอบโมเดล' },
   { href: '/#proof', label: 'ความแม่นยำ' },
-  { href: '/dashboard/viewer', label: 'ทดลองอัปโหลดไฟล์' },
+  // The upload link is out of the menu at the team lead's request. The hero
+  // button still carries it, and the browser journey follows whichever upload
+  // link comes first, so that button is now the one it clicks.
   { href: '/demo', label: 'ดูตัวอย่างผลการประเมิน' },
   { href: '/login', label: 'เข้าสู่ระบบ' },
 ];

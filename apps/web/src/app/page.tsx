@@ -202,16 +202,17 @@ export default function HomePage() {
             title="ข้อจำกัดของการสำรวจแบบเดิม"
             description="การประเมินคาร์บอนในปัจจุบันต้องอาศัยการลงพื้นที่สำรวจทีละต้น ซึ่งใช้ต้นทุนสูง ใช้เวลานาน และยากต่อการตรวจสอบแหล่งที่มาของตัวเลขในภายหลัง"
           >
-            <div className="grid items-end gap-8 lg:grid-cols-12">
-              <p className="max-w-3xl font-display text-3xl leading-snug text-deep-forest sm:text-4xl lg:col-span-8">
-                เราไม่ได้มุ่งเน้นแค่ความแม่นยำของ AI
-                แต่เราสร้างแพลตฟอร์มที่เปิดหลักฐานให้ตรวจสอบย้อนกลับได้
-              </p>
-              <div className="border-l border-moss pl-5 text-sm leading-7 text-canopy lg:col-span-4">
-                ตอนนี้ทำได้กับไฟล์สามมิติที่มีอยู่แล้วเท่านั้น ยังไม่รองรับการถ่ายด้วยมือถือ
-                ไม่มีระบบซื้อขาย และไม่ใช่การรับรองเครดิตคาร์บอน
-              </div>
-            </div>
+            {/* The scope note that sat beside this quote is gone at the team
+                lead's request. Both claims that must survive - not a certified
+                credit, no marketplace - are still made in "ความแม่นยำ", so
+                removing the box costs the page a repetition rather than a
+                limit. What it does drop is the one line saying phone
+                photography is not supported yet; nothing on the page claims it
+                is, but nothing says it is not either. */}
+            <p className="max-w-3xl font-display text-3xl leading-snug text-deep-forest sm:text-4xl">
+              เราไม่ได้มุ่งเน้นแค่ความแม่นยำของ AI
+              แต่เราสร้างแพลตฟอร์มที่เปิดหลักฐานให้ตรวจสอบย้อนกลับได้
+            </p>
           </EditorialSection>
         </div>
 

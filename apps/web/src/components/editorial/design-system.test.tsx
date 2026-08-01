@@ -44,7 +44,9 @@ describe('TreeQ editorial primitives', () => {
     expect(appHeaderMarkup).toContain('href="/#tech"');
     expect(appHeaderMarkup).toContain('href="/#how"');
     expect(appHeaderMarkup).toContain('href="/#proof"');
-    expect(appHeaderMarkup).toContain('href="/dashboard/viewer"');
+    // The workspace link left the menu; the hero button is now the only way in
+    // from the landing page, and page.test.tsx is what holds that.
+    expect(appHeaderMarkup).toContain('href="/demo"');
     expect(appHeaderMarkup).toContain('href="/login"');
     expect(appHeaderMarkup).toContain('href="/demo"');
     expect(workspaceMarkup).toContain('aria-label="Workspace navigation"');
