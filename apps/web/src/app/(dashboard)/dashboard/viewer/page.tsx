@@ -129,13 +129,13 @@ export default function ViewerPage() {
   return (
     <>
       <CompactWorkspaceHeader
-        title="ผลการวิเคราะห์ 3D Point Cloud"
+        title="ผลการวิเคราะห์โมเดล 3 มิติ"
         mode={
           loaded === null
-            ? 'Synthetic preview'
+            ? 'ตัวอย่างจำลอง'
             : analysis === null
-              ? 'Browser PLY preview'
-              : 'Live analysis'
+              ? 'ไฟล์ที่คุณเปิด ยังไม่ได้วิเคราะห์'
+              : 'วิเคราะห์สดแล้ว'
         }
         backHref="/dashboard"
       />
@@ -204,9 +204,7 @@ export default function ViewerPage() {
           <div className={`mt-6 grid gap-6 ${resultView ? 'lg:grid-cols-12' : ''}`}>
             <div className={resultView ? 'lg:col-span-8' : ''}>
               <ViewerStage
-                title={
-                  loaded === null ? 'Synthetic preview tree' : (fileName ?? 'Uploaded point cloud')
-                }
+                title={loaded === null ? 'ต้นไม้ตัวอย่างจำลอง' : (fileName ?? 'ไฟล์ที่อัปโหลด')}
                 evidenceLabel={
                   loaded === null
                     ? 'SYNTHETIC · NOT PIPELINE EVIDENCE'

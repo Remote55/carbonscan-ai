@@ -51,7 +51,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               href="/dashboard/viewer"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
-              3D Viewer
+              ดูโมเดล 3 มิติ
             </Link>
             <Link
               href="/dashboard"

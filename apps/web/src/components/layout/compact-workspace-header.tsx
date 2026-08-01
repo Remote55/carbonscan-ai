@@ -10,7 +10,7 @@ export function CompactWorkspaceHeader({ title, mode, backHref }: CompactWorkspa
       <div className="mx-auto flex min-h-16 max-w-7xl items-center gap-4 px-5 sm:px-8">
         <nav aria-label="Workspace navigation">
           <a href={backHref} className="focus-ring rounded-md text-sm font-medium text-canopy hover:text-deep-forest">
-            Back
+            ย้อนกลับ
           </a>
         </nav>
         <div className="min-w-0 border-l border-hairline pl-4">
