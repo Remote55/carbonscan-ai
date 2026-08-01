@@ -20,7 +20,7 @@ export function ViewerStage({
 }: ViewerStageProps) {
   return (
     <section
-      className={`overflow-hidden rounded-[1.5rem] bg-forest-ink text-paper shadow-[0_22px_58px_-18px_rgba(14,42,29,0.22)] ${className ?? ''}`}
+      className={`overflow-hidden rounded-[1.75rem] bg-forest-ink text-paper shadow-[0_22px_58px_-18px_rgba(14,42,29,0.22)] ${className ?? ''}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-4 pt-5 sm:px-6">
         <div className="min-w-0">

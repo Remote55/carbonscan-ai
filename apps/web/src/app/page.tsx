@@ -18,29 +18,42 @@ const JOURNEY = [
     title: 'รับภาพสามมิติของต้นไม้',
     description:
       'ไฟล์จากเครื่องสแกนเลเซอร์ หรือจากการถ่ายต้นไม้หลายมุมแล้วประกอบเป็นทรงสามมิติ ระบบแสดงเป็นกลุ่มจุดที่หมุนดูได้',
-    technical: 'point cloud รูปแบบ .ply · จำกัด 2 ล้านจุด หรือ 100 MB ต่อไฟล์',
+    technical: ['point cloud รูปแบบ .ply', 'จำกัด 2 ล้านจุด หรือ 100 MB ต่อไฟล์'],
   },
   {
     step: '02',
     title: 'แยกลำต้นออกจากใบ',
     description:
       'ต้องรู้ก่อนว่าจุดไหนคือเนื้อไม้ จุดไหนคือใบ เพราะคาร์บอนเก็บอยู่ในเนื้อไม้เป็นหลัก ตอนนี้ใช้วิธีคำนวณจากรูปทรง ยังไม่ได้ใช้ AI',
-    technical: `${baseline.backend} เป็นตัวที่ใช้จริง · ${candidate.displayName} ยังเป็น ${candidate.status} ไม่ได้ถูกนำมาใช้ · Wood IoU ${wanHeldOut.woodIoU}`,
+    technical: [
+      `${baseline.backend} เป็นตัวที่ใช้จริง`,
+      `${candidate.displayName} ยังเป็น ${candidate.status} ไม่ได้ถูกนำมาใช้`,
+      `Wood IoU ${wanHeldOut.woodIoU}`,
+    ],
   },
   {
     step: '03',
     title: 'วัดขนาดต้นไม้',
     description:
       'วัดเส้นผ่านศูนย์กลางลำต้นที่ระดับอก ความสูงทั้งต้น และปริมาตรเนื้อไม้ จากรูปทรงที่แยกได้',
-    technical: `DBH ที่ระดับ 1.3 เมตร · ปริมาตรจาก QSM ทรงกระบอก · คลาดเคลื่อนเฉลี่ย ${demol65.dbhMaeCm} ซม. บนต้นไม้จริง 65 ต้น`,
+    technical: [
+      'DBH ที่ระดับ 1.3 เมตร',
+      'ปริมาตรจาก QSM ทรงกระบอก',
+      `คลาดเคลื่อนเฉลี่ย ${demol65.dbhMaeCm} ซม. บนต้นไม้จริง 65 ต้น`,
+    ],
   },
   {
     step: '04',
     title: 'คำนวณคาร์บอน',
     description:
       'เอาขนาดที่วัดได้เข้าสมการมาตรฐาน ได้เป็นน้ำหนักชีวมวล คาร์บอน และ CO₂ พร้อมบันทึกว่าใช้สมการไหน',
-    technical:
-      'สมการ Chave 2014 · ชีวมวลใต้ดิน = เหนือดิน × 0.24 · คาร์บอน = ชีวมวล × 0.47 · CO₂e = คาร์บอน × 44/12 (IPCC 2006) · การแยกชนิดพันธุ์ยังเป็นโครงเปล่า',
+    technical: [
+      'สมการ Chave 2014',
+      'ชีวมวลใต้ดิน = เหนือดิน × 0.24',
+      'คาร์บอน = ชีวมวล × 0.47',
+      'CO₂e = คาร์บอน × 44/12 (IPCC 2006)',
+      'การแยกชนิดพันธุ์ยังเป็นโครงเปล่า',
+    ],
   },
 ] as const;
 
@@ -205,7 +218,17 @@ export default function HomePage() {
                   <h3 className="font-display text-2xl text-forest-ink">{item.title}</h3>
                   <div className="max-w-2xl">
                     <p className="text-base leading-7 text-canopy">{item.description}</p>
-                    <TechnicalDetail>{item.technical}</TechnicalDetail>
+                    {/* A list, not one line joined by separators. A reviewer
+                        asked for the dots to go; they were doing the job a
+                        bullet does, less legibly, and Thai text runs long
+                        enough that the line wrapped mid-fact. */}
+                    <TechnicalDetail>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {item.technical.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    </TechnicalDetail>
                   </div>
                 </li>
               ))}
@@ -276,7 +299,7 @@ export default function HomePage() {
                 <EvidenceMetric
                   label={`Wood IoU / ${candidate.status}`}
                   value={String(wanHeldOut.woodIoU)}
-                  note="ชุด Wan held-out · เป็นค่าจาก epoch ที่ดีที่สุด จึงเข้าข้างตัวเองเล็กน้อย"
+                  note="ชุด Wan held-out เป็นค่าจากรอบเทรนที่ดีที่สุด จึงเข้าข้างตัวเองเล็กน้อย"
                   tone="dark"
                 />
               </div>
@@ -284,7 +307,7 @@ export default function HomePage() {
                 <EvidenceMetric
                   label={`Leaf IoU / ${candidate.status}`}
                   value={String(wanHeldOut.leafIoU)}
-                  note="ชุด Wan held-out · วัดการแยกลำต้นกับใบ เท่านั้น"
+                  note="ชุด Wan held-out วัดการแยกลำต้นกับใบเท่านั้น"
                   tone="lichen"
                 />
               </div>
@@ -292,7 +315,7 @@ export default function HomePage() {
                 <EvidenceMetric
                   label="DBH MAE / geometry only"
                   value={`${demol65.dbhMaeCm} cm`}
-                  note="ชุด DemoL · ต้นไม้แยกเดี่ยว 65 ต้น · แสดงเต็มไม่ปัดเศษ"
+                  note="ชุด DemoL จากต้นไม้แยกเดี่ยว 65 ต้น แสดงเต็มไม่ปัดเศษ"
                 />
               </div>
             </div>
@@ -301,10 +324,13 @@ export default function HomePage() {
               <div className="max-w-3xl space-y-4 text-base leading-7 text-canopy">
                 <div>
                   <p className="font-semibold text-forest-ink">ทดสอบแล้ว</p>
-                  <p className="mt-1">
-                    การแยกลำต้นกับใบ — แต่ใช้ชุดข้อมูลเดียวกันนี้ตอนเลือกรอบเทรนที่ดีที่สุด
-                    ค่าที่ได้จึงเข้าข้างตัวเอง · การวัดขนาดต้นไม้จริง 65 ต้น — วัดขนาดอย่างเดียว
-                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    <li>
+                      การแยกลำต้นกับใบ — แต่ใช้ชุดข้อมูลเดียวกันนี้ตอนเลือกรอบเทรนที่ดีที่สุด
+                      ค่าที่ได้จึงเข้าข้างตัวเอง
+                    </li>
+                    <li>การวัดขนาดต้นไม้จริง 65 ต้น — วัดขนาดอย่างเดียว</li>
+                  </ul>
                 </div>
                 <div>
                   <p className="font-semibold text-ember">ยังไม่ได้ทดสอบ</p>
@@ -312,11 +338,14 @@ export default function HomePage() {
                       dropped it once, and it is the one line that shows this was
                       checked against the Thai standard rather than against a
                       paper from somewhere else. */}
-                  <p className="mt-1">
-                    ระบบทั้งเส้นตั้งแต่รับไฟล์จนได้ค่าคาร์บอน · สมการชีวมวลกับข้อมูลต้นไม้จริงในไทย
-                    และค่าสัมประสิทธิ์ที่ยังต้องสอบทานกับแนวทาง TGO ปี 2017 ·
-                    การแยกชนิดพันธุ์ที่ยังเป็นโครงเปล่า
-                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    <li>ระบบทั้งเส้นตั้งแต่รับไฟล์จนได้ค่าคาร์บอน</li>
+                    <li>
+                      สมการชีวมวลกับข้อมูลต้นไม้จริงในไทย
+                      และค่าสัมประสิทธิ์ที่ยังต้องสอบทานกับแนวทาง TGO ปี 2017
+                    </li>
+                    <li>การแยกชนิดพันธุ์ที่ยังเป็นโครงเปล่า</li>
+                  </ul>
                 </div>
                 <p>
                   ค่าคาร์บอนและ CO₂e ที่แสดงเป็นค่าประมาณ ไม่ใช่เครดิตคาร์บอนที่ผ่านการรับรอง

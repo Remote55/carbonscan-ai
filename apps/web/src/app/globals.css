@@ -115,6 +115,16 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Corner radius scale. Four steps, and nothing between them.
+     A reviewer said the corners did not match, and they were right: the page
+     carried 1.25rem, 1.375rem, 1.5rem, 1.75rem and 0.875rem, which are close
+     enough to read as a mistake rather than as a choice.
+         rounded-[1.75rem]  large surfaces  - hero art, 3D panels, demo header
+         rounded-[1.25rem]  cards and panels
+         rounded-xl         boxes nested inside a card
+         rounded-full       pills and badges
+     Reach for one of these before inventing a fifth. */
+
   .editorial-eyebrow {
     @apply font-mono text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-canopy;
   }

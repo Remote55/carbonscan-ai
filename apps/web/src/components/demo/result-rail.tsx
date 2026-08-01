@@ -27,7 +27,7 @@ export function ResultRail({ view, modeLabel }: ResultRailProps) {
         ผลคาร์บอนจากการวิเคราะห์
       </h2>
 
-      <div className="mt-5 rounded-[0.875rem] bg-lichen p-[1.125rem]">
+      <div className="mt-5 rounded-xl bg-lichen p-[1.125rem]">
         <p className="text-xs font-medium text-deep-forest">CO₂ เทียบเท่า</p>
         <p className="mt-1 text-3xl font-semibold tabular-nums">
           {co2e.format(view.totalCo2eqKg / 1000)} tCO₂e

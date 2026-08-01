@@ -23,7 +23,7 @@ export function JudgeDemoHeader({ state }: { state: Exclude<DemoModeState, { kin
         </p>
       </div>
 
-      <div className="relative isolate overflow-hidden rounded-[1.375rem] bg-deep-forest text-paper">
+      <div className="relative isolate overflow-hidden rounded-[1.75rem] bg-deep-forest text-paper">
         <Image
           src={VISUAL_ASSETS.judge.src}
           alt=""
