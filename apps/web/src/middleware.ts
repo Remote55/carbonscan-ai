@@ -23,7 +23,10 @@ type CookieSetItem = { name: string; value: string; options: CookieOptions };
  * Exact matches only. `startsWith` here would open anything nested under the
  * viewer to the same exemption, including pages that do not exist yet.
  */
-export const PUBLIC_DASHBOARD_ROUTES: ReadonlySet<string> = new Set(['/dashboard/viewer']);
+export const PUBLIC_DASHBOARD_ROUTES: ReadonlySet<string> = new Set([
+  '/dashboard/viewer',
+  '/dashboard/map', // 👈 เพิ่มบรรทัดนี้ลงไปครับ!
+]);
 
 export function isPublicDashboardRoute(pathname: string): boolean {
   return PUBLIC_DASHBOARD_ROUTES.has(pathname.replace(/\/+$/, '') || '/');

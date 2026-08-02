@@ -1,5 +1,3 @@
-/** Colour legend for the point-cloud viewer (matches CLASS_COLORS). */
-
 const LEGEND = [
   { label: 'ลำต้น / กิ่ง (Wood)', color: '#8C5C38' },
   { label: 'ใบไม้ (Leaf)', color: '#4D995C' },
@@ -8,7 +6,7 @@ const LEGEND = [
 
 export function PointCloudLegend() {
   return (
-    <div className="bg-deep-forest/80 flex flex-wrap gap-x-4 gap-y-2 rounded-xl border border-moss px-3.5 py-2.5">
+    <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-xl border border-moss bg-deep-forest/80 px-3.5 py-2.5">
       {LEGEND.map((item) => (
         <div key={item.label} className="flex items-center gap-2">
           <span
@@ -16,7 +14,8 @@ export function PointCloudLegend() {
             className="inline-block size-3 rounded-full border-2 border-paper"
             style={{ backgroundColor: item.color }}
           />
-          <span className="font-mono text-[0.625rem] uppercase tracking-wide text-paper">
+
+          <span className="text-[0.625rem] font-medium tracking-wide text-paper">
             {item.label}
           </span>
         </div>
