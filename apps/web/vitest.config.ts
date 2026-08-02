@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -14,6 +16,16 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   esbuild: { jsx: 'automatic' },
+  /**
+   * The same `@/*` -> `src/*` alias tsconfig and Next already use. Without it a
+   * component was testable only if it and everything it imports happened to use
+   * relative paths, so the first test of a component reaching `@/lib/...` failed
+   * to resolve - the same class of production/test mismatch the JSX note below
+   * describes.
+   */
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   test: {
     // Vitest's default include matches `*.spec.ts`, which is exactly what the
     // Playwright journey file is called, so adding e2e/ made vitest try to run a

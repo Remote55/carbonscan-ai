@@ -259,6 +259,19 @@ test.describe('results workspace', () => {
     await expect(page.getByText('ยังไม่มีข้อมูลแยกลำต้น', { exact: false })).toHaveCount(0);
   });
 
+  // /upload/analyze answers with metadata, summary and trees - never a point
+  // cloud - so the picture cannot be recoloured from the result and this page
+  // must not offer to. The first version of the note said press analyse and it
+  // will separate them "for you", which a reviewer reasonably read as a promise
+  // that the view would change. It does not.
+  test('never promises the picture will colour in after analysis', async ({ page }) => {
+    await openFixture(page, false);
+
+    const note = page.getByText('ไฟล์นี้เก็บเฉพาะพิกัด', { exact: false });
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('ผลจะออกมาเป็นตัวเลข');
+  });
+
   // Below 1024 the viewer has to come before the rail: the point cloud is the
   // thing being explained, and a judge scrolling past numbers to reach it reads
   // as the numbers being the claim rather than the evidence.

@@ -218,11 +218,12 @@ export default function ViewerPage() {
                       ? cloud.labelled
                         ? 'ไฟล์จากเครื่องคุณ · ยังไม่ได้วิเคราะห์'
                         : 'ไฟล์จากเครื่องคุณ · ยังไม่ได้แยกลำต้น/ใบ'
-                      : 'วิเคราะห์แล้ว · ภาพ 3 มิตินี้ยังไม่ได้ตรวจ hash'
+                      : 'วิเคราะห์แล้ว · ภาพนี้คือไฟล์ต้นฉบับ ไม่ใช่ผลที่ระบายสี'
                 }
                 positions={cloud.positions}
                 classes={cloud.classes}
                 labelled={cloud.labelled}
+                analysed={analysis !== null}
               >
                 <ViewerAnalysisBadge
                   analysis={analysis}

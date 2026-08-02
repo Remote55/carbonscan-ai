@@ -2,7 +2,7 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Color, SRGBColorSpace } from "three";
 
 import { CLASS_GROUND, CLASS_LEAF, CLASS_WOOD } from "@/lib/demo-pointcloud";
@@ -101,7 +101,11 @@ export function PointCloudViewer({
   // real aspect is known would bake in the wrong distance for good.
   const [aspect, setAspect] = useState<number | null>(null);
 
-  useLayoutEffect(() => {
+  // useEffect, not useLayoutEffect: this component is server-rendered for the
+  // initial HTML, where a layout effect is a no-op React warns about. Measuring
+  // after paint costs one frame of empty stage, which is nothing next to the
+  // time WebGL takes to come up anyway.
+  useEffect(() => {
     const el = box.current;
     if (!el) return;
     const measure = () => {
