@@ -214,6 +214,51 @@ test.describe('results workspace', () => {
     await expect(page.getByText('ไม่ใช่ผลจาก pipeline', { exact: false })).toBeVisible();
   });
 
+  /** A minimal ascii PLY. Omit `withClass` and it carries coordinates only. */
+  function plyFixture(withClass: boolean): Buffer {
+    const props = withClass
+      ? 'property float x\nproperty float y\nproperty float z\nproperty uchar class\n'
+      : 'property float x\nproperty float y\nproperty float z\n';
+    const rows = withClass ? '0 0 0 0\n1 1 1 1\n2 2 2 2\n' : '0 0 0\n1 1 1\n2 2 2\n';
+    return Buffer.from(`ply\nformat ascii 1.0\nelement vertex 3\n${props}end_header\n${rows}`);
+  }
+
+  async function openFixture(page: Page, withClass: boolean) {
+    await page.goto('/dashboard/viewer');
+    await page.waitForLoadState('networkidle');
+    await page.locator('input[type="file"]').setInputFiles({
+      name: withClass ? 'segmented.ply' : 'raw-scan.ply',
+      mimeType: 'application/octet-stream',
+      buffer: plyFixture(withClass),
+    });
+    await page.waitForTimeout(400);
+  }
+
+  // Five of the six judge test files are real laser scans that carry
+  // coordinates and nothing else. The viewer used to paint those as ground and
+  // show a three-class legend over them, so the screen claimed a separation the
+  // pipeline had not run. A reviewer asked why the whole plot was one colour
+  // within minutes of seeing it, which is exactly the question this prevents.
+  test('a raw scan says it is unclassified instead of showing a class legend', async ({ page }) => {
+    await openFixture(page, false);
+
+    await expect(page.getByText('ยังไม่มีข้อมูลแยกลำต้น', { exact: false })).toBeVisible();
+    await expect(page.getByText('ยังไม่ได้แยกลำต้น/ใบ', { exact: false })).toBeVisible();
+    // The legend names three classes; none of them may be on screen here.
+    await expect(page.getByText('(WOOD)')).toHaveCount(0);
+    await expect(page.getByText('(LEAF)')).toHaveCount(0);
+    await expect(page.getByText('(GROUND)')).toHaveCount(0);
+  });
+
+  test('a segmented file does get the class legend', async ({ page }) => {
+    await openFixture(page, true);
+
+    await expect(page.getByText('(WOOD)')).toBeVisible();
+    await expect(page.getByText('(LEAF)')).toBeVisible();
+    await expect(page.getByText('(GROUND)')).toBeVisible();
+    await expect(page.getByText('ยังไม่มีข้อมูลแยกลำต้น', { exact: false })).toHaveCount(0);
+  });
+
   // Below 1024 the viewer has to come before the rail: the point cloud is the
   // thing being explained, and a judge scrolling past numbers to reach it reads
   // as the numbers being the claim rather than the evidence.

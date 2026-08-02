@@ -39,14 +39,27 @@ describe("parsePly — ascii", () => {
     expect(Array.from(classes)).toEqual([0, 1, 2]);
   });
 
-  it("defaults to ground (2) when there is no class property", () => {
+  // This used to answer "ground" for every point of a file that says nothing
+  // about classes, which is how five of the six judge test files - real laser
+  // scans, coordinates only - came to render as a forest made entirely of
+  // floor, under a legend advertising three classes. A raw scan is unlabelled,
+  // and the loader has to say so rather than pick the least alarming answer.
+  it("reports a file with no class property as unlabelled, and invents nothing", () => {
     const ply =
       "ply\nformat ascii 1.0\nelement vertex 2\n" +
       "property float x\nproperty float y\nproperty float z\n" +
       "end_header\n1 1 1\n2 2 2\n";
-    const { positions, classes } = parsePly(enc.encode(ply).buffer);
-    expect(Array.from(positions)).toEqual([1, 1, 1, 2, 2, 2]);
-    expect(Array.from(classes)).toEqual([2, 2]);
+    const cloud = parsePly(enc.encode(ply).buffer);
+    expect(Array.from(cloud.positions)).toEqual([1, 1, 1, 2, 2, 2]);
+    expect(cloud.labelled).toBe(false);
+  });
+
+  it("reports a file that does carry classes as labelled", () => {
+    const ply =
+      "ply\nformat ascii 1.0\nelement vertex 2\n" +
+      "property float x\nproperty float y\nproperty float z\nproperty uchar class\n" +
+      "end_header\n1 1 1 0\n2 2 2 1\n";
+    expect(parsePly(enc.encode(ply).buffer).labelled).toBe(true);
   });
 });
 
@@ -87,6 +100,18 @@ describe("parsePly — binary_little_endian", () => {
 });
 
 describe("decimate", () => {
+  it("carries the labelled flag through, so a big raw scan stays honest", () => {
+    const n = 500;
+    const cloud = {
+      positions: new Float32Array(n * 3),
+      classes: new Uint8Array(n),
+      labelled: false,
+    };
+    expect(decimate(cloud, 100).labelled).toBe(false);
+    expect(decimate({ ...cloud, labelled: true }, 100).labelled).toBe(true);
+  });
+
+
   it("reduces point count to <= maxPoints", () => {
     const n = 1000;
     const positions = new Float32Array(n * 3);
@@ -95,7 +120,7 @@ describe("decimate", () => {
       positions[i * 3] = i; // x encodes the original index
       classes[i] = i % 3;
     }
-    const out = decimate({ positions, classes }, 100);
+    const out = decimate({ positions, classes, labelled: true }, 100);
     expect(out.classes.length).toBeLessThanOrEqual(100);
     expect(out.positions.length).toBe(out.classes.length * 3);
   });
@@ -108,7 +133,7 @@ describe("decimate", () => {
       positions[i * 3] = i;
       classes[i] = i % 3;
     }
-    const out = decimate({ positions, classes }, 100);
+    const out = decimate({ positions, classes, labelled: true }, 100);
     for (let j = 0; j < out.classes.length; j++) {
       // original invariant: class === x % 3; must survive decimation
       expect(out.classes[j]).toBe(out.positions[j * 3] % 3);
@@ -118,7 +143,7 @@ describe("decimate", () => {
   it("is a no-op when under the limit", () => {
     const positions = new Float32Array([0, 0, 0, 1, 1, 1]);
     const classes = new Uint8Array([0, 1]);
-    const out = decimate({ positions, classes }, 100);
+    const out = decimate({ positions, classes, labelled: true }, 100);
     expect(out.classes.length).toBe(2);
     expect(Array.from(out.positions)).toEqual([0, 0, 0, 1, 1, 1]);
   });
@@ -128,8 +153,8 @@ describe("decimate", () => {
     const positions = new Float32Array(n * 3);
     const classes = new Uint8Array(n);
     for (let i = 0; i < n; i++) positions[i * 3] = i;
-    const a = decimate({ positions, classes }, 50);
-    const b = decimate({ positions, classes }, 50);
+    const a = decimate({ positions, classes, labelled: true }, 50);
+    const b = decimate({ positions, classes, labelled: true }, 50);
     expect(Array.from(a.positions)).toEqual(Array.from(b.positions));
   });
 });

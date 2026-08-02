@@ -2,7 +2,7 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Color, SRGBColorSpace } from "three";
 
 import { CLASS_GROUND, CLASS_LEAF, CLASS_WOOD } from "@/lib/demo-pointcloud";
@@ -16,6 +16,15 @@ export const CLASS_COLORS: Record<number, [number, number, number]> = {
 };
 
 /**
+ * The colour of "not classified yet".
+ *
+ * Deliberately cool and deliberately none of the three above: a raw scan drawn
+ * in any class colour reads as a classification, and a plot rendered entirely
+ * in ground-tan reads as the system having decided the forest is floor.
+ */
+export const UNLABELLED_COLOR: [number, number, number] = [0.62, 0.66, 0.7];
+
+/**
  * three.js stores vertex colours in LINEAR space and the canvas outputs sRGB,
  * so feeding it the sRGB palette above washes browns out to tan. Pre-convert
  * the palette sRGB → linear once so the rendered colours match the legend.
@@ -27,11 +36,19 @@ const LINEAR_CLASS_COLORS = Object.fromEntries(
   }),
 ) as Record<number, [number, number, number]>;
 
+const LINEAR_UNLABELLED = (() => {
+  const [r, g, b] = UNLABELLED_COLOR;
+  const c = new Color().setRGB(r, g, b, SRGBColorSpace);
+  return [c.r, c.g, c.b] as [number, number, number];
+})();
+
 export interface PointCloudViewerProps {
   /** flat XYZ (length = n*3), Z-up (as produced by the pipeline) */
   positions: Float32Array;
   /** per-point class id (0=wood, 1=leaf, 2=ground) */
   classes: Uint8Array;
+  /** Whether `classes` is real. False for a raw scan; see PointCloud.labelled. */
+  labelled: boolean;
   pointSize?: number;
   className?: string;
 }
@@ -39,18 +56,21 @@ export interface PointCloudViewerProps {
 function PointCloud({
   positions,
   classes,
+  labelled,
   pointSize,
-}: Pick<PointCloudViewerProps, "positions" | "classes"> & { pointSize: number }) {
+}: Pick<PointCloudViewerProps, "positions" | "classes" | "labelled"> & { pointSize: number }) {
   const colors = useMemo(() => {
     const arr = new Float32Array(classes.length * 3);
     for (let i = 0; i < classes.length; i++) {
-      const [r, g, b] = LINEAR_CLASS_COLORS[classes[i]] ?? LINEAR_CLASS_COLORS[CLASS_GROUND];
+      const [r, g, b] = labelled
+        ? (LINEAR_CLASS_COLORS[classes[i]] ?? LINEAR_CLASS_COLORS[CLASS_GROUND])
+        : LINEAR_UNLABELLED;
       arr[i * 3] = r;
       arr[i * 3 + 1] = g;
       arr[i * 3 + 2] = b;
     }
     return arr;
-  }, [classes]);
+  }, [classes, labelled]);
 
   // Pipeline clouds are Z-up; rotate -90° about X so the tree stands up (Y-up).
   return (
@@ -71,29 +91,56 @@ function PointCloud({
 export function PointCloudViewer({
   positions,
   classes,
+  labelled,
   pointSize,
   className,
 }: PointCloudViewerProps) {
-  const framing = useMemo(() => frameCloud(positions), [positions]);
+  const box = useRef<HTMLDivElement>(null);
+  // Measured, not assumed. Null until the element exists, which is why the
+  // canvas waits: the camera is read once at creation, so mounting before the
+  // real aspect is known would bake in the wrong distance for good.
+  const [aspect, setAspect] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => {
+      const { clientWidth, clientHeight } = el;
+      if (clientWidth > 0 && clientHeight > 0) setAspect(clientWidth / clientHeight);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const framing = useMemo(
+    () => frameCloud(positions, aspect ?? 1),
+    [positions, aspect],
+  );
 
   return (
-    <div className={className}>
+    <div className={className} ref={box}>
       {/* The camera prop is read when the canvas is created and ignored after,
-          so opening a differently sized cloud has to remount it. That is the
-          same moment the geometry is replaced anyway. */}
-      <Canvas
-        key={`${framing.position.join()}|${framing.target.join()}`}
-        camera={{ position: framing.position, fov: 50 }}
-        style={{ background: "#0f1411" }}
-        dpr={[1, 2]}
-      >
-        <PointCloud
-          positions={positions}
-          classes={classes}
-          pointSize={pointSize ?? framing.pointSize}
-        />
-        <OrbitControls target={framing.target} enableDamping makeDefault />
-      </Canvas>
+          so a differently framed cloud has to remount it. That is the same
+          moment the geometry is replaced anyway. */}
+      {aspect === null ? null : (
+        <Canvas
+          key={`${framing.position.join()}|${framing.target.join()}`}
+          camera={{ position: framing.position, fov: 50 }}
+          style={{ background: "#0f1411" }}
+          dpr={[1, 2]}
+        >
+          <PointCloud
+            positions={positions}
+            classes={classes}
+            labelled={labelled}
+            pointSize={pointSize ?? framing.pointSize}
+          />
+          <OrbitControls target={framing.target} enableDamping makeDefault />
+        </Canvas>
+      )}
     </div>
   );
 }

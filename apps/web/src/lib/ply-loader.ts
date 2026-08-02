@@ -4,12 +4,13 @@
  * Parses ascii + binary_little_endian PLY into the same {positions, classes}
  * shape the demo generator uses, then decimates large clouds so the browser
  * stays responsive. Properties are located by name (x, y, z float + class
- * uchar); a file without a `class` property is treated as all-ground.
+ * uchar); a file without a `class` property is reported as unlabelled rather
+ * than assigned a class it never carried.
  *
  * Out of scope: binary_big_endian, per-tree clouds, streaming/octree.
  */
 
-import { CLASS_GROUND, type PointCloud } from "./demo-pointcloud";
+import { type PointCloud } from "./demo-pointcloud";
 
 interface PlyProperty {
   name: string;
@@ -139,6 +140,10 @@ export function parsePly(buffer: ArrayBuffer): PointCloud {
   const iz = properties.findIndex((p) => p.name === "z");
   if (ix < 0 || iy < 0 || iz < 0) throw new Error("PLY missing x/y/z properties");
   const ic = properties.findIndex((p) => p.name === "class");
+  // A raw scan has coordinates and nothing else. Leaving classes zero-filled
+  // and saying so beats filling them in: the renderer keys off `labelled`, and
+  // an invented class is a claim the pipeline never made.
+  const labelled = ic >= 0;
 
   const positions = new Float32Array(count * 3);
   const classes = new Uint8Array(count);
@@ -154,7 +159,7 @@ export function parsePly(buffer: ArrayBuffer): PointCloud {
       positions[written * 3] = parseFloat(tok[ix]);
       positions[written * 3 + 1] = parseFloat(tok[iy]);
       positions[written * 3 + 2] = parseFloat(tok[iz]);
-      classes[written] = ic >= 0 ? parseInt(tok[ic], 10) & 0xff : CLASS_GROUND;
+      if (labelled) classes[written] = parseInt(tok[ic], 10) & 0xff;
       written++;
     }
   } else {
@@ -171,12 +176,13 @@ export function parsePly(buffer: ArrayBuffer): PointCloud {
       positions[i * 3] = readNumber(view, base + offsets[ix], properties[ix].type);
       positions[i * 3 + 1] = readNumber(view, base + offsets[iy], properties[iy].type);
       positions[i * 3 + 2] = readNumber(view, base + offsets[iz], properties[iz].type);
-      classes[i] =
-        ic >= 0 ? readNumber(view, base + offsets[ic], properties[ic].type) & 0xff : CLASS_GROUND;
+      if (labelled) {
+        classes[i] = readNumber(view, base + offsets[ic], properties[ic].type) & 0xff;
+      }
     }
   }
 
-  return { positions, classes };
+  return { positions, classes, labelled };
 }
 
 /**
@@ -209,5 +215,5 @@ export function decimate(cloud: PointCloud, maxPoints = 200_000): PointCloud {
     positions[k * 3 + 2] = cloud.positions[s * 3 + 2];
     classes[k] = cloud.classes[s];
   }
-  return { positions, classes };
+  return { positions, classes, labelled: cloud.labelled };
 }

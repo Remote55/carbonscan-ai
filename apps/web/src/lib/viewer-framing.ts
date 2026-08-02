@@ -28,13 +28,6 @@ export interface CloudFraming {
 const VIEW_DIRECTION = normalise([10, 3, 14]);
 const FOV_DEGREES = 50;
 
-/**
- * Widest aspect ratio to assume. The stage is landscape on every breakpoint the
- * demo runs at, but assuming that would clip the cloud sideways on a narrow
- * phone, so fit for a square and let wide screens have the spare margin.
- */
-const ASSUMED_ASPECT = 1;
-
 /** Air around the cloud, so orbiting a little does not immediately clip it. */
 const MARGIN = 1.1;
 
@@ -56,8 +49,14 @@ function normalise([x, y, z]: [number, number, number]): [number, number, number
  * pipeline point (x, y, z) is drawn at world (x, z, -y). The bounds are
  * converted here rather than in the caller, so this function and the mesh
  * cannot disagree about which axis is up.
+ *
+ * `aspect` is the canvas width over its height. It has to be the real one: a
+ * forest plot is far wider than it is tall, so the horizontal fit decides the
+ * distance, and guessing a square viewport parks the camera about twice as far
+ * back as a landscape stage needs - which is how a plot ends up as a small
+ * patch in the middle of a large empty frame.
  */
-export function frameCloud(positions: Float32Array): CloudFraming {
+export function frameCloud(positions: Float32Array, aspect = 1): CloudFraming {
   if (positions.length < 3) return FALLBACK;
 
   let minX = Infinity;
@@ -101,9 +100,12 @@ export function frameCloud(positions: Float32Array): CloudFraming {
   // the cosine of that elevation, plus part of its footprint tilted into view.
   const halfVertical = halfHeight * Math.cos(elevation) + halfFootprint * Math.sin(elevation);
 
+  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
   const distance =
-    Math.max(halfVertical / Math.tan(halfFov), halfFootprint / (Math.tan(halfFov) * ASSUMED_ASPECT)) *
-    MARGIN;
+    Math.max(
+      halfVertical / Math.tan(halfFov),
+      halfFootprint / (Math.tan(halfFov) * safeAspect),
+    ) * MARGIN;
 
   if (!Number.isFinite(distance) || distance <= 0) return FALLBACK;
 

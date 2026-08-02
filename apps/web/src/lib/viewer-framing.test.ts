@@ -65,11 +65,36 @@ describe('frameCloud', () => {
 
   it('fits a wide, flat cloud sideways as well as vertically', () => {
     // A plot is wider than it is tall, so the footprint is what has to fit.
-    const framing = frameCloud(boxCloud(40, 6));
+    // At aspect 1 the horizontal half-frustum equals the vertical one.
+    const framing = frameCloud(boxCloud(40, 6), 1);
     const distance = distanceBetween(framing.position, framing.target);
     const halfDiagonal = Math.hypot(40, 40) / 2;
 
     expect(halfFrustumAt(distance)).toBeGreaterThan(halfDiagonal);
+  });
+
+  // A forest plot is footprint-dominated, so the horizontal fit sets the
+  // distance. Assuming a square viewport parked the camera roughly twice as far
+  // back as a wide stage needs, and the plot rendered as a small patch in the
+  // middle of an empty frame.
+  it('moves closer on a wide stage than on a square one, for a wide plot', () => {
+    const wide = frameCloud(boxCloud(40, 6), 2);
+    const square = frameCloud(boxCloud(40, 6), 1);
+
+    const dWide = distanceBetween(wide.position, wide.target);
+    const dSquare = distanceBetween(square.position, square.target);
+
+    expect(dWide).toBeLessThan(dSquare * 0.75);
+    // Still fits: at aspect 2 the horizontal frustum is twice the vertical one.
+    expect(halfFrustumAt(dWide) * 2).toBeGreaterThan(Math.hypot(40, 40) / 2);
+  });
+
+  it('never divides by a broken aspect', () => {
+    for (const bad of [0, -3, NaN, Infinity]) {
+      const framing = frameCloud(boxCloud(10, 12), bad);
+      expect(framing.position.every(Number.isFinite)).toBe(true);
+      expect(distanceBetween(framing.position, framing.target)).toBeGreaterThan(0);
+    }
   });
 
   it('frames the demo tree more closely than the hand-tuned camera it replaces', () => {

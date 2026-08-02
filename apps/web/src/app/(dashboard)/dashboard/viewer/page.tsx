@@ -215,11 +215,14 @@ export default function ViewerPage() {
                   loaded === null
                     ? 'ตัวอย่างการจำลอง · ไม่ใช่ผลจาก pipeline'
                     : analysis === null
-                      ? 'ไฟล์จากเครื่องคุณ · ยังไม่ได้วิเคราะห์'
+                      ? cloud.labelled
+                        ? 'ไฟล์จากเครื่องคุณ · ยังไม่ได้วิเคราะห์'
+                        : 'ไฟล์จากเครื่องคุณ · ยังไม่ได้แยกลำต้น/ใบ'
                       : 'วิเคราะห์แล้ว · ภาพ 3 มิตินี้ยังไม่ได้ตรวจ hash'
                 }
                 positions={cloud.positions}
                 classes={cloud.classes}
+                labelled={cloud.labelled}
               >
                 <ViewerAnalysisBadge
                   analysis={analysis}

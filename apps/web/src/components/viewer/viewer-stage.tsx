@@ -15,6 +15,7 @@ export function ViewerStage({
   children,
   positions,
   classes,
+  labelled,
   pointSize,
   className,
 }: ViewerStageProps) {
@@ -36,12 +37,24 @@ export function ViewerStage({
       <PointCloudViewer
         positions={positions}
         classes={classes}
+        labelled={labelled}
         pointSize={pointSize}
         className="border-lichen/15 h-[30rem] w-full border-y lg:h-[40rem]"
       />
 
       <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <PointCloudLegend />
+        {/* The legend names three classes. Showing it over a raw scan would
+            advertise a separation that has not been computed, so the unlabelled
+            case says what is actually true and points at the button that
+            changes it. */}
+        {labelled ? (
+          <PointCloudLegend />
+        ) : (
+          <p className="max-w-2xl text-xs leading-relaxed text-lichen">
+            ไฟล์นี้เก็บเฉพาะพิกัด ยังไม่มีข้อมูลแยกลำต้น ใบ และพื้นดิน จึงแสดงเป็นสีเดียว —
+            กด <span className="font-semibold text-paper">วิเคราะห์คาร์บอน</span> เพื่อให้ระบบแยกให้
+          </p>
+        )}
         <p className="font-mono text-[0.625rem] uppercase tracking-[0.1em] text-lichen">
           Drag: orbit · Wheel: zoom · Right drag: pan
         </p>

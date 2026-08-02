@@ -17,6 +17,18 @@ export interface PointCloud {
   positions: Float32Array;
   /** per-point class id (0=wood, 1=leaf, 2=ground), length = nPoints */
   classes: Uint8Array;
+  /**
+   * Whether `classes` means anything.
+   *
+   * A raw laser scan carries coordinates and nothing else - which point is
+   * trunk and which is leaf is what the pipeline works out, not something the
+   * scanner records. The loader used to fill that absence in with "ground",
+   * so a whole unlabelled plot rendered as though the system had classified it
+   * and decided the forest was floor. This flag exists so nothing downstream
+   * can present a classification that was never made: when it is false, treat
+   * `classes` as absent, not as data.
+   */
+  labelled: boolean;
 }
 
 /** Tiny seedable PRNG (mulberry32) — keeps the demo deterministic. */
@@ -115,5 +127,7 @@ export function generateDemoTree(options: DemoTreeOptions = {}): PointCloud {
     );
   }
 
-  return { positions: new Float32Array(xs), classes: new Uint8Array(cls) };
+  // Labelled by construction: this generator decides each point's class as it
+  // places it, so there is no classification being implied that did not happen.
+  return { positions: new Float32Array(xs), classes: new Uint8Array(cls), labelled: true };
 }
