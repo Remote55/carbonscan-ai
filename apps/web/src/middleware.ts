@@ -25,7 +25,10 @@ type CookieSetItem = { name: string; value: string; options: CookieOptions };
  */
 export const PUBLIC_DASHBOARD_ROUTES: ReadonlySet<string> = new Set([
   '/dashboard/viewer',
-  '/dashboard/map', // 👈 เพิ่มบรรทัดนี้ลงไปครับ!
+  // The map draws a base map and one example pin. Nothing on it is derived
+  // from user data, so there is nothing here to protect - but it must keep
+  // saying on screen that it is an example, since anyone can reach it.
+  '/dashboard/map',
 ]);
 
 export function isPublicDashboardRoute(pathname: string): boolean {

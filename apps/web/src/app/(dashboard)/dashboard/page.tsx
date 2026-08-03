@@ -56,24 +56,52 @@ export default async function DashboardPage() {
             </span>
           </Link>
 
-          {/* Coming next */}
+          {/* The map. Its card said it showed survey-plot positions in Songkhla,
+              which would be a claim about data we hold; it draws a base map and
+              one example pin. The badge says so rather than "พร้อมใช้งานบางส่วน". */}
           <Link
-  href="/dashboard/map"
-  className="group rounded-xl border border-primary/30 bg-primary/5 p-6 transition-all hover:border-primary/60 hover:shadow-md"
->
-  <div className="flex items-center justify-between gap-2">
-    <h2 className="text-lg font-semibold">🗺️ ดูแผนที่ </h2>
-    <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
-      พร้อมใช้งานบางส่วน
-    </span>
-  </div>
-  <p className="mt-2 text-sm text-muted-foreground">
-    เปิดดูแผนที่และตำแหน่งแปลงสำรวจคาร์บอนในเขตจังหวัดสงขลา 
-  </p>
-  <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary transition-all group-hover:gap-2">
-    ดูแผนที่ <span aria-hidden>→</span>
-  </span>
-</Link>
+            href="/dashboard/map"
+            className="group rounded-xl border border-border bg-card p-6 transition-all hover:border-primary/60 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">🗺️ แผนที่</h2>
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                ตัวอย่างการแสดงผล
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              แสดงแผนที่พื้นที่จังหวัดสงขลาพร้อมหมุดตัวอย่างหนึ่งจุด
+              ยังไม่ได้เชื่อมกับข้อมูลแปลงสำรวจจริง และต้องใช้อินเทอร์เน็ตเพื่อโหลดภาพแผนที่
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary transition-all group-hover:gap-2">
+              เปิดแผนที่ <span aria-hidden>→</span>
+            </span>
+          </Link>
+        </div>
+
+        {/* This list was a card in the grid until the map replaced it, taking
+            three disclosures with it. They belong on the page a signed-in user
+            lands on, not only on the landing page. */}
+        <div className="mt-6 rounded-xl border border-border bg-card p-6">
+          <h2 className="text-lg font-semibold">อยู่ในแผนถัดไป</h2>
+          <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            <li className="flex items-start gap-2">
+              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              อัปโหลดไฟล์ LiDAR (.las/.laz) แล้วประมวลผลให้อัตโนมัติ
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              จำแนกชนิดพันธุ์ไม้อัตโนมัติ (ตอนนี้ผู้ใช้ระบุเอง)
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              เชื่อมแผนที่กับตำแหน่งแปลงที่สแกนจริง
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              ระบบซื้อขายคาร์บอนเครดิต
+            </li>
+          </ul>
         </div>
 
         <div className="mt-6 text-sm text-muted-foreground">

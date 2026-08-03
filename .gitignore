@@ -141,3 +141,8 @@ gate-report.txt
 apps/web/test-results/
 apps/web/playwright-report/
 apps/web/blob-report/
+
+# pnpm is the package manager for this repo (see packageManager in package.json).
+# An npm lockfile here is 15k lines of noise that tells the next person the
+# wrong thing about how to install.
+package-lock.json
