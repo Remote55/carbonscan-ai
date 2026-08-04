@@ -153,16 +153,15 @@ export function DatasetGallery() {
           </div>
 
           <TransformWrapper
-          key={`${dataset.id}-${selectedImage.type}`}
+  key={`${dataset.id}-${selectedImage.type}`}
   initialScale={1}
-  minScale={1}          // ห้ามซูมออกเล็กกว่าขนาดเริ่มต้น
-  maxScale={10}         // เดิม 4 เพิ่มเป็น 10
+  minScale={1}
+  maxScale={10}
   centerOnInit
   centerZoomedOut={false}
   limitToBounds
   wheel={{
-    step: 0.08,         // ซูมเข้าเร็วขึ้นเล็กน้อย
-    smoothStep: 0.01,
+    step: 0.05,
   }}
   pinch={{
     step: 5,
@@ -174,28 +173,25 @@ export function DatasetGallery() {
   panning={{
     velocityDisabled: true,
   }}
-          >
-            {({ zoomIn, zoomOut, resetTransform }) => (
-              <div className="relative h-[36rem] overflow-hidden bg-[#f5f4ef]">
-              
-
-                <TransformComponent
-                  wrapperClass="!h-full !w-full"
-                  contentClass="!flex !h-full !w-full !items-center !justify-center"
-                >
-                  <Image
-                    src={selectedImage.image}
-                    alt={`${dataset.id} — ${selectedImage.label}`}
-                    priority
-                    draggable={false}
-                    className="pointer-events-none h-auto w-auto max-h-[34rem] max-w-[94%] select-none object-contain"
-                  />
-                </TransformComponent>
-
-               
-              </div>
-            )}
-          </TransformWrapper>
+>
+  {() => (
+    <div className="relative h-[36rem] overflow-hidden bg-[#f5f4ef] cursor-grab active:cursor-grabbing">
+      <TransformComponent
+        wrapperClass="!w-full !h-full"
+        contentClass="!w-full !h-full !flex !items-center !justify-center"
+      >
+        <Image
+          key={`${dataset.id}-${selectedImage.type}`}
+          src={selectedImage.image}
+          alt={`${dataset.id} — ${selectedImage.label}`}
+          priority
+          draggable={false}
+          className="pointer-events-none select-none object-contain max-w-[94%] max-h-[34rem] w-auto h-auto"
+        />
+      </TransformComponent>
+    </div>
+  )}
+</TransformWrapper>
 
           <div className="border-t border-paper/15 p-4 sm:p-5">
             <div className="grid gap-2 sm:grid-cols-3">
