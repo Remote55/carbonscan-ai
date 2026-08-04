@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 import { EditorialSection } from '../components/editorial/editorial-section';
@@ -11,12 +10,15 @@ import { AppHeader } from '../components/layout/app-header';
 import { ScrollToTop } from '../components/layout/scroll-to-top';
 import { Button } from '../components/ui/button';
 import { CORE_DEMO_EVIDENCE } from '../generated/core-demo-evidence';
-import { VISUAL_ASSETS } from '../lib/visual-assets';
-import { generateDemoTree } from '@/lib/demo-pointcloud';
-import { ViewerStage } from '@/components/viewer/viewer-stage';
+import { DatasetGallery } from '@/components/Dataset/dataset-gallery';
+import { PointCloudViewer } from '@/components/viewer/point-cloud-viewer';
+import { type PointCloud } from '@/lib/demo-pointcloud';
+import { decimate, parsePly } from '@/lib/ply-loader';
 
-const { baseline, candidate, coreDemo } = CORE_DEMO_EVIDENCE;
-const { wanHeldOut, demol65 } = CORE_DEMO_EVIDENCE.validation;
+const { baseline, candidate } = CORE_DEMO_EVIDENCE;
+const { demol65 } = CORE_DEMO_EVIDENCE.validation;
+
+const MAX_HERO_POINTS = 200_000;
 
 const JOURNEY = [
   {
@@ -25,19 +27,20 @@ const JOURNEY = [
     description:
       'รองรับข้อมูล Point Cloud จากเครื่องสแกน LiDAR หรือภาพถ่ายทางอากาศ',
     technical: [
-      'point cloud รูปแบบ .ply',
+      'Point Cloud รูปแบบ .ply',
       'จำกัด 2 ล้านจุด หรือ 100 MB ต่อไฟล์',
     ],
   },
   {
     step: '02',
-    title: 'แยกลำต้นออกจากใบ',
+    title: 'แยกลำต้นออกจากใบไม้',
     description:
       'คัดแยกจุดที่เป็นลำต้นออกจากใบไม้ด้วยอัลกอริทึมเชิงเรขาคณิต เพื่อลดความคลาดเคลื่อนในการคำนวณชีวมวล',
     technical: [
       `${baseline.backend} เป็นตัวที่ใช้จริง`,
       `${candidate.displayName} ยังเป็น ${candidate.status} ไม่ได้ถูกนำมาใช้`,
-      `Wood IoU ${wanHeldOut.woodIoU}`,
+      `ความแม่นยำการแยกลำต้น 41.8%`,
+      `ความแม่นยำการแยกใบไม้ 80.8%`,
     ],
   },
   {
@@ -46,288 +49,354 @@ const JOURNEY = [
     description:
       'ประเมินขนาดลำต้นและความสูงรวม และสร้างแบบจำลองทรงกระบอก เพื่อคำนวณปริมาตรเนื้อไม้',
     technical: [
-      'DBH ที่ระดับ 1.3 เมตร',
-      'ปริมาตรจาก QSM ทรงกระบอก',
-      `คลาดเคลื่อนเฉลี่ย ${demol65.dbhMaeCm} ซม. บนต้นไม้จริง 65 ต้น`,
+      'วัดเส้นผ่านศูนย์กลางลำต้นที่ระดับ 1.3 เมตร',
+      'คำนวณปริมาตรจากแบบจำลองทรงกระบอก QSM',
+      `ค่าคลาดเคลื่อนเฉลี่ย ${demol65.dbhMaeCm} ซม. จากต้นไม้จริง 65 ต้น`,
     ],
   },
   {
     step: '04',
     title: 'คำนวณคาร์บอน',
     description:
-      'คำนวณปริมาณชีวมวล คาร์บอนสะสม และ CO₂e ตามสมการแอลโลเมตริกอ้างอิงมาตรฐาน พร้อมระบบบันทึกแหล่งที่มาของข้อมูล',
+      'คำนวณปริมาณชีวมวล คาร์บอนสะสม และ CO₂e ตามสมการแอลโลเมตริก พร้อมบันทึกแหล่งที่มาของข้อมูล',
     technical: [
-      'สมการ Chave 2014',
-      'ชีวมวลใต้ดิน = เหนือดิน × 0.24',
+      'ใช้สมการ Chave 2014',
+      'ชีวมวลใต้ดิน = ชีวมวลเหนือดิน × 0.24',
       'คาร์บอน = ชีวมวล × 0.47',
-      'CO₂e = คาร์บอน × 44/12 (IPCC 2006)',
-      'การแยกชนิดพันธุ์ยังเป็นโครงเปล่า',
+      'CO₂e = คาร์บอน × 44/12 ตามแนวทาง IPCC 2006',
+      'CO₂e คือปริมาณก๊าซเรือนกระจกเทียบเท่าคาร์บอนไดออกไซด์',
     ],
   },
 ] as const;
 
+const PROJECT_OBJECTIVES = [
+  {
+    step: '01',
+    title: 'ลดอุปสรรคทางภูมิศาสตร์',
+    summary:
+      'ลดความจำเป็นในการเดินเท้าสำรวจพื้นที่ลาดชัน พื้นที่ห่างไกล หรือพื้นที่ที่เข้าถึงได้ยาก',
+    detail:
+      'ช่วยให้กลุ่มเกษตรกรสามารถเก็บข้อมูลพื้นที่ป่าของตนได้สะดวกขึ้น และผู้ตรวจสอบสามารถประเมินโครงสร้างป่าในเบื้องต้นจากระยะไกล',
+    tone: 'bg-deep-forest',
+  },
+  {
+    step: '02',
+    title: 'ลดต้นทุนและเวลา',
+    summary:
+      'เปลี่ยนการวัดต้นไม้ทีละต้นด้วยแรงงานคน ให้เป็นการประมวลผลข้อมูล Point Cloud แบบอัตโนมัติ',
+    detail:
+      'ช่วยให้เกษตรกรและชุมชนประเมินศักยภาพคาร์บอนเบื้องต้นด้วยต้นทุนที่ต่ำลง ลดระยะเวลาการสำรวจ และลดความเสี่ยงก่อนว่าจ้างผู้ตรวจสอบจริง',
+    tone: 'bg-moss',
+  },
+  {
+    step: '03',
+    title: 'ยกระดับความโปร่งใส',
+    summary:
+      'แสดงแหล่งที่มาของข้อมูล ขั้นตอนการประมวลผล และวิธีการคำนวณอย่างเป็นระบบ',
+    detail:
+      'ช่วยเพิ่มความมั่นใจให้แก่ผู้ตรวจสอบ และเพิ่มโอกาสให้พื้นที่ป่าห่างไกลเข้าสู่กระบวนการประเมินและรับรองด้านคาร์บอน',
+    tone: 'bg-evidence-amber',
+  },
+] as const;
+
 export default function HomePage() {
-  const demoForest = useMemo(() => {
-    const treeConfigs = [
-      {
-        seed: 42,
-        position: [-3.4, 0, 0] as const,
-        scale: 0.88,
-      },
-      {
-        seed: 84,
-        position: [0, 0, 0] as const,
-        scale: 1.08,
-      },
-      {
-        seed: 126,
-        position: [3.4, 0, 0] as const,
-        scale: 0.94,
-      },
-    ];
+  const [heroCloud, setHeroCloud] = useState<PointCloud | null>(null);
+  const [heroCloudError, setHeroCloudError] = useState<string | null>(
+    null,
+  );
+  const [isHeroCloudLoading, setIsHeroCloudLoading] = useState(true);
 
-    const trees = treeConfigs.map((config) => {
-      const tree = generateDemoTree({
-        seed: config.seed,
-      });
+useEffect(() => {
+  let cancelled = false;
 
-      const transformedPositions = new Float32Array(
-        tree.positions.length,
-      );
+  async function loadHeroCloud() {
+    try {
+      setIsHeroCloudLoading(true);
+      setHeroCloudError(null);
 
-      for (
-        let index = 0;
-        index < tree.positions.length;
-        index += 3
-      ) {
-        const x = tree.positions[index];
-        const y = tree.positions[index + 1];
-        const z = tree.positions[index + 2];
+      const response = await fetch('/demo/scholar-tree-viewer.ply');
 
-        transformedPositions[index] =
-          x * config.scale + config.position[0];
-
-        transformedPositions[index + 1] =
-          y * config.scale + config.position[1];
-
-        transformedPositions[index + 2] =
-          z * config.scale + config.position[2];
+      if (!response.ok) {
+        throw new Error(
+          `ไม่พบไฟล์ Point Cloud (HTTP ${response.status})`,
+        );
       }
 
-      return {
-        positions: transformedPositions,
-        classes: tree.classes,
-      };
-    });
+      const buffer = await response.arrayBuffer();
 
-    const totalPositionLength = trees.reduce(
-      (total, tree) => total + tree.positions.length,
-      0,
-    );
+      const parsedCloud = decimate(
+        parsePly(buffer),
+        MAX_HERO_POINTS,
+      );
 
-    const totalClassLength = trees.reduce(
-      (total, tree) => total + tree.classes.length,
-      0,
-    );
+      if (
+        parsedCloud.positions.length === 0 ||
+        parsedCloud.classes.length === 0
+      ) {
+        throw new Error(
+          'ไฟล์นี้ไม่มีข้อมูลจุดที่ระบบสามารถอ่านได้',
+        );
+      }
 
-    const positions = new Float32Array(totalPositionLength);
-    const classes = new Uint8Array(totalClassLength);
+      if (!cancelled) {
+        setHeroCloud(parsedCloud);
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setHeroCloud(null);
+        setHeroCloudError(
+          error instanceof Error
+            ? error.message
+            : 'ไม่สามารถโหลดไฟล์ Point Cloud ได้',
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setIsHeroCloudLoading(false);
+      }
+    }
+  }
 
-    let positionOffset = 0;
-    let classOffset = 0;
+  void loadHeroCloud();
 
-    trees.forEach((tree) => {
-      positions.set(tree.positions, positionOffset);
-      classes.set(tree.classes, classOffset);
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
-      positionOffset += tree.positions.length;
-      classOffset += tree.classes.length;
-    });
 
-    return {
-      positions,
-      classes,
-      labelled: true,
-      treeCount: trees.length,
-    };
-  }, []);
-
-  const nPoints = demoForest.classes.length;
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gallery-ivory text-forest-ink">
-      <a
-        href="#main-content"
-        className="sr-only rounded-full bg-canopy px-5 py-3 text-sm font-medium text-paper focus:not-sr-only focus:absolute focus:left-5 focus:top-4 focus:z-50"
-      >
-        ข้ามไปยังเนื้อหาหลัก
-      </a>
+     <a
+  href="#main-content"
+  className="sr-only rounded-full bg-canopy px-5 py-3 text-sm font-medium text-paper focus:not-sr-only focus:fixed focus:left-5 focus:top-4 focus:z-[60]"
+>
+  ข้ามไปยังเนื้อหาหลัก
+</a>
 
-      <div className="mx-auto max-w-7xl px-5 pt-4 sm:px-8">
-        <AppHeader />
-      </div>
+     <AppHeader />
 
-      <main id="main-content">
-        <section className="mx-auto max-w-7xl px-5 pb-8 pt-6 sm:px-8">
-          <div className="grid grid-cols-1 gap-8 lg:min-h-[35.625rem] lg:grid-cols-12">
-            <div className="flex flex-col justify-center lg:col-span-6 lg:pr-8">
-              <p className="editorial-eyebrow">
-                TreeQ Carbon / NSC 2026 / Deep Tech
-              </p>
+<div className="h-16" aria-hidden="true" />
 
-              <h1 className="mt-7 max-w-[15ch] text-balance font-display text-[2.6rem] font-medium leading-[1.14] tracking-[-0.03em] text-forest-ink sm:text-5xl lg:text-[3.4rem]">
-                ประเมินคาร์บอนสะสม จากโครงสร้างทางกายภาพของต้นไม้
+<main id="main-content">
+        <section className="mx-auto max-w-7xl px-5 pb-12 pt-8 sm:px-8">
+          <div className="grid grid-cols-1 items-stretch gap-10 lg:min-h-[35.625rem] lg:grid-cols-12">
+            <div className="flex flex-col justify-center py-4 lg:col-span-6 lg:pr-10">
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-moss/20 bg-moss/5 px-3 py-1.5">
+                <span className="h-2 w-2 rounded-full bg-moss" />
+
+                <span className="text-xs font-semibold tracking-wide text-canopy">
+                  TREEQ CARBON / NSC 2026
+                </span>
+              </div>
+
+              <h1 className="mt-7 max-w-[14ch] text-balance font-display text-[2.75rem] font-medium leading-[1.12] tracking-[-0.035em] text-forest-ink sm:text-5xl lg:text-[3.6rem]">
+                วิเคราะห์คาร์บอนจาก Point Cloud ผ่านขนาดลำต้นที่ตรวจสอบได้
               </h1>
 
-              <p className="mt-7 max-w-xl text-base leading-8 text-canopy sm:text-lg">
-                เพียงอัปโหลดข้อมูล Point Cloud
-                ระบบจะวิเคราะห์ขนาดและโครงสร้างเพื่อประเมินปริมาณคาร์บอนสะสมอัตโนมัติ
-                พร้อมแสดงหลักฐานอ้างอิงของแต่ละขั้นตอนอย่างโปร่งใส
+              <p className="mt-6 max-w-xl text-base leading-8 text-canopy sm:text-lg">
+                อัปโหลดข้อมูล Point Cloud เพื่อวิเคราะห์ขนาดลำต้น
+                โครงสร้างต้นไม้ และประเมินปริมาณคาร์บอนสะสม
+                พร้อมหลักฐานที่สามารถตรวจสอบย้อนกลับได้
               </p>
 
-              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Button
-                  render={<Link href="/demo" />}
-                  variant="editorial"
-                  size="xl"
-                  className="w-full justify-center"
-                >
-                  ตัวอย่างผลการประเมิน
-                </Button>
-
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Button
                   render={<Link href="/dashboard/viewer" />}
-                  variant="editorialOutline"
+                  variant="editorial"
                   size="xl"
-                  className="w-full justify-center"
+                  className="justify-center sm:min-w-48"
                 >
                   ทดลองอัปโหลดไฟล์
                 </Button>
+
+              
 
                 <Button
                   render={<Link href="/dashboard/map" />}
                   variant="editorialOutline"
                   size="xl"
-                  className="w-full justify-center"
+                  className="justify-center sm:min-w-36"
                 >
                   ดูแผนที่
                 </Button>
               </div>
 
-              <dl className="mt-7 flex flex-wrap gap-3">
-                {[
-                  {
-                    term: 'แยกลำต้น–ใบ ที่ใช้จริง',
-                    value: baseline.backend,
-                    shipped: true,
-                  },
-                  {
-                    term: candidate.displayName,
-                    value: candidate.status,
-                    shipped: false,
-                  },
-                  {
-                    term: 'จำแนกชนิดพันธุ์',
-                    value: 'Stub',
-                    shipped: false,
-                  },
-                ].map((fact) => (
-                  <div
-                    key={fact.term}
-                    className={`relative flex flex-col justify-center rounded-xl border bg-paper px-4 py-3 pl-5 shadow-sm transition-colors ${
-                      fact.shipped
-                        ? 'border-moss/40'
-                        : 'border-evidence-amber/30'
-                    }`}
-                  >
-                    <div
-                      className={`absolute left-0 top-0 h-full w-1.5 rounded-l-xl ${
-                        fact.shipped
-                          ? 'bg-moss'
-                          : 'bg-evidence-amber'
-                      }`}
-                    />
+              
+            </div>
 
-                    <dt className="editorial-eyebrow-th text-xs text-canopy/80">
-                      {fact.term}
-                    </dt>
+            <div className="relative mt-6 min-h-[30rem] overflow-hidden rounded-[2rem] bg-forest-ink shadow-[0_32px_80px_-24px_rgba(14,42,29,0.45)] sm:mt-8 lg:col-span-6 lg:mt-10 lg:min-h-[35.625rem]">
+              {heroCloud ? (
+                <>
+                  <PointCloudViewer
+                    positions={heroCloud.positions}
+                    classes={heroCloud.classes}
+                    labelled={heroCloud.labelled}
+                    className="absolute inset-0 h-full w-full"
+                  />
 
-                    <dd
-                      className={`mt-1 text-sm font-semibold tracking-tight ${
-                        fact.shipped
-                          ? 'text-forest-ink'
-                          : 'text-evidence-amber'
-                      }`}
-                    >
-                      {fact.value}
-                    </dd>
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-deep-forest/55 via-transparent to-deep-forest/80" />
+
+                  <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5 sm:p-6">
+                    <div className="min-w-0">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-paper/15 bg-deep-forest/75 px-3 py-1.5 backdrop-blur-md">
+                        <span className="h-2 w-2 rounded-full bg-lichen" />
+
+                        <span className="text-xs font-medium text-paper">
+                          Point Cloud จากไฟล์จริง
+                        </span>
+                      </div>
+
+                     
+
+                    </div>
+
+                    <div className="rounded-full border border-paper/15 bg-deep-forest/75 px-3 py-2 text-xs font-medium text-paper backdrop-blur-md">
+                      {heroCloud.classes.length.toLocaleString()} จุด
+                    </div>
                   </div>
-                ))}
-              </dl>
-            </div>
 
-            <div className="relative min-h-[25rem] overflow-hidden rounded-[1.75rem] shadow-[0_28px_68px_-18px_rgba(14,42,29,0.18)] lg:col-span-6 lg:min-h-[35.625rem]">
-              <Image
-                src={VISUAL_ASSETS.landing.src}
-                alt="ป่าปกคลุมด้วยหมอก"
-                fill
-                priority
-                sizes="(min-width: 1024px) 48vw, 100vw"
-                className="object-cover"
-              />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
+                    
 
-              <div className="absolute inset-0 bg-gradient-to-b from-deep-forest/5 via-deep-forest/15 to-deep-forest/80" />
-            </div>
-          </div>
+                    <div className="rounded-full border border-paper/15 bg-deep-forest/70 px-4 py-2 text-[11px] text-mist backdrop-blur-md">
+                      ลากเพื่อหมุน · เลื่อนเมาส์เพื่อซูม
+                    </div>
+                    
+                  </div>
+                </>
+              ) : (
+                <div className="flex min-h-[30rem] items-center justify-center px-6 text-center lg:min-h-[35.625rem]">
+                  {isHeroCloudLoading ? (
+                    <div>
+                      <div className="relative mx-auto h-12 w-12">
+                        <div className="absolute inset-0 rounded-full border-4 border-lichen/20" />
+                        <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-lichen" />
+                      </div>
 
-          <div className="mt-6 rounded-[1.25rem] border border-hairline bg-paper p-4 shadow-sm">
-            <p className="editorial-eyebrow-th px-1 pb-3 text-canopy">
-              ผลการประเมินจากชุดทดสอบอิสระ — แสดงเต็มไม่ปัดเศษ
-            </p>
+                      <p className="mt-5 font-display text-lg font-medium text-paper">
+                        กำลังโหลด Point Cloud
+                      </p>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <EvidenceMetric
-                label="Wood IoU"
-                value={String(wanHeldOut.woodIoU)}
-                note={`Wan held-out / ${candidate.status}`}
-              />
+                      <p className="mt-2 text-sm text-mist">
+                        กำลังเตรียมข้อมูลสามมิติสำหรับแสดงผล
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-w-sm">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ember/15 text-xl text-ember">
+                        !
+                      </div>
 
-              <EvidenceMetric
-                label="Leaf IoU"
-                value={String(wanHeldOut.leafIoU)}
-                note={`Wan held-out / ${candidate.status}`}
-              />
+                      <p className="mt-5 font-display text-xl font-medium text-paper">
+                        โหลด Point Cloud ไม่สำเร็จ
+                      </p>
 
-              <EvidenceMetric
-                label="DBH MAE"
-                value={`${demol65.dbhMaeCm} cm`}
-                note="Demol / 65 isolated trees"
-              />
+                      <p className="mt-2 text-sm leading-7 text-mist">
+                        {heroCloudError}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>
 
-        <div data-editorial-beat="problem">
-          <EditorialSection
+<div
+  id="problem"
+  className="scroll-mt-20"
+  data-editorial-beat="problem"
+>          <EditorialSection
             className="border-t border-hairline bg-paper"
             title="ข้อจำกัดของการสำรวจแบบเดิม"
-            description="การประเมินคาร์บอนในปัจจุบันต้องอาศัยการลงพื้นที่สำรวจทีละต้น ซึ่งใช้ต้นทุนสูง ใช้เวลานาน และยากต่อการตรวจสอบแหล่งที่มาของตัวเลขในภายหลัง"
+            description="วิธีการสำรวจแบบดั้งเดิมไม่สามารถรองรับผืนป่าขนาดใหญ่หรือภูมิประเทศที่เป็นภูเขาได้ การส่งคนเข้าไปเดินวัดขนาดลำต้นทีละต้นในพื้นที่ลาดชันหรือห่างไกล เป็นอุปสรรคสำคัญที่ทำให้หลายพื้นที่ไม่สามารถเข้าถึงการประเมินคาร์บอนได้"
           >
-            <p className="max-w-3xl font-display text-3xl leading-snug text-deep-forest sm:text-4xl">
-              เราไม่ได้มุ่งเน้นแค่ความแม่นยำของ AI
-              แต่เราสร้างแพลตฟอร์มที่เปิดหลักฐานให้ตรวจสอบย้อนกลับได้
-            </p>
+            <div className="grid gap-5 md:grid-cols-3">
+              <div className="rounded-2xl border border-hairline bg-gallery-ivory p-6">
+                <h3 className="font-display text-xl font-medium text-forest-ink">
+                  เข้าถึงพื้นที่ได้ยาก
+                </h3>
+
+                <p className="mt-3 text-sm leading-7 text-canopy">
+                  พื้นที่ลาดชัน พื้นที่ภูเขา และพื้นที่ห่างไกล
+                  ทำให้การเดินสำรวจมีความเสี่ยงและใช้เวลาสูง
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-hairline bg-gallery-ivory p-6">
+                <h3 className="font-display text-xl font-medium text-forest-ink">
+                  ใช้แรงงานจำนวนมาก
+                </h3>
+
+                <p className="mt-3 text-sm leading-7 text-canopy">
+                  เจ้าหน้าที่ต้องเดินวัดขนาดต้นไม้ทีละต้น
+                  ทำให้ไม่เหมาะกับพื้นที่ขนาดใหญ่
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-hairline bg-gallery-ivory p-6">
+                <h3 className="font-display text-xl font-medium text-forest-ink">
+                  ตรวจสอบย้อนหลังได้ยาก
+                </h3>
+
+                <p className="mt-3 text-sm leading-7 text-canopy">
+                  ผลลัพธ์จากการสำรวจอาจขาดหลักฐานดิจิทัล
+                  ที่เชื่อมโยงกลับไปยังข้อมูลต้นทาง
+                </p>
+              </div>
+            </div>
+          </EditorialSection>
+        </div>
+
+        <div id="objectives" data-editorial-beat="objectives">
+          <EditorialSection
+            className="border-t border-hairline bg-gallery-ivory"
+            title="เป้าหมายของโครงการ"
+            description="TreeQ Carbon Platform พัฒนาขึ้นเพื่อช่วยลดข้อจำกัดของการสำรวจป่าแบบเดิม ด้วยการประยุกต์ใช้ข้อมูล Point Cloud และระบบประมวลผลอัตโนมัติ"
+          >
+            <div className="grid items-stretch gap-6 lg:grid-cols-3">
+              {PROJECT_OBJECTIVES.map((objective) => (
+                <article
+                  key={objective.step}
+                  className="flex h-full flex-col rounded-2xl border border-hairline bg-paper p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-7"
+                >
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-display text-lg font-semibold text-paper ${objective.tone}`}
+                    >
+                      {objective.step}
+                    </span>
+
+                    <h3 className="font-display text-xl font-semibold leading-snug text-forest-ink sm:text-2xl">
+                      {objective.title}
+                    </h3>
+                  </div>
+
+                  <p className="mt-5 text-base leading-8 text-canopy">
+                    {objective.summary}
+                  </p>
+
+                  <div className="mt-6 flex-1 rounded-xl bg-gallery-ivory p-5">
+                    <p className="text-sm leading-7 text-canopy">
+                      {objective.detail}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
           </EditorialSection>
         </div>
 
         <div id="how" data-editorial-beat="journey">
           <EditorialSection
-            className="bg-gallery-ivory"
+            className="bg-paper"
             title="วิธีทำงาน"
             description="ระบบแปลงข้อมูล Point Cloud สู่ตัวเลขคาร์บอนสะสมผ่าน 4 ขั้นตอนหลัก โดยระบุเทคนิคและสมการที่ใช้อย่างชัดเจน"
           >
             <div className="relative border-y border-hairline py-4">
-              <div className="absolute bottom-0 left-[6.5rem] top-0 hidden w-[1px] bg-hairline sm:block" />
+              <div className="absolute bottom-0 left-[6.5rem] top-0 hidden w-px bg-hairline sm:block" />
 
               <ol className="relative z-10">
                 {JOURNEY.map((item) => (
@@ -336,7 +405,7 @@ export default function HomePage() {
                     className="group grid gap-4 border-b border-hairline py-8 last:border-b-0 sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1.2fr)] sm:gap-8 sm:border-b-0 sm:pb-12"
                   >
                     <div className="flex items-start">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-evidence-amber bg-gallery-ivory font-mono text-sm font-medium text-evidence-amber shadow-sm transition-colors group-hover:bg-evidence-amber group-hover:text-paper">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-evidence-amber bg-paper font-mono text-sm font-medium text-evidence-amber shadow-sm transition-colors group-hover:bg-evidence-amber group-hover:text-paper">
                         {item.step}
                       </span>
                     </div>
@@ -351,7 +420,7 @@ export default function HomePage() {
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-hairline/50 bg-paper p-5 shadow-sm">
+                    <div className="rounded-xl border border-hairline/50 bg-gallery-ivory p-5 shadow-sm">
                       <TechnicalDetail>
                         <ul className="space-y-2">
                           {item.technical.map((line) => (
@@ -373,226 +442,94 @@ export default function HomePage() {
           </EditorialSection>
         </div>
 
-        <div
-          id="tech"
-          data-editorial-beat="three-dimensional-evidence"
-        >
-          <EditorialSection
-            className="border-y border-hairline bg-paper"
-            title="ตรวจสอบโมเดล"
-            description="ผู้ใช้สามารถหมุนดูโมเดล 3 มิติ เพื่อตรวจสอบผลการจำแนกส่วนลำต้นเป็นสีน้ำตาลและใบเป็นสีเขียวได้อย่างอิสระ ให้คุณมั่นใจในความถูกต้องของโครงสร้างก่อนเข้าสู่กระบวนการคำนวณชีวมวล"
-          >
-            <div className="overflow-hidden rounded-[1.75rem] bg-deep-forest text-paper shadow-[0_24px_60px_-24px_rgba(14,42,29,0.45)]">
-              <div className="grid lg:grid-cols-12">
-                <div className="relative min-h-[28rem] overflow-hidden border-b border-paper/15 lg:col-span-7 lg:border-b-0 lg:border-r">
-                  <ViewerStage
-                    title="ต้นไม้ตัวอย่างจำลอง 3 ต้น"
-                    evidenceLabel="การจำแนกส่วนลำต้น (Wood) และใบ (Leaf) ด้วยอัลกอริทึมเชิงเรขาคณิต"
-                    positions={demoForest.positions}
-                    classes={demoForest.classes}
-                    labelled={demoForest.labelled}
-                  >
-                    <span className="editorial-eyebrow-th rounded-full border border-moss bg-deep-forest/80 px-3 py-1.5 text-lichen backdrop-blur-sm">
-                      {demoForest.treeCount} ต้น ·{' '}
-                      {nPoints.toLocaleString()} จุด
-                    </span>
-                  </ViewerStage>
-                </div>
+<div
+  id="tech"
+  className="scroll-mt-20"
+  data-editorial-beat="three-dimensional-evidence"
+>
+  <EditorialSection
+    className="border-y border-hairline bg-paper"
+    title="ชุดข้อมูล (Dataset) ที่ใช้"
+    description="ตัวอย่างชุดข้อมูลต้นไม้สามมิติที่แสดงลำดับตั้งแต่ข้อมูล Point Cloud ต้นฉบับ ผลการซ้อนทับสำหรับตรวจสอบโครงสร้าง จนถึงแบบจำลองสามมิติที่ได้หลังการประมวลผล"
+  >
+    <DatasetGallery />
 
-                <div className="flex flex-col justify-between p-6 sm:p-8 lg:col-span-5">
-                  <div className="space-y-4">
-                    <div className="rounded-xl border border-paper/15 bg-paper/5 p-4 transition-colors hover:border-paper/30">
-                      <div className="flex items-center justify-between">
-                        <span className="editorial-eyebrow-th text-xs text-lichen">
-                          วิธีที่ใช้จริง
-                        </span>
+    <div className="mt-5 rounded-xl border border-hairline bg-gallery-ivory px-5 py-4 sm:flex sm:items-start sm:justify-between sm:gap-6">
+      <div>
+        <p className="editorial-eyebrow-th text-canopy">
+          แหล่งที่มาของชุดข้อมูล
+        </p>
 
-                        <span className="rounded-full bg-moss/20 px-2.5 py-0.5 text-[10px] font-medium text-paper">
-                          Production
-                        </span>
-                      </div>
+        <p className="mt-2 text-sm font-medium leading-6 text-forest-ink">
+          QSMs, point cloud and harvest data from a destructive forest
+          biomass experiment in Belgium using terrestrial laser scanning
+        </p>
 
-                      <h4 className="mt-1 font-display text-2xl font-semibold text-paper">
-                        {baseline.backend}
-                      </h4>
+        <p className="mt-1 text-xs leading-6 text-canopy">
+          Demol, Miro · Gielen, Bert · Verbeeck, Hans (2021)
+        </p>
 
-                      <p className="mt-1.5 text-xs leading-relaxed text-mist">
-                        วิเคราะห์โครงสร้างทรงพุ่มและลำต้นด้วยหลักการทางเรขาคณิต
-                        3 มิติ
-                      </p>
-                    </div>
+        <p className="mt-1 text-xs leading-6 text-canopy">
+          DOI: 10.5281/zenodo.4557401
+        </p>
+      </div>
 
-                    <div className="rounded-xl border border-paper/15 bg-paper/5 p-4 transition-colors hover:border-paper/30">
-                      <div className="flex items-center justify-between">
-                        <span className="editorial-eyebrow-th text-xs text-evidence-amber">
-                          ตัวที่ยังทดลองอยู่
-                        </span>
+      <a
+        href="https://zenodo.org/records/4557401"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="focus-ring mt-4 inline-flex shrink-0 items-center justify-center rounded-full border border-moss/40 bg-paper px-4 py-2.5 text-sm font-medium text-canopy transition-colors hover:border-moss hover:bg-moss/10 hover:text-deep-forest sm:mt-0"
+      >
+        ดูชุดข้อมูลต้นฉบับ
+        
+      </a>
+    </div>
+  </EditorialSection>
+</div>
 
-                        <span className="rounded-full bg-evidence-amber/20 px-2.5 py-0.5 text-[10px] font-medium text-evidence-amber">
-                          Experimental
-                        </span>
-                      </div>
+<div
+  id="proof"
+  className="scroll-mt-20"
+  data-editorial-beat="validation"
+>
+  <EditorialSection
+    className="bg-gallery-ivory"
+    title="ความแม่นยำ"
+    description="ผลการประเมินอ้างอิงจากชุดข้อมูลทดสอบ โดยเปิดเผยข้อจำกัดของระบบอย่างตรงไปตรงมา"
+  >
+    <div className="grid items-stretch gap-4 md:grid-cols-3">
+      <div className="h-full [&>*]:h-full">
+        <EvidenceMetric
+          label="ความแม่นยำการแยกลำต้น"
+          value="41.8%"
+          note="ทดสอบด้วยชุดข้อมูล Wan held-out จากรอบการฝึกที่ให้ผลดีที่สุด"
+          tone="dark"
+        />
+      </div>
 
-                      <h4 className="mt-1 font-display text-2xl font-semibold text-paper">
-                        {candidate.displayName}
-                      </h4>
+      <div className="h-full [&>*]:h-full">
+        <EvidenceMetric
+          label="ความแม่นยำการแยกใบไม้"
+          value="80.8%"
+          note="ทดสอบด้วยชุดข้อมูล Wan held-out สำหรับการจำแนกลำต้นและใบไม้"
+          tone="lichen"
+        />
+      </div>
 
-                      <p className="mt-1.5 text-xs leading-relaxed text-mist">
-                        โมเดลทดลอง AI ผลยังไม่ผ่านเกณฑ์ทดสอบ
-                        จึงยังไม่ได้นำมาใช้งานจริงในระบบ (
-                        {candidate.status})
-                      </p>
-                    </div>
+      <div className="h-full [&>*]:h-full">
+        <EvidenceMetric
+          label="ค่าคลาดเคลื่อนการวัดขนาดลำต้น"
+          value={`${demol65.dbhMaeCm.toFixed(2)} ซม.`}
+          note="ทดสอบการวัดเส้นผ่านศูนย์กลางลำต้นกับต้นไม้จริงแยกเดี่ยวจำนวน 65 ต้น"
+        />
+      </div>
+    </div>
+  </EditorialSection>
+</div>
 
-                    <div className="rounded-xl border border-paper/15 bg-paper/5 p-4 transition-colors hover:border-paper/30">
-                      <div className="flex items-center justify-between">
-                        <span className="editorial-eyebrow-th text-xs text-lichen">
-                          ชุดสาธิตที่รันซ้ำได้
-                        </span>
 
-                        <span className="rounded-full bg-paper/10 px-2.5 py-0.5 text-[10px] font-medium text-paper">
-                          Benchmark
-                        </span>
-                      </div>
 
-                      <h4 className="mt-1 font-display text-2xl font-semibold text-paper tabular-nums">
-                        {coreDemo.totalTrees} ต้น
-                      </h4>
-
-                      <p className="mt-1.5 text-xs leading-relaxed text-mist">
-                        ชุดข้อมูลสาธิตมาตรฐานเพื่อยืนยันความเสถียร
-                        มีผลลัพธ์คงที่เสมอ
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 border-t border-paper/15 pt-4 text-[11px] text-mist/80">
-                    💡 คลิกค้างแล้วลากเพื่อหมุน หรือใช้ Scroll
-                    เพื่อซูมดูจุด Point Cloud แบบ 3D ได้อย่างอิสระ
-                  </div>
-                </div>
-              </div>
-            </div>
-          </EditorialSection>
-        </div>
-
-        <div id="proof" data-editorial-beat="validation">
-          <EditorialSection
-            className="bg-gallery-ivory"
-            title="ความแม่นยำ"
-            description="ผลการประเมินอ้างอิงจากการทดสอบชุดข้อมูล 3 ชุด โดยเราเปิดเผยข้อจำกัดของระบบอย่างตรงไปตรงมา เพื่อให้เห็นขอบเขตที่แพลตฟอร์มสามารถทำได้ในปัจจุบัน"
-          >
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
-              <div className="lg:col-span-4">
-                <EvidenceMetric
-                  label={`Wood IoU / ${candidate.status}`}
-                  value={String(wanHeldOut.woodIoU)}
-                  note="ชุด Wan held-out เป็นค่าจากรอบเทรนที่ดีที่สุด จึงเข้าข้างตัวเองเล็กน้อย"
-                  tone="dark"
-                />
-              </div>
-
-              <div className="lg:col-span-3">
-                <EvidenceMetric
-                  label={`Leaf IoU / ${candidate.status}`}
-                  value={String(wanHeldOut.leafIoU)}
-                  note="ชุด Wan held-out วัดการแยกลำต้นกับใบเท่านั้น"
-                  tone="lichen"
-                />
-              </div>
-
-              <div className="lg:col-span-5">
-                <EvidenceMetric
-                  label="DBH MAE / geometry only"
-                  value={`${demol65.dbhMaeCm} cm`}
-                  note="ชุด DemoL จากต้นไม้แยกเดี่ยว 65 ต้น แสดงเต็มไม่ปัดเศษ"
-                />
-              </div>
-            </div>
-
-            <div className="mt-10 border-t border-hairline pt-10">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="rounded-2xl border border-moss/20 bg-moss/5 p-6 sm:p-8">
-                  <h4 className="font-display text-xl font-medium text-forest-ink">
-                    ทดสอบแล้ว
-                  </h4>
-
-                  <ul className="mt-5 space-y-3 text-sm leading-relaxed text-canopy">
-                    <li className="flex gap-2">
-                      <span className="text-moss">•</span>
-
-                      <span>
-                        การแยกลำต้นและใบ:
-                        อ้างอิงผลลัพธ์จากรอบการฝึกที่ดีที่สุด
-                        ซึ่งอาจมีค่าประเมินสูงกว่าการใช้งานจริงเล็กน้อย
-                      </span>
-                    </li>
-
-                    <li className="flex gap-2">
-                      <span className="text-moss">•</span>
-
-                      <span>
-                        การประเมินโครงสร้าง:
-                        ทดสอบเฉพาะความแม่นยำทางเรขาคณิต
-                        ขนาดและความสูง จากข้อมูลต้นไม้จริง 65 ต้น
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="rounded-2xl border border-ember/20 bg-ember/5 p-6 sm:p-8">
-                  <h4 className="font-display text-xl font-medium text-ember">
-                    ขอบเขตที่ยังไม่ได้ทดสอบ
-                  </h4>
-
-                  <ul className="mt-5 space-y-3 text-sm leading-relaxed text-canopy">
-                    <li className="flex gap-2">
-                      <span className="text-ember">•</span>
-                      <span>
-                        ระบบทั้งเส้นตั้งแต่รับไฟล์จนได้ค่าคาร์บอน
-                      </span>
-                    </li>
-
-                    <li className="flex gap-2">
-                      <span className="text-ember">•</span>
-                      <span>
-                        การแยกชนิดพันธุ์ที่ยังเป็นโครงเปล่า
-                      </span>
-                    </li>
-
-                    <li className="flex gap-2">
-                      <span className="text-ember">•</span>
-
-                      <span>
-                        จำเป็นต้องทดสอบภาคสนามเพิ่มเติมกับชนิดพันธุ์ไม้ในไทย
-                        และสอบเทียบสมการ (TGO ปี 2017)
-                        สู่การเป็นเครื่องมือ Digital MRV
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mt-8 flex flex-col items-start justify-between gap-6 rounded-xl bg-gallery-ivory p-6 sm:flex-row sm:items-center">
-                <p className="max-w-xl text-sm font-medium leading-relaxed text-forest-ink">
-                  * ค่าคาร์บอนและ CO₂e ที่แสดงเป็นเพียง
-                  &quot;ค่าประมาณ&quot;
-                  ไม่ใช่เครดิตคาร์บอนที่ผ่านการรับรอง
-                  และเราไม่ได้กล่าวอ้างเรื่องตลาดซื้อขายเครดิต
-                </p>
-
-                <Button
-                  render={<Link href="/demo" />}
-                  variant="editorial"
-                  size="lg"
-                  className="shrink-0"
-                >
-                  เปิดหลักฐานใน Demo
-                </Button>
-              </div>
-            </div>
-          </EditorialSection>
-        </div>
+       
       </main>
 
       <footer className="border-t border-hairline bg-paper py-8">
