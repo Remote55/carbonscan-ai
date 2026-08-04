@@ -272,50 +272,12 @@ test.describe('results workspace', () => {
     await expect(note).toContainText('ผลจะออกมาเป็นตัวเลข');
   });
 
-  // The map page shipped claiming it showed scanned trees, computed carbon and
-  // survey plots in Songkhla. It shows a base map and one hardcoded pin. Anyone
-  // can open it without signing in, so the page has to keep saying what it is.
-  test('the map calls itself an example rather than surveyed data', async ({ page }) => {
-    await page.goto('/dashboard/map');
-    await page.waitForLoadState('domcontentloaded');
-
-    await expect(page.getByText('ยังไม่ได้เชื่อมข้อมูลแปลงจริง', { exact: false })).toBeVisible();
-
-    const body = await page.locator('body').innerText();
-    // Each of these asserts data the system does not hold.
-    expect(body).not.toContain('ต้นไม้ที่สแกน');
-    expect(body).not.toContain('แปลงสำรวจหาดใหญ่');
-    expect(body).not.toMatch(/คาร์บอนที่ปล่อย/);
-  });
-
-  // The presenter tells a judge this site pulls nothing from an external CDN.
-  // Marker artwork used to come from unpkg, so the pin broke on a blocked
-  // network and the claim broke with it. Tiles are the one documented
-  // exception and the page says so itself when they fail.
-  test('serves its own marker artwork instead of a CDN', async ({ page }) => {
-    const offOrigin: string[] = [];
-    page.on('request', (request) => {
-      const { hostname, origin } = new URL(request.url());
-      if (!['127.0.0.1', 'localhost'].includes(hostname)) offOrigin.push(origin);
-    });
-
-    await page.goto('/dashboard/map');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2500);
-
-    expect(offOrigin.filter((origin) => origin.includes('unpkg'))).toEqual([]);
-    expect([...new Set(offOrigin)].every((origin) => origin.includes('openstreetmap'))).toBe(true);
-  });
-
-  test('says so on screen when the map tiles cannot be reached', async ({ page }) => {
-    await page.route('**://tile.openstreetmap.org/**', (route) => route.abort());
-
-    await page.goto('/dashboard/map');
-    await page.waitForLoadState('domcontentloaded');
-
-    await expect(page.getByText('โหลดแผนที่ไม่สำเร็จ', { exact: false })).toBeVisible({
-      timeout: 15000,
-    });
+  // The map page and its three gates lived here. The supervisor asked for the
+  // map to be taken down until it is finished, so the route is gone; this test
+  // holds the line that it stays gone rather than reappearing unannounced.
+  test('the unfinished map route is not reachable', async ({ page }) => {
+    const response = await page.goto('/dashboard/map');
+    expect(response?.status()).toBe(404);
   });
 
   // Below 1024 the viewer has to come before the rail: the point cloud is the

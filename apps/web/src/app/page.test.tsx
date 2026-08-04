@@ -21,7 +21,10 @@ describe('Landing evidence contract', () => {
       '/dashboard/viewer',
     );
 
-    expect(getAnchorHrefByLabel(markup, 'ดูแผนที่')).toBe('/dashboard/map');
+    // The ดูแผนที่ action is gone with the map route, which the supervisor
+    // asked to be taken down until it is finished. Nothing on the landing page
+    // may point at it while it does not exist.
+    expect(markup).not.toContain('/dashboard/map');
   });
 
   it('never points an upload promise at the read-only demo route', () => {

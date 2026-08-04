@@ -56,27 +56,9 @@ export default async function DashboardPage() {
             </span>
           </Link>
 
-          {/* The map. Its card said it showed survey-plot positions in Songkhla,
-              which would be a claim about data we hold; it draws a base map and
-              one example pin. The badge says so rather than "พร้อมใช้งานบางส่วน". */}
-          <Link
-            href="/dashboard/map"
-            className="group rounded-xl border border-border bg-card p-6 transition-all hover:border-primary/60 hover:shadow-md"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold">🗺️ แผนที่</h2>
-              <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                ตัวอย่างการแสดงผล
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              แสดงแผนที่พื้นที่จังหวัดสงขลาพร้อมหมุดตัวอย่างหนึ่งจุด
-              ยังไม่ได้เชื่อมกับข้อมูลแปลงสำรวจจริง และต้องใช้อินเทอร์เน็ตเพื่อโหลดภาพแผนที่
-            </p>
-            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary transition-all group-hover:gap-2">
-              เปิดแผนที่ <span aria-hidden>→</span>
-            </span>
-          </Link>
+          {/* The map card lived here. The supervisor asked for the map to be
+              taken down until it is finished, so the route is gone and this
+              card with it; the feature is listed under อยู่ในแผนถัดไป below. */}
         </div>
 
         {/* This list was a card in the grid until the map replaced it, taking

@@ -211,16 +211,9 @@ useEffect(() => {
                   ทดลองอัปโหลดไฟล์
                 </Button>
 
-              
-
-                <Button
-                  render={<Link href="/dashboard/map" />}
-                  variant="editorialOutline"
-                  size="xl"
-                  className="justify-center sm:min-w-36"
-                >
-                  ดูแผนที่
-                </Button>
+                {/* The map button pointed at /dashboard/map, which is closed:
+                    the supervisor asked for it to be taken down until it is
+                    finished, so the route no longer exists. */}
               </div>
 
               

@@ -54,12 +54,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               โมเดล 3 มิติ
             </Link>
             <Link
-              href="/dashboard/map"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              แผนที่
-            </Link>
-            <Link
               href="/dashboard"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >

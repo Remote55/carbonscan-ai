@@ -26,9 +26,6 @@ describe('isPublicDashboardRoute', () => {
   });
 
   it('exempts exactly one route, so the list cannot grow unnoticed', () => {
-    expect([...PUBLIC_DASHBOARD_ROUTES]).toEqual([
-  '/dashboard/viewer',
-  '/dashboard/map',
-]);
+    expect([...PUBLIC_DASHBOARD_ROUTES]).toEqual(['/dashboard/viewer']);
   });
 });
