@@ -151,7 +151,6 @@ export function DatasetGallery() {
               ชุดที่ {datasetIndex + 1} จาก {DATASETS.length}
             </span>
           </div>
-
           <TransformWrapper
   key={`${dataset.id}-${selectedImage.type}`}
   initialScale={1}
@@ -175,23 +174,28 @@ export function DatasetGallery() {
   }}
 >
   {() => (
-    <div className="relative h-[36rem] overflow-hidden bg-[#f5f4ef] cursor-grab active:cursor-grabbing">
+    <div className="relative h-[36rem] cursor-grab overflow-hidden bg-[#f5f4ef] active:cursor-grabbing">
       <TransformComponent
-        wrapperClass="!w-full !h-full"
-        contentClass="!w-full !h-full !flex !items-center !justify-center"
+        wrapperClass="!h-full !w-full"
+        contentClass="!flex !h-full !w-full !items-center !justify-center"
       >
         <Image
           key={`${dataset.id}-${selectedImage.type}`}
           src={selectedImage.image}
           alt={`${dataset.id} — ${selectedImage.label}`}
+          width={1600}
+          height={1600}
           priority
+          unoptimized
           draggable={false}
-          className="pointer-events-none select-none object-contain max-w-[94%] max-h-[34rem] w-auto h-auto"
+          className="pointer-events-none h-auto max-h-[34rem] w-auto max-w-[94%] select-none object-contain"
         />
       </TransformComponent>
     </div>
   )}
 </TransformWrapper>
+
+  
 
           <div className="border-t border-paper/15 p-4 sm:p-5">
             <div className="grid gap-2 sm:grid-cols-3">

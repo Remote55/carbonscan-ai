@@ -28,7 +28,7 @@ export function AppHeader({ tone = 'paper' }: AppHeaderProps) {
         <BrandMark />
 
         <nav
-          aria-label="เมนูหลัก"
+          aria-label="Primary navigation"
           className="hidden items-center gap-1 lg:flex"
         >
           {navigation.map((item) => {
@@ -56,8 +56,9 @@ export function AppHeader({ tone = 'paper' }: AppHeaderProps) {
           </summary>
 
           <nav
-            aria-label="เมนูหลักบนมือถือ"
-            className="absolute right-0 top-12 z-50 flex min-w-56 flex-col gap-1 rounded-2xl border border-hairline bg-paper p-2 shadow-xl"
+              aria-label="Primary navigation mobile"
+              className="absolute right-0 top-12 z-50 flex min-w-56 flex-col gap-1 rounded-2xl border border-hairline bg-paper p-2 shadow-xl"
+
           >
             {navigation.map((item) => (
               <a
