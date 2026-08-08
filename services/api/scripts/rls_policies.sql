@@ -24,12 +24,19 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+    -- Role is NOT taken from raw_user_meta_data. That field is whatever the
+    -- client passed to supabase.auth.signUp({ options: { data } }), so reading
+    -- it here let anyone sign up as 'admin' or 'auditor' by editing one request
+    -- body. Everyone starts as 'community'; granting anything above that is an
+    -- out-of-band operation performed with the service key, deliberately, by a
+    -- person. Name still comes from metadata - a self-chosen display name grants
+    -- nothing.
     INSERT INTO public.users (id, email, name, role)
     VALUES (
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'name', NEW.email),
-        COALESCE(NEW.raw_user_meta_data->>'role', 'community')
+        'community'
     )
     ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
@@ -46,6 +53,19 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================================================
 -- 2. Helper function: is_admin / is_auditor
 -- ============================================================================
+
+-- Reads the caller's own role without re-entering RLS on public.users, which a
+-- subquery inside a policy on that same table would do. Used by the UPDATE
+-- policy below to pin the role column to the value it already holds.
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+    SELECT role FROM public.users WHERE id = auth.uid();
+$$;
 
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS boolean
@@ -98,9 +118,20 @@ CREATE POLICY "users_select_own" ON public.users
     FOR SELECT
     USING (id = auth.uid());
 
+-- WITH CHECK is the load-bearing half and it was missing. Postgres defaults an
+-- absent WITH CHECK to the USING clause, so the row *after* the update was only
+-- checked for `id = auth.uid()` - nothing looked at `role`. Any signed-up user
+-- could PATCH /rest/v1/users with {"role":"admin"} through the public anon key
+-- and then match users_admin_all, plots_admin_all, trees_admin_all and
+-- jobs_admin_all, which are FOR ALL. Pinning role to its current value closes
+-- it; a promotion has to come from the service key, outside RLS.
 CREATE POLICY "users_update_own" ON public.users
     FOR UPDATE
-    USING (id = auth.uid());
+    USING (id = auth.uid())
+    WITH CHECK (
+        id = auth.uid()
+        AND role = public.current_user_role()
+    );
 
 -- Admins see everyone
 CREATE POLICY "users_admin_all" ON public.users

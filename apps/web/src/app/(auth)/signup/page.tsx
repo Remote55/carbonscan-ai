@@ -4,13 +4,11 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { signUp } from '@/lib/auth';
 
-type Role = 'community' | 'industrial' | 'auditor';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<Role>('community');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,7 +18,9 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
-    const result = await signUp(email, password, { name, role });
+    // Only the display name travels. Role is assigned by the database
+    // trigger, which no longer reads anything the client sent.
+    const result = await signUp(email, password, { name });
     if (result.error) {
       setError(result.error);
       setLoading(false);
@@ -111,22 +111,13 @@ export default function SignupPage() {
           <p className="mt-1 text-xs text-muted-foreground">อย่างน้อย 8 ตัวอักษร</p>
         </div>
 
-        <div>
-          <label htmlFor="role" className="mb-1.5 block text-sm font-medium">
-            ประเภทผู้ใช้
-          </label>
-          <select
-            id="role"
-            required
-            value={role}
-            onChange={(e) => setRole(e.target.value as Role)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="community">ชุมชน / เกษตรกร (ผู้ปลูกต้นไม้)</option>
-            <option value="industrial">โรงงานอุตสาหกรรม (ผู้สนใจข้อมูลคาร์บอน)</option>
-            <option value="auditor">Auditor (ตรวจสอบ)</option>
-          </select>
-        </div>
+        {/* The role selector is gone. It wrote straight into the signup
+            metadata that the database trigger read to set public.users.role,
+            so "Auditor" in a dropdown granted the right to mark any tree
+            verified — the trust anchor of the whole product — and the same
+            field accepted 'admin' from anyone editing the request. The trigger
+            now assigns 'community' to everyone regardless, so leaving the
+            control on screen would only promise something it no longer does. */}
 
         {error && (
           <div
