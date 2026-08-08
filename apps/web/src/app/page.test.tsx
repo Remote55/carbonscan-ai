@@ -48,14 +48,16 @@ describe('Landing evidence contract', () => {
   it('reports the current validation values and implementation status honestly', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
-    // The wood/leaf figures are IoU and must be named as IoU. Shown as
-    // "ความแม่นยำ 41.8%" a reader concludes the separation is wrong most of the
-    // time, while accuracy on the same test set is 0.831 — the label misstated
-    // the metric in both directions at once.
-    expect(markup).toContain('0.418');
-    expect(markup).toContain('0.808');
+    // The separation figure must be IoU, named as IoU, and must be the number
+    // that describes what actually runs. 0.418 is the trained candidate's, on
+    // the Wan held-out split that also selected its best epoch; tlsep — the
+    // backend this page names as the one in use — scores 0.196 on a cohort it
+    // never saw. Quoting the candidate's contaminated number as the system's
+    // quality is the failure this guards.
+    expect(markup).toContain('0.196');
     expect(markup).toContain('IoU');
     expect(markup).not.toContain('ความแม่นยำการแยก');
+    expect(markup).not.toContain('0.418');
 
     // A tree-diameter error quoted to eleven significant figures claims
     // precision to picometres. Two decimals is what the measurement supports.

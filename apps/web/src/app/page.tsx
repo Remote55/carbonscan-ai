@@ -16,7 +16,12 @@ import { type PointCloud } from '@/lib/demo-pointcloud';
 import { decimate, parsePly } from '@/lib/ply-loader';
 
 const { baseline, candidate } = CORE_DEMO_EVIDENCE;
-const { demol65 } = CORE_DEMO_EVIDENCE.validation;
+const { demol65, pointnetIndependent } = CORE_DEMO_EVIDENCE.validation;
+// The separation quality that describes what ships: the default backend,
+// measured on a cohort it never trained on. The Wan held-out numbers belong to
+// the candidate and to a split that also picked its best epoch.
+const baselineExternalWoodIoU = pointnetIndependent.baseline.externalMacroWoodIoU;
+const candidateExternalWoodIoU = pointnetIndependent.candidate.externalMacroWoodIoU;
 
 const MAX_HERO_POINTS = 200_000;
 
@@ -39,12 +44,10 @@ const JOURNEY = [
     technical: [
       `${baseline.backend} เป็นตัวที่ใช้จริง`,
       `${candidate.displayName} ยังเป็น ${candidate.status} ไม่ได้ถูกนำมาใช้`,
-      // IoU, not accuracy. Calling 0.418 "ความแม่นยำ" says the separation is
-      // wrong more than half the time; accuracy on the same test set is 0.831.
-      // IoU is the stricter, more honest measure - it just is not accuracy, and
-      // labelling it as such misstates the metric in both directions at once.
-      `ความซ้อนทับกับเฉลย (IoU) ของลำต้น 0.418`,
-      `ความซ้อนทับกับเฉลย (IoU) ของใบไม้ 0.808`,
+      // IoU, not accuracy — and the number has to be the one that describes
+      // what runs. 0.418 is the candidate's, on a split that also selected its
+      // best epoch; tlsep, the backend named on the line above, scores this.
+      `ความซ้อนทับกับเฉลย (IoU) ของลำต้น ${baselineExternalWoodIoU.toFixed(3)} บนชุดข้อมูลนอก`,
     ],
   },
   {
@@ -505,24 +508,27 @@ useEffect(() => {
     description="ผลการประเมินอ้างอิงจากชุดข้อมูลทดสอบ โดยเปิดเผยข้อจำกัดของระบบอย่างตรงไปตรงมา"
   >
     <div className="grid items-stretch gap-4 md:grid-cols-3">
+      {/* 0.418 belonged to the trained candidate on the Wan held-out split -
+          and PROJECT_SPEC.md:15 records that the same split chose the best
+          epoch, so it is selection-contaminated. Shown here it read as the
+          quality of the separation that ships. It is not: tlsep, the default
+          this site names as the one in use, scores 0.196 macro wood IoU on a
+          cohort it never saw (result.json /baseline/external_segmentation).
+          The honest figure is the lower one, on the harder set. */}
       <div className="h-full [&>*]:h-full">
-        {/* IoU, and the label has to say so. Presented as "ความแม่นยำ 41.8%" a
-            reader concludes the separation is wrong most of the time; accuracy
-            on this same test set is 0.831. IoU is the harder measure and the
-            one worth quoting - but only under its own name. */}
         <EvidenceMetric
           label="ค่า IoU การแยกลำต้น"
-          value="0.418"
-          note="สัดส่วนความซ้อนทับกับเฉลย (0–1) ไม่ใช่เปอร์เซ็นต์ความถูกต้อง · ชุดทดสอบ Wan held-out"
+          value={baselineExternalWoodIoU.toFixed(3)}
+          note={`สัดส่วนความซ้อนทับกับเฉลย (0–1) ไม่ใช่เปอร์เซ็นต์ความถูกต้อง · วิธีที่ใช้จริง (${baseline.backend}) บนชุดข้อมูลนอกที่ไม่เคยเห็น`}
           tone="dark"
         />
       </div>
 
       <div className="h-full [&>*]:h-full">
         <EvidenceMetric
-          label="ค่า IoU การแยกใบไม้"
-          value="0.808"
-          note="สัดส่วนความซ้อนทับกับเฉลย (0–1) · ชุดทดสอบ Wan held-out"
+          label="วิธีที่ใช้จริง"
+          value={baseline.backend}
+          note={`${candidate.displayName} ทำได้ ${candidateExternalWoodIoU.toFixed(3)} บนชุดเดียวกัน แต่วัดขนาดได้แย่กว่า จึงไม่ถูกนำมาใช้`}
           tone="lichen"
         />
       </div>
