@@ -18,6 +18,7 @@ analysis result the caller no longer holds is of no use to anyone.
 
 from __future__ import annotations
 
+import os
 import re
 import secrets
 import tempfile
@@ -55,7 +56,12 @@ class SegmentedCloudStore:
         max_entries: int = DEFAULT_MAX_ENTRIES,
         clock: object = time.monotonic,
     ) -> None:
-        self._root = Path(root) if root else Path(tempfile.mkdtemp(prefix="treeq_segmented_"))
+        # A stable directory, not mkdtemp. uvicorn runs several workers - the
+        # repo's own Dockerfile asks for two - and a random per-process root
+        # meant the worker that answered the download was usually not the one
+        # that wrote the file. The browser then got a 404 saying "expired",
+        # which points at the TTL and not at the real cause.
+        self._root = Path(root) if root else Path(tempfile.gettempdir()) / "treeq-segmented"
         self._root.mkdir(parents=True, exist_ok=True)
         self._ttl = float(ttl_seconds)
         self._max_entries = int(max_entries)
@@ -78,39 +84,58 @@ class SegmentedCloudStore:
         return cloud_id
 
     def reserve(self) -> tuple[str, Path]:
-        """Reserve an id and path for the pipeline to write to directly.
+        """Reserve an id and a scratch path for the pipeline to write to.
 
         Saves reading a multi-megabyte file into memory only to write it back
-        out. The caller must call `commit` once the file exists.
+        out. The path ends in `.part`: `get` serves only the final name, so a
+        download can never catch a file mid-write. The caller must call `commit`.
         """
         cloud_id = secrets.token_urlsafe(24)
-        return cloud_id, self._root / f"{cloud_id}.ply"
+        return cloud_id, self._root / f"{cloud_id}.ply.part"
 
     def commit(self, cloud_id: str, path: Path) -> str | None:
-        """Register a reserved id, or return None if the file was never written."""
+        """Publish a reserved id, or return None if the file was never written.
+
+        The rename is atomic on the same filesystem, so the file appears under
+        its final name complete or not at all - which is what lets `get` fall
+        back to the filesystem safely from another worker.
+        """
         if not path.exists() or path.stat().st_size == 0:
+            path.unlink(missing_ok=True)
             return None
+        final = self._root / f"{cloud_id}.ply"
+        os.replace(path, final)
         with self._lock:
-            self._entries[cloud_id] = _Entry(path=path, created_at=self._now())
+            self._entries[cloud_id] = _Entry(path=final, created_at=self._now())
             self._evict_locked()
         return cloud_id
 
     def get(self, cloud_id: str) -> bytes | None:
-        """Return the stored PLY, or None if unknown, expired or malformed."""
+        """Return the stored PLY, or None if unknown, expired or malformed.
+
+        Falls back to the filesystem when this process has no record of the id.
+        Another worker in the same deployment may have written it, and the id is
+        the filename, so the bytes are findable without shared memory. Expiry
+        stays best-effort per process; a file whose owner has not yet evicted it
+        is still served, which is the right trade for a caller holding a valid
+        id. Sharing a filesystem is the assumption here - across hosts this
+        needs object storage, and it will still answer 404 until it gets one.
+        """
         if not _ID_PATTERN.match(cloud_id or ""):
             return None
         with self._lock:
             self._evict_locked()
             entry = self._entries.get(cloud_id)
-            if entry is None:
-                return None
-            path = entry.path
+            path = entry.path if entry else self._root / f"{cloud_id}.ply"
         try:
-            return path.read_bytes()
+            data = path.read_bytes()
         except OSError:
             with self._lock:
                 self._entries.pop(cloud_id, None)
             return None
+        # Zero bytes is not a cloud. commit() never publishes an empty file, so
+        # this only catches something that went wrong outside the store.
+        return data or None
 
     def _now(self) -> float:
         clock = self._clock

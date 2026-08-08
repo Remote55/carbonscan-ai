@@ -95,6 +95,24 @@ def test_reserve_then_commit_registers_a_file_the_pipeline_wrote(tmp_path: Path)
     assert store.get(cloud_id) == b"written by the pipeline"
 
 
+def test_a_second_worker_can_serve_what_the_first_one_wrote(tmp_path: Path) -> None:
+    """uvicorn runs several workers; the one that answers the download is
+    usually not the one that ran the pipeline. Sharing a root is what makes the
+    id resolvable, and the id is the filename, so no shared memory is needed."""
+    writer, _ = _store(tmp_path)
+    reader, _ = _store(tmp_path)  # a different process, same filesystem
+
+    cloud_id = writer.put(b"written by worker A")
+
+    assert reader.get(cloud_id) == b"written by worker A"
+
+
+def test_default_root_is_stable_across_instances() -> None:
+    """Two stores made with no explicit root must land in the same directory,
+    or the multi-worker fix above never applies in production."""
+    assert SegmentedCloudStore().root == SegmentedCloudStore().root
+
+
 def test_commit_declines_a_file_the_pipeline_never_wrote(tmp_path: Path) -> None:
     """A run with no segmented output must not advertise one."""
     store, _clock = _store(tmp_path)
