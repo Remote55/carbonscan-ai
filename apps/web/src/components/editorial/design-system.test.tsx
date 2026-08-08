@@ -44,11 +44,12 @@ describe('TreeQ editorial primitives', () => {
     expect(appHeaderMarkup).toContain('href="/#tech"');
     expect(appHeaderMarkup).toContain('href="/#how"');
     expect(appHeaderMarkup).toContain('href="/#proof"');
-    // The workspace link left the menu; the hero button is now the only way in
-    // from the landing page, and page.test.tsx is what holds that.
-    expect(appHeaderMarkup).toContain('href="/demo"');
+    // The evidence link left the menu when the nav became a single-page scroll
+    // (#problem, #how, #tech, #proof). The hero button is the way in now, and
+    // page.test.tsx is what holds that - these two assertions contradicted the
+    // comment they sat under and demanded a menu entry that no longer exists.
+    expect(appHeaderMarkup).not.toContain('href="/demo"');
     expect(appHeaderMarkup).toContain('href="/login"');
-    expect(appHeaderMarkup).toContain('href="/demo"');
     expect(workspaceMarkup).toContain('aria-label="Workspace navigation"');
     expect(workspaceMarkup).toContain('href="/demo"');
     expect(workspaceMarkup).toContain('Analysis workspace');

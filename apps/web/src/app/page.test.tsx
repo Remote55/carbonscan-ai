@@ -73,7 +73,9 @@ describe('Landing evidence contract', () => {
     expect(markup).toContain('ข้อจำกัดของการสำรวจแบบเดิม');
     expect(markup).toContain('เป้าหมายของโครงการ');
     expect(markup).toContain('วิธีทำงาน');
-    expect(markup).toContain('ชุดข้อมูลและโมเดลสามมิติ');
+    // Renamed with the dataset gallery. The test follows the page here: the
+    // heading is the supervisor's wording and the page is the source of truth.
+    expect(markup).toContain('ชุดข้อมูล (Dataset) ที่ใช้');
     expect(markup).toContain('ความแม่นยำ');
   });
 

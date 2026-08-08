@@ -211,9 +211,19 @@ useEffect(() => {
                   ทดลองอัปโหลดไฟล์
                 </Button>
 
-                {/* The map button pointed at /dashboard/map, which is closed:
-                    the supervisor asked for it to be taken down until it is
-                    finished, so the route no longer exists. */}
+                {/* /demo is the hash-verified evidence page: the reconciled
+                    tree counts, the per-tree exclusion reasons, and the
+                    PointNet++ verdict. The nav became a single-page scroll and
+                    took its menu entry with it, leaving the page reachable only
+                    by typing the URL, so this button is now the way in. */}
+                <Button
+                  render={<Link href="/demo" />}
+                  variant="editorialOutline"
+                  size="xl"
+                  className="justify-center sm:min-w-36"
+                >
+                  ดูผลการประเมิน
+                </Button>
               </div>
 
               
