@@ -41,10 +41,25 @@ def _is_strong_hex_token(token: str) -> bool:
 
 
 def token_matches(expected: str, provided: str) -> bool:
-    """Compare demo tokens only when both contain at least 256 bits of hex."""
-    if not _is_strong_hex_token(expected):
+    """Compare demo tokens only when both contain at least 256 bits of hex.
+
+    Both operands are shape-checked before the comparison, not after. The
+    header arrives decoded as latin-1, so any byte above 0x7f produces a str
+    that CPython's compare_digest refuses outright:
+
+        TypeError: comparing strings with non-ASCII characters is not supported
+
+    Written as `compare_digest(...) and _is_strong_hex_token(provided)`, the
+    comparison ran first and that TypeError escaped as an unhandled 500 from
+    the pre-auth path — reachable by anyone, one traceback per request. It
+    failed closed, but a crash is not a decision.
+
+    Checking the shape first leaks only whether the caller sent well-formed
+    hex, which is not the secret; compare_digest still guards the value.
+    """
+    if not _is_strong_hex_token(expected) or not _is_strong_hex_token(provided):
         return False
-    return hmac.compare_digest(expected, provided) and _is_strong_hex_token(provided)
+    return hmac.compare_digest(expected, provided)
 
 
 def compute_readiness_hmac(token: str, nonce: str) -> str:
