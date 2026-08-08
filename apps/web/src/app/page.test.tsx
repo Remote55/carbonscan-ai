@@ -48,13 +48,21 @@ describe('Landing evidence contract', () => {
   it('reports the current validation values and implementation status honestly', () => {
     const markup = renderToStaticMarkup(<HomePage />);
 
-    expect(markup).toContain('41.8%');
-    expect(markup).toContain('80.8%');
+    // The wood/leaf figures are IoU and must be named as IoU. Shown as
+    // "ความแม่นยำ 41.8%" a reader concludes the separation is wrong most of the
+    // time, while accuracy on the same test set is 0.831 — the label misstated
+    // the metric in both directions at once.
+    expect(markup).toContain('0.418');
+    expect(markup).toContain('0.808');
+    expect(markup).toContain('IoU');
+    expect(markup).not.toContain('ความแม่นยำการแยก');
+
+    // A tree-diameter error quoted to eleven significant figures claims
+    // precision to picometres. Two decimals is what the measurement supports.
     expect(markup).toContain('1.17');
     expect(markup).toContain('ซม.');
+    expect(markup).not.toContain('1.1673846154');
 
-    expect(markup).toContain('ความแม่นยำการแยกลำต้น');
-    expect(markup).toContain('ความแม่นยำการแยกใบไม้');
     expect(markup).toContain('ค่าคลาดเคลื่อนการวัดขนาดลำต้น');
 
     expect(markup).toContain('tlsep');

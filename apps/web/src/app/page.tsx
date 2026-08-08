@@ -39,8 +39,12 @@ const JOURNEY = [
     technical: [
       `${baseline.backend} เป็นตัวที่ใช้จริง`,
       `${candidate.displayName} ยังเป็น ${candidate.status} ไม่ได้ถูกนำมาใช้`,
-      `ความแม่นยำการแยกลำต้น 41.8%`,
-      `ความแม่นยำการแยกใบไม้ 80.8%`,
+      // IoU, not accuracy. Calling 0.418 "ความแม่นยำ" says the separation is
+      // wrong more than half the time; accuracy on the same test set is 0.831.
+      // IoU is the stricter, more honest measure - it just is not accuracy, and
+      // labelling it as such misstates the metric in both directions at once.
+      `ความซ้อนทับกับเฉลย (IoU) ของลำต้น 0.418`,
+      `ความซ้อนทับกับเฉลย (IoU) ของใบไม้ 0.808`,
     ],
   },
   {
@@ -51,7 +55,7 @@ const JOURNEY = [
     technical: [
       'วัดเส้นผ่านศูนย์กลางลำต้นที่ระดับ 1.3 เมตร',
       'คำนวณปริมาตรจากแบบจำลองทรงกระบอก QSM',
-      `ค่าคลาดเคลื่อนเฉลี่ย ${demol65.dbhMaeCm} ซม. จากต้นไม้จริง 65 ต้น`,
+      `ค่าคลาดเคลื่อนเฉลี่ย ${demol65.dbhMaeCm.toFixed(2)} ซม. จากต้นไม้จริง 65 ต้น`,
     ],
   },
   {
@@ -502,19 +506,23 @@ useEffect(() => {
   >
     <div className="grid items-stretch gap-4 md:grid-cols-3">
       <div className="h-full [&>*]:h-full">
+        {/* IoU, and the label has to say so. Presented as "ความแม่นยำ 41.8%" a
+            reader concludes the separation is wrong most of the time; accuracy
+            on this same test set is 0.831. IoU is the harder measure and the
+            one worth quoting - but only under its own name. */}
         <EvidenceMetric
-          label="ความแม่นยำการแยกลำต้น"
-          value="41.8%"
-          note="ทดสอบด้วยชุดข้อมูล Wan held-out จากรอบการฝึกที่ให้ผลดีที่สุด"
+          label="ค่า IoU การแยกลำต้น"
+          value="0.418"
+          note="สัดส่วนความซ้อนทับกับเฉลย (0–1) ไม่ใช่เปอร์เซ็นต์ความถูกต้อง · ชุดทดสอบ Wan held-out"
           tone="dark"
         />
       </div>
 
       <div className="h-full [&>*]:h-full">
         <EvidenceMetric
-          label="ความแม่นยำการแยกใบไม้"
-          value="80.8%"
-          note="ทดสอบด้วยชุดข้อมูล Wan held-out สำหรับการจำแนกลำต้นและใบไม้"
+          label="ค่า IoU การแยกใบไม้"
+          value="0.808"
+          note="สัดส่วนความซ้อนทับกับเฉลย (0–1) · ชุดทดสอบ Wan held-out"
           tone="lichen"
         />
       </div>

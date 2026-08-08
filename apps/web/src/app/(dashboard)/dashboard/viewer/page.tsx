@@ -149,7 +149,11 @@ export default function ViewerPage() {
         // Network error — backend unreachable (no API deployed / URL down).
         // Show a friendly note instead of a raw "Failed to fetch".
         setAnalyzeError(
-          'ยังเชื่อมต่อ backend ไม่ได้ — การวิเคราะห์คาร์บอนทำงานเมื่อมี API รันอยู่ (สาธิตสดในการนำเสนอ) ส่วนแสดงผล 3D ใช้งานได้เต็มที่',
+          // The old wording said this works "during the live presentation".
+          // That competition is over, and a visitor reading it has no idea what
+          // presentation is meant. Say what is true instead: the server that
+          // does the computing is not running right now.
+          'ยังเชื่อมต่อเซิร์ฟเวอร์ประมวลผลไม่ได้ในตอนนี้ — การแสดงผล 3 มิติยังใช้งานได้ตามปกติ ส่วนการคำนวณคาร์บอนต้องรอให้เซิร์ฟเวอร์กลับมา',
         );
       }
     } finally {
@@ -179,7 +183,21 @@ export default function ViewerPage() {
                 {loaded ? `ไฟล์: ${fileName}` : 'เลือก point cloud สำหรับตรวจสอบ'}
               </CardTitle>
               <CardDescription>
-                รองรับ segmented .ply และจำกัดการแสดงผลไว้ที่ {MAX_POINTS.toLocaleString()} จุด
+                รองรับไฟล์ <code>.ply</code> และแสดงผลได้สูงสุด {MAX_POINTS.toLocaleString()} จุด
+                {/* Without this link the page is a dead end for anyone who does
+                    not already own a laser scanner, which is nearly everyone.
+                    The file was already deployed and reachable - it just had no
+                    link from anywhere on the site. */}
+                <br />
+                ยังไม่มีไฟล์?{' '}
+                <a
+                  href="/demo/input.ply"
+                  download="ตัวอย่างแปลงป่า.ply"
+                  className="focus-ring rounded font-medium text-primary underline underline-offset-2"
+                >
+                  ดาวน์โหลดแปลงตัวอย่าง (1.7 MB)
+                </a>{' '}
+                แล้วลากกลับเข้ามาที่นี่
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -196,6 +214,17 @@ export default function ViewerPage() {
               >
                 <p className="text-sm text-canopy">
                   {isLoading ? 'กำลังอ่านไฟล์…' : 'ลากไฟล์ .ply มาวางที่นี่ หรือ'}
+                </p>
+                {/* The pipeline runs watershed segmentation over a canopy height
+                    model (services/ml/pipeline/main.py:156) — it looks for
+                    ground, then separates trees. Handed a single isolated tree
+                    it finds one basin covering everything and reports a DBH
+                    several times too large, with nothing on screen to say so.
+                    Saying which input it wants is the cheapest guard there is. */}
+                <p className="max-w-md text-xs leading-relaxed text-canopy/80">
+                  ระบบนี้รับ<strong className="font-semibold text-forest-ink">แปลงป่าที่มีหลายต้น</strong>{' '}
+                  ไม่ใช่ต้นไม้ต้นเดียว — ถ้าใส่ไฟล์ต้นเดียวเข้ามา
+                  ค่าที่วัดได้จะผิดไปหลายเท่าโดยไม่มีอะไรเตือน
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <Button
