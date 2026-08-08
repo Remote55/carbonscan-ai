@@ -259,17 +259,16 @@ test.describe('results workspace', () => {
     await expect(page.getByText('ยังไม่มีข้อมูลแยกลำต้น', { exact: false })).toHaveCount(0);
   });
 
-  // /upload/analyze answers with metadata, summary and trees - never a point
-  // cloud - so the picture cannot be recoloured from the result and this page
-  // must not offer to. The first version of the note said press analyse and it
-  // will separate them "for you", which a reviewer reasonably read as a promise
-  // that the view would change. It does not.
-  test('never promises the picture will colour in after analysis', async ({ page }) => {
+  // /upload/analyze returns segmented_cloud_id and the viewer fetches that
+  // cloud, so offering to colour the picture is a promise the API keeps. It was
+  // not always: this note used to commit only to numbers, because the response
+  // carried no cloud and the view could not change.
+  test('offers the colouring the pipeline delivers', async ({ page }) => {
     await openFixture(page, false);
 
     const note = page.getByText('ไฟล์นี้เก็บเฉพาะพิกัด', { exact: false });
     await expect(note).toBeVisible();
-    await expect(note).toContainText('ผลจะออกมาเป็นตัวเลข');
+    await expect(note).toContainText('ระบายสีให้');
   });
 
   // The map page and its three gates lived here. The supervisor asked for the

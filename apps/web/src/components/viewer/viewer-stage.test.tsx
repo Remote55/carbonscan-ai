@@ -24,22 +24,24 @@ function render(props: { labelled: boolean; analysed?: boolean }) {
 }
 
 describe('ViewerStage — what it says about an unclassified cloud', () => {
-  it('offers no colouring it cannot deliver before analysis', () => {
+  it('promises the colouring the pipeline can now deliver', () => {
     const markup = render({ labelled: false });
 
     expect(markup).toContain('ไฟล์นี้เก็บเฉพาะพิกัด');
-    // The pipeline returns numbers. Anything implying the picture will change
-    // is a promise /upload/analyze cannot keep.
-    expect(markup).toContain('ผลจะออกมาเป็นตัวเลข');
-    expect(markup).not.toMatch(/สีจะขึ้น|ระบายสีให้|เปลี่ยนเป็นสี/);
+    // /upload/analyze returns segmented_cloud_id and the viewer swaps to that
+    // cloud, so offering to colour the picture is a promise the API keeps. It
+    // was not always: this note used to commit only to numbers.
+    expect(markup).toContain('ระบายสีให้');
   });
 
-  it('after analysis, credits the separation but not to this picture', () => {
+  it('still tells the truth when analysis ran but no cloud came back', () => {
+    // segmented_cloud_id can be null, and the fetch can fail. The numbers are
+    // valid either way, so this branch stays: it credits the separation to the
+    // figures rather than to a picture that did not change.
     const markup = render({ labelled: false, analysed: true });
 
     expect(markup).toContain('ระบบแยกลำต้นกับใบไปแล้ว');
     expect(markup).toContain('ตัวเลขทางขวา');
-    // Still the file the browser parsed, and it has to keep saying so.
     expect(markup).toContain('ยังเป็นสีเดียว');
   });
 

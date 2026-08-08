@@ -100,9 +100,16 @@ def run_pipeline(
     *,
     backend: str = "tlsep",
     species: str | None = None,
+    segmented_ply_out: str | Path | None = None,
     timeout: int = 600,
 ) -> dict:
     """Process a point-cloud file via the ML CLI; return the result JSON dict.
+
+    Args:
+        segmented_ply_out: where the pipeline should write the plot-wide
+            wood/leaf/ground cloud. The caller owns the path and decides whether
+            the file appearing counts as success - a run can legitimately produce
+            results without it.
 
     Raises:
         PipelineError: if the subprocess exits non-zero or writes no output.
@@ -118,6 +125,8 @@ def run_pipeline(
         ]
         if species:
             cmd += ["--species", species]
+        if segmented_ply_out:
+            cmd += ["--segmented-ply", str(segmented_ply_out)]
         try:
             proc = subprocess.run(
                 cmd,

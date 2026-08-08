@@ -29,6 +29,12 @@ from pipeline.provenance import (
 
 PIPELINE_VERSION = "0.4.0"
 
+# Class code for "ground, or not claimed by any tree" in the segmented PLY the
+# viewer reads. Wood (0) and leaf (1) come from wood_leaf_separation; this third
+# code exists only in the exported plot-wide cloud, which is why it lives here
+# and not beside them.
+GROUND_CLASS = 2
+
 
 @dataclass
 class TreeResult:
@@ -162,9 +168,24 @@ def process_points(
 
     trees: list[TreeResult] = []
     diagnostics = PipelineDiagnostics()
+
+    # The viewer's copy of the classification, assembled from the per-tree labels
+    # below rather than recomputed. Ground and anything the tree assignment did
+    # not claim stay GROUND: unseen is not a class to guess at.
+    plot_classes = (
+        np.full(len(points), GROUND_CLASS, dtype=np.uint8) if segmented_ply_out else None
+    )
+
     for tid in sorted(tree_clouds):
         tree_pts = tree_clouds[tid]
         labels = segmenter.segment(tree_pts)
+        if plot_classes is not None:
+            # extract_tree_points groups with `points[tree_ids == tid]`, a
+            # boolean mask, so this writes back in the order it read out.
+            # Recorded before the exclusions below: a tree that cannot be
+            # measured is still a tree that was seen, and the result table lists
+            # it, so the picture has to show it too.
+            plot_classes[tree_ids == tid] = np.asarray(labels, dtype=np.uint8)
         wood = tree_pts[labels == wood_leaf_separation.WOOD]
         if len(wood) == 0:
             # No stem points to measure. Record it; an unexpected fault must
@@ -198,17 +219,17 @@ def process_points(
             )
         )
 
-    if segmented_ply_out:
-        # Assemble a per-point class for the whole plot so the web viewer can
-        # colour it: ground = 2; non-ground split wood = 0 / leaf = 1.
+    if segmented_ply_out and plot_classes is not None:
+        # Write the labels the measurements were taken from. This used to run a
+        # second segmenter pass over every non-ground point at once, which is a
+        # different computation: tlsep reads a point's class from its 20 nearest
+        # neighbours, and a point between two crowns gets different neighbours
+        # when the whole plot is handed over instead of one tree. The file went
+        # to the viewer as "the result", so the picture on screen could disagree
+        # with the numbers beside it. It was also the slowest step in the run.
         from pipeline.ply_export import write_segmented_ply
 
-        classes = np.full(len(points), 2, dtype=np.uint8)
-        non_ground = ~ground_mask
-        if np.any(non_ground):
-            wl = segmenter.segment(points[non_ground])
-            classes[non_ground] = np.asarray(wl, dtype=np.uint8)
-        write_segmented_ply(points, classes, segmented_ply_out)
+        write_segmented_ply(points, plot_classes, segmented_ply_out)
 
     _p("complete", 100)
 

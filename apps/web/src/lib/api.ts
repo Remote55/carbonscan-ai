@@ -95,7 +95,15 @@ async function getAccessToken(): Promise<string | null> {
   }
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/**
+ * Everything a call needs except deciding how to read the body.
+ *
+ * Split out because the segmented point cloud comes back as bytes, not JSON, and
+ * it must travel with the same base URL, session token and demo token as the
+ * analysis that produced it. Duplicating that header logic for one binary route
+ * is how a route ends up quietly unauthenticated.
+ */
+async function requestRaw(path: string, options: RequestOptions = {}): Promise<Response> {
   const { params, ...init } = options;
 
   const backend = resolveBackend();
@@ -131,6 +139,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const body = await response.json().catch(() => ({}));
     throw new ApiError(response.status, response.statusText, body);
   }
+
+  return response;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await requestRaw(path, options);
 
   // Handle empty responses (204 No Content)
   if (response.status === 204) {
@@ -242,6 +256,14 @@ export interface AnalyzeResponse {
   summary: AnalyzeSummary;
   trees: AnalyzeTree[];
   diagnostics?: AnalyzeDiagnostics | null;
+  /**
+   * Handle for the classified point cloud these numbers were measured from.
+   *
+   * Null when the run produced none, which callers must handle rather than
+   * assume: a viewer that shows the raw upload while claiming to show the result
+   * is the defect this field exists to remove.
+   */
+  segmented_cloud_id?: string | null;
 }
 
 /** Upload a point-cloud file to the backend, run the pipeline, get carbon results. */
@@ -249,6 +271,19 @@ export function analyzePointCloud(file: File): Promise<AnalyzeResponse> {
   const formData = new FormData();
   formData.append('file', file);
   return api.upload<AnalyzeResponse>('/upload/analyze', formData);
+}
+
+/**
+ * Download the segmented PLY an analysis produced, as bytes for the PLY loader.
+ *
+ * Carries the wood/leaf/ground label of every point — the labels the DBH, volume
+ * and carbon figures came from, not a second opinion computed for display.
+ */
+export async function fetchSegmentedCloud(cloudId: string): Promise<ArrayBuffer> {
+  const response = await requestRaw(`/upload/segmented/${encodeURIComponent(cloudId)}`, {
+    method: 'GET',
+  });
+  return response.arrayBuffer();
 }
 
 // --- Async jobs (POST /jobs/analyze -> poll GET /jobs/{id}) ---

@@ -11,11 +11,12 @@ import logging
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.schemas.analyze import AnalyzeResponse
+from app.services import segmented_cloud_store
 from app.services.pipeline_runner import PipelineError, redact_operator_detail, run_pipeline
 from app.services.upload_validation import read_upload_limited, validate_upload
 
@@ -25,12 +26,25 @@ logger = logging.getLogger(__name__)
 
 def _run_pipeline_on_bytes(data: bytes, ext: str) -> dict:
     """Persist bytes to a temp file, run the pipeline, clean up. Blocking — run
-    in a threadpool from async endpoints."""
+    in a threadpool from async endpoints.
+
+    Also asks the pipeline for the segmented cloud and registers it, so the
+    viewer can show the wood/leaf separation these numbers came from instead of
+    continuing to display the raw upload.
+    """
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
         tf.write(data)
         tmp_path = Path(tf.name)
+    cloud_id, cloud_path = segmented_cloud_store.store.reserve()
     try:
-        return run_pipeline(tmp_path)
+        result = run_pipeline(tmp_path, segmented_ply_out=cloud_path)
+        # commit returns None when the pipeline wrote nothing, and the response
+        # then carries no id. A missing picture is reported as missing.
+        result["segmented_cloud_id"] = segmented_cloud_store.store.commit(cloud_id, cloud_path)
+        return result
+    except Exception:
+        cloud_path.unlink(missing_ok=True)
+        raise
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -56,6 +70,30 @@ async def analyze_point_cloud(file: UploadFile = File(...)) -> AnalyzeResponse:
         raise HTTPException(status_code=502, detail=exc.public_message) from exc
 
     return AnalyzeResponse(**result)
+
+
+@router.get("/segmented/{cloud_id}")
+async def download_segmented_cloud(cloud_id: str) -> Response:
+    """Return the segmented PLY an analysis produced.
+
+    404 covers unknown, expired and malformed ids alike: the caller has no
+    business learning which of the three it was, and the store treats anything
+    that is not id-shaped as unknown rather than touching the filesystem.
+    """
+    data = segmented_cloud_store.store.get(cloud_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Segmented cloud not found or expired")
+
+    return Response(
+        content=data,
+        media_type="application/octet-stream",
+        headers={
+            # The bytes never change under an id, but they do stop existing, so
+            # let a client cache within the lifetime and not beyond it.
+            "cache-control": "private, max-age=600",
+            "content-disposition": 'attachment; filename="segmented.ply"',
+        },
+    )
 
 
 @router.post("/las", status_code=501)

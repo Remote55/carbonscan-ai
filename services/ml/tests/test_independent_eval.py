@@ -747,6 +747,15 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       silently. It adds ExcludedSegment/PipelineDiagnostics, the detected/
       measured/excluded counts and pipeline_result_to_dict. No QSM, allometric
       or DBH/height computation was touched, and tlsep stays the default.
+    - 9e66b42: the exported segmented PLY is now assembled from the per-tree
+      labels the measurements were taken from, instead of a second
+      WoodLeafSegmenter pass over the whole non-ground cloud. Every changed line
+      sits inside the `segmented_ply_out` branch: the added GROUND_CLASS
+      constant, the plot_classes array, one write-back inside the tree loop, and
+      the export call. The removed pass fed nothing but that file. tlsep stays
+      the default, and the measurement path - segment, QSM, allometric,
+      exclusions, counts - is byte-identical, which test_core_demo's output hash
+      independently confirms by still passing.
     """
     import pipeline.main as pipeline_main
 
@@ -754,7 +763,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
     normalized_main_bytes = main_path.read_bytes().replace(b"\r\n", b"\n")
     assert (
         hashlib.sha256(normalized_main_bytes).hexdigest()
-        == "c4a78abb9d08e919e5c0ced8f1226c7d5476c5adfc57a5ad950f5987115602b0"
+        == "9e66b423c9fad216c4010b16ca541589b79e955fe0ea072e63162578f5391f5c"
     )
     assert (
         inspect.signature(pipeline_main.process_points).parameters["wood_leaf_backend"].default

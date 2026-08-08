@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { analyzePointCloud, ApiError, isApiConfigured, type AnalyzeResponse } from '@/lib/api';
+import {
+  analyzePointCloud,
+  ApiError,
+  fetchSegmentedCloud,
+  isApiConfigured,
+  type AnalyzeResponse,
+} from '@/lib/api';
 import { consumeRuntimeHandoff } from '@/lib/demo-runtime';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +40,12 @@ export default function ViewerPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
+  // The classified cloud the pipeline returned. Separate from `loaded` on
+  // purpose: `loaded` is what the browser parsed from the user's file, this is
+  // what the backend measured. Null means we never got one, and the page has to
+  // keep saying the picture is the upload rather than the result.
+  const [analysedCloud, setAnalysedCloud] = useState<PointCloud | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Whether a backend is reachable is a browser fact, not a build fact, so it
@@ -51,7 +63,9 @@ export default function ViewerPage() {
     setApiReady(isApiConfigured());
   }, []);
 
-  const cloud = loaded ?? demoTree;
+  // Precedence is deliberate: the pipeline's own output beats the browser's
+  // parse of the same file, which beats the sample tree.
+  const cloud = analysedCloud ?? loaded ?? demoTree;
   const nPoints = cloud.classes.length;
   const resultView = useMemo(
     () => (analysis === null ? null : toResultViewModel(analysis)),
@@ -67,6 +81,7 @@ export default function ViewerPage() {
     setError(null);
     setAnalysis(null);
     setAnalyzeError(null);
+    setAnalysedCloud(null);
     try {
       const buffer = await f.arrayBuffer();
       const parsed = decimate(parsePly(buffer), MAX_POINTS);
@@ -101,6 +116,7 @@ export default function ViewerPage() {
     setError(null);
     setAnalysis(null);
     setAnalyzeError(null);
+    setAnalysedCloud(null);
     if (inputRef.current) inputRef.current.value = '';
   }, []);
 
@@ -109,7 +125,22 @@ export default function ViewerPage() {
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
-      setAnalysis(await analyzePointCloud(file));
+      const result = await analyzePointCloud(file);
+      setAnalysis(result);
+
+      // Swap the picture for the pipeline's own classification. Failing to get
+      // it is not a failed analysis - the numbers are already in hand - so this
+      // never overwrites the result or raises. The viewer notices the missing
+      // cloud and keeps describing what it is actually showing.
+      if (result.segmented_cloud_id) {
+        try {
+          const buffer = await fetchSegmentedCloud(result.segmented_cloud_id);
+          const parsed = decimate(parsePly(buffer), MAX_POINTS);
+          if (parsed.classes.length > 0) setAnalysedCloud(parsed);
+        } catch {
+          setAnalysedCloud(null);
+        }
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         const detail = `(${err.status}) ${(err.body as { detail?: string })?.detail ?? err.statusText}`;
@@ -214,11 +245,13 @@ export default function ViewerPage() {
                 evidenceLabel={
                   loaded === null
                     ? 'ตัวอย่างการจำลอง · ไม่ใช่ผลจาก pipeline'
-                    : analysis === null
-                      ? cloud.labelled
-                        ? 'ไฟล์จากเครื่องคุณ · ยังไม่ได้วิเคราะห์'
-                        : 'ไฟล์จากเครื่องคุณ · ยังไม่ได้แยกลำต้น/ใบ'
-                      : 'วิเคราะห์แล้ว · ภาพนี้คือไฟล์ต้นฉบับ ไม่ใช่ผลที่ระบายสี'
+                    : analysedCloud !== null
+                      ? 'ผลการแยกจาก pipeline · ชุดเดียวกับที่ใช้คำนวณ'
+                      : analysis === null
+                        ? cloud.labelled
+                          ? 'ไฟล์จากเครื่องคุณ · ยังไม่ได้วิเคราะห์'
+                          : 'ไฟล์จากเครื่องคุณ · ยังไม่ได้แยกลำต้น/ใบ'
+                        : 'วิเคราะห์แล้ว · ภาพนี้คือไฟล์ต้นฉบับ ไม่ใช่ผลที่ระบายสี'
                 }
                 positions={cloud.positions}
                 classes={cloud.classes}

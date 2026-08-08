@@ -18,7 +18,16 @@ _PROTECTED_PATHS = {
     "/api/v1/upload/analyze",
     "/api/v1/health/demo-ready",
 }
+# Paths whose last segment is an id, so they cannot be matched exactly. The
+# segmented-cloud download carries the same data the analysis did and must sit
+# behind the same token; without this an id would be a public download link.
+_PROTECTED_PREFIXES = ("/api/v1/upload/segmented/",)
 _UPLOAD_PATH = "/api/v1/upload/analyze"
+
+
+def is_protected_path(path: str) -> bool:
+    """Whether the demo token is required for this request path."""
+    return path in _PROTECTED_PATHS or path.startswith(_PROTECTED_PREFIXES)
 
 
 def _is_strong_hex_token(token: str) -> bool:
@@ -75,7 +84,7 @@ class DemoGuardMiddleware:
             return
 
         path = scope.get("path", "")
-        if path not in _PROTECTED_PATHS:
+        if not is_protected_path(path):
             await self.app(scope, receive, send)
             return
 

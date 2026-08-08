@@ -75,3 +75,9 @@ class AnalyzeResponse(BaseModel):
     summary: AnalyzeSummary
     trees: list[AnalyzeTree]
     diagnostics: AnalyzeDiagnostics | None = None
+    #: Fetch at GET /upload/segmented/{id} to get the plot-wide PLY carrying the
+    #: wood/leaf/ground label of every point - the same labels these numbers were
+    #: measured from. None when the run produced no such file, which callers must
+    #: handle rather than assume: the viewer then keeps showing the raw upload and
+    #: has to say so instead of implying the colours are a result.
+    segmented_cloud_id: str | None = None

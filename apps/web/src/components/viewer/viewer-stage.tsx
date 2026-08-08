@@ -65,7 +65,7 @@ export function ViewerStage({
           <p className="max-w-2xl text-xs leading-relaxed text-lichen">
             ไฟล์นี้เก็บเฉพาะพิกัด ยังไม่มีข้อมูลแยกลำต้น ใบ และพื้นดิน จึงแสดงเป็นสีเดียว —
             กด <span className="font-semibold text-paper">วิเคราะห์คาร์บอน</span>{' '}
-            เพื่อให้ระบบแยกและคำนวณ ผลจะออกมาเป็นตัวเลข
+            เพื่อให้ระบบแยกและระบายสีให้
           </p>
         )}
         <p className="font-mono text-[0.625rem] uppercase tracking-[0.1em] text-lichen">
