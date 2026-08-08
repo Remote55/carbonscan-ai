@@ -60,13 +60,22 @@ def classify_ground_array(
     x_min, y_min = x.min(), y.min()
     ix = np.floor((x - x_min) / grid_resolution).astype(np.int64)
     iy = np.floor((y - y_min) / grid_resolution).astype(np.int64)
-    nx = int(ix.max()) + 1
     ny = int(iy.max()) + 1
-    cell_id = ix * ny + iy  # flatten 2D → 1D
+    cell_key = ix * ny + iy  # flatten 2D → 1D; injective because iy < ny
+
+    # Index the cells that actually hold points, not every cell the bounding box
+    # could contain. The array used to be sized nx*ny, so its cost followed the
+    # square of the plot's span rather than the amount of data: four points a
+    # hundred metres apart needed 1.6 MB, the same four points a hundred
+    # kilometres apart needed about 75 GB. Nothing upstream bounds extent - the
+    # byte limit, the vertex-count limit and the 200k subsample all pass a
+    # 200-byte file straight through - so this had to stop being extent-shaped
+    # rather than acquire a cap. Occupied cells never outnumber points, which
+    # makes this O(N) and removes the failure mode instead of bounding it.
+    cell_ids, cell_id = np.unique(cell_key, return_inverse=True)
 
     # Per-cell ground-candidate elevation
-    n_cells = nx * ny
-    ground_z = np.full(n_cells, np.inf)
+    ground_z = np.full(len(cell_ids), np.inf)
     # Vectorised percentile-per-cell via argsort/groupby pattern
     order = np.argsort(cell_id, kind="stable")
     sorted_cells = cell_id[order]
