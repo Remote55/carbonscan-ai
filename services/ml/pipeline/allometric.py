@@ -131,6 +131,22 @@ class CarbonResult:
     #: What the bounds above were derived from, in words, so a number that
     #: travels into a report or an API response carries its own basis.
     uncertainty_basis: str = ""
+    #: The same tree costed through its taper volume instead. Present only when
+    #: a volume was supplied.
+    #:
+    #: A second allometric model, not a measurement — both it and Chave are
+    #: one-parameter functions of ρ·D²·H, differing in exponent and coefficient.
+    #: See the note beside its computation in calculate_carbon.
+    co2eq_volume_route_kg: float | None = None
+    #: |volume route - primary| / primary.
+    #:
+    #: Two defensible models of the same tree, disagreeing. Measured across the
+    #: 65 reference trees the gap is 14.9% on average (median 14.7%, range
+    #: 12.7-19.3%), and it barely moves with the density assumption because both
+    #: models are linear-ish in it. Neither has ever been checked against a
+    #: tropical tree, so this is a fair sketch of how much is unsettled — more
+    #: informative than either number alone.
+    method_disagreement: float | None = None
 
 
 # --- Species DB loader ---
@@ -222,6 +238,7 @@ def calculate_carbon(
     species_sci: str | None = None,
     *,
     prefer_method: str = "auto",
+    volume_m3: float | None = None,
 ) -> CarbonResult:
     """Compute biomass + carbon + CO2 equivalent for one tree.
 
@@ -232,6 +249,10 @@ def calculate_carbon(
                      not in DB, uses pantropical Chave 2014 model with
                      default tropical hardwood density (0.60 g/cm³).
         prefer_method: 'auto' | 'species_specific' | 'chave_pantropical'
+        volume_m3: the tree's measured volume, if the geometry step produced
+            one. Costs the tree a second way — volume x density — and reports
+            it alongside. See CarbonResult.co2eq_volume_route_kg for why that
+            second number is worth carrying.
 
     Returns:
         CarbonResult with all values.
@@ -318,6 +339,55 @@ def calculate_carbon(
         co2eq_low = _to_co2eq(calculate_agb_chave_pantropical(dbh_cm, height_m, rho_low))
         co2eq_high = _to_co2eq(calculate_agb_chave_pantropical(dbh_cm, height_m, rho_high))
 
+    # The same tree, costed the other way.
+    #
+    # It is tempting to call this the mechanistic route - volume times density
+    # is what mass is - and that would be wrong here. The volume handed in
+    # comes from qsm.estimate_volume_taper, which is (π/4)·D²·H·form_factor.
+    # Write both models out and they are the same shape:
+    #
+    #     Chave       AGB = 0.0673 · (ρ·D²·H)^0.976
+    #     this route  AGB = ρ·D²·H · 0.461        (0.587 · π/4)
+    #
+    # Both are one-parameter functions of ρ·D²·H. The difference is an exponent
+    # of 1.0 against 0.976 and a coefficient. This is a second allometric model,
+    # not a measurement — and its coefficient was fitted to the same 65 temperate
+    # trees any comparison would grade it on. That it wins there (10.3% against
+    # 20.0%, and +0.55% bias against +18.14%) is what fitting does, not evidence
+    # that it travels.
+    #
+    # What the comparison does establish is about Chave: its bias on that cohort
+    # runs +25.9% in the smallest diameter quartile down to +13.0% in the
+    # largest, so the mismatch is in the functional form and no scale factor
+    # repairs it.
+    #
+    # So both are reported and neither is promoted. Chave stays primary because
+    # its domain is tropical forest, which is where this product is aimed. How
+    # far the two disagree is the honest measure of how little is settled.
+    #
+    # A genuine measurement of volume would be qsm.estimate_volume_sectional,
+    # which integrates stacked cylinders up the real stem. It is not used: on
+    # real TLS the rule-based wood/leaf split leaves crown points in the high
+    # slices and it grossly overestimates. That is the thing worth building.
+    co2eq_volume_route: float | None = None
+    disagreement: float | None = None
+    if volume_m3 is not None and volume_m3 > 0:
+        co2eq_volume_route = _to_co2eq(volume_m3 * wood_density)
+        if co2eq > 0:
+            disagreement = abs(co2eq_volume_route - co2eq) / co2eq
+            basis = (
+                f"{basis}; วิธีปริมาตร×ความหนาแน่นให้ {co2eq_volume_route:,.0f} kg "
+                f"(ต่างจากค่าหลัก {disagreement:.0%})"
+            )
+        # The band covered one unknown - which density - while a second sat
+        # beside it unrepresented: which model. Two defensible models of the
+        # same tree land 15% apart on the reference cohort, and an interval that
+        # excludes the other one is claiming a confidence nobody has. Widening
+        # to contain both does not make the estimate better; it stops the
+        # interval from being narrower than what is known.
+        co2eq_low = min(co2eq_low, co2eq_volume_route)
+        co2eq_high = max(co2eq_high, co2eq_volume_route)
+
     return CarbonResult(
         species_sci=species_sci,
         dbh_cm=dbh_cm,
@@ -333,6 +403,8 @@ def calculate_carbon(
         co2eq_low_kg=co2eq_low,
         co2eq_high_kg=co2eq_high,
         uncertainty_basis=basis,
+        co2eq_volume_route_kg=co2eq_volume_route,
+        method_disagreement=disagreement,
     )
 
 

@@ -219,6 +219,14 @@ export interface AnalyzeTree {
   co2eq_low_kg?: number | null;
   co2eq_high_kg?: number | null;
   uncertainty_basis?: string | null;
+  /**
+   * The same tree costed through its taper volume instead of Chave, and how far
+   * apart the two land. Both are one-parameter functions of ρ·D²·H and neither
+   * has been checked against a tropical tree, so a wide gap means the estimate
+   * is less settled than a single figure suggests.
+   */
+  co2eq_volume_route_kg?: number | null;
+  method_disagreement?: number | null;
   location: Record<string, number>;
   point_count: number;
 }

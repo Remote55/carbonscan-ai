@@ -174,6 +174,7 @@ def measure_single_tree(
         dbh_cm=measurement.dbh_cm,
         height_m=measurement.height_m,
         species_sci=species_sci,
+        volume_m3=measurement.total_volume_m3,
     )
     return SingleTreeResult(
         dbh_cm=measurement.dbh_cm,

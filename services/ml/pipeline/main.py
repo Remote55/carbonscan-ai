@@ -56,6 +56,12 @@ class TreeResult:
     co2eq_low_kg: float | None = None
     co2eq_high_kg: float | None = None
     uncertainty_basis: str | None = None
+    #: The same tree through the taper-volume model instead of Chave, and how
+    #: far the two land apart. Both are functions of ρ·D²·H and neither has been
+    #: checked against a tropical tree, so the gap is the honest measure of how
+    #: much is unsettled — see allometric.CarbonResult.
+    co2eq_volume_route_kg: float | None = None
+    method_disagreement: float | None = None
     location: dict[str, float] = field(default_factory=dict)
     point_count: int = 0
     wood_leaf_iou: float | None = None
@@ -228,7 +234,13 @@ def process_points(
             )
             continue
         carbon = allometric.calculate_carbon(
-            dbh_cm=q.dbh_cm, height_m=q.height_m, species_sci=default_species
+            dbh_cm=q.dbh_cm,
+            height_m=q.height_m,
+            species_sci=default_species,
+            # The geometry step already measured this tree's volume. Handing it
+            # over costs nothing and yields a second, independent estimate of
+            # the same carbon - see CarbonResult.co2eq_volume_route_kg.
+            volume_m3=q.total_volume_m3,
         )
         cx, cy = float(tree_pts[:, 0].mean()), float(tree_pts[:, 1].mean())
         trees.append(
@@ -244,6 +256,14 @@ def process_points(
                 co2eq_low_kg=round(carbon.co2eq_low_kg, 2),
                 co2eq_high_kg=round(carbon.co2eq_high_kg, 2),
                 uncertainty_basis=carbon.uncertainty_basis,
+                co2eq_volume_route_kg=(
+                    None if carbon.co2eq_volume_route_kg is None
+                    else round(carbon.co2eq_volume_route_kg, 2)
+                ),
+                method_disagreement=(
+                    None if carbon.method_disagreement is None
+                    else round(carbon.method_disagreement, 4)
+                ),
                 location={"x": round(cx, 3), "y": round(cy, 3)},
                 point_count=len(tree_pts),
             )

@@ -314,6 +314,11 @@ def _validate_result_payload(candidate: dict[str, Any], result_bytes: bytes) -> 
         "co2eq_low_kg",
         "co2eq_high_kg",
         "uncertainty_basis",
+        # The second model's answer and how far it lands from the first. Also
+        # required: publishing one figure while the code computes two, and
+        # knows they differ by about 15%, is publishing the narrower story.
+        "co2eq_volume_route_kg",
+        "method_disagreement",
         "location",
         "point_count",
         "wood_leaf_iou",

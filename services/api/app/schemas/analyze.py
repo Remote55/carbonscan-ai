@@ -22,6 +22,11 @@ class AnalyzeTree(BaseModel):
     co2eq_low_kg: float | None = None
     co2eq_high_kg: float | None = None
     uncertainty_basis: str | None = None
+    #: The same tree costed through its taper volume rather than Chave, and how
+    #: far apart the two models land. Both are functions of ρ·D²·H; neither has
+    #: been checked against a tropical tree.
+    co2eq_volume_route_kg: float | None = None
+    method_disagreement: float | None = None
     location: dict[str, float] = Field(default_factory=dict)
     point_count: int = 0
 
