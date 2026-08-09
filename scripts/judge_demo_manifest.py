@@ -307,6 +307,13 @@ def _validate_result_payload(candidate: dict[str, Any], result_bytes: bytes) -> 
         "biomass_kg",
         "carbon_kg",
         "co2eq_kg",
+        # The density bounds and the sentence explaining them are required, not
+        # optional. The comparison below is exact set equality, so evidence
+        # published from here on cannot quietly drop the caveat and leave a bare
+        # co2eq_kg looking like a measured quantity.
+        "co2eq_low_kg",
+        "co2eq_high_kg",
+        "uncertainty_basis",
         "location",
         "point_count",
         "wood_leaf_iou",
