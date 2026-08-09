@@ -44,10 +44,11 @@ async def submit_analyze_job(
     file: UploadFile = File(...),
 ) -> JobCreated:
     """Accept an upload, enqueue a pipeline job, return immediately."""
-    max_bytes = (
-        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES
-        if settings.TREEQ_DEMO_MODE
-        else settings.MAX_UPLOAD_SIZE_BYTES
+    # Smaller of the two, in every mode — same reasoning as the sync route.
+    # This one is at least authenticated, but the file still lands on the same
+    # disk and is read by the same pipeline.
+    max_bytes = min(
+        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES, settings.MAX_UPLOAD_SIZE_BYTES
     )
     data = await read_upload_limited(file, max_bytes)
     ext = validate_upload(file.filename, data)

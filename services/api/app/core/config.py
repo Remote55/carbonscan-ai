@@ -68,9 +68,11 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    # --- GPU Worker ---
-    RUNPOD_API_KEY: str = ""
-    RUNPOD_ENDPOINT_ID: str = ""
+    # RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID used to sit here. Nothing read them:
+    # the production wood/leaf backend is tlsep, which is numpy and a KD-tree,
+    # and the deployed image carries no torch. Settings that name an
+    # architecture the code does not have send the next reader looking for a GPU
+    # path that was never built.
 
     # --- ML pipeline (sync MVP: shell out to the ml venv CLI) ---
     # Empty = auto-detect from the monorepo layout (services/ml + its .venv).

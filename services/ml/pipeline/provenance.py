@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -89,27 +90,71 @@ def normalized_sha256(evidence: dict[str, Any]) -> str:
     return sha256_bytes(encoded)
 
 
+#: Baked into the image at build time, because a container has no .git and
+#: usually no git binary either. Set both or neither.
+COMMIT_ENV_VAR = "TREEQ_GIT_COMMIT"
+DIRTY_ENV_VAR = "TREEQ_GIT_DIRTY"
+
+
+class ProvenanceUnavailable(RuntimeError):
+    """The run cannot say which code produced it.
+
+    Deliberately fatal. `git_commit` is part of the result contract and the web
+    UI displays it, so the alternative is a number presented as auditable with
+    nothing behind the claim. Raised early - see the note in
+    pipeline.main.process_points - so a misconfigured image fails on the first
+    request rather than after several minutes of compute.
+    """
+
+
 def resolve_git_commit(repo_root: str | Path) -> str:
     """Return the commit that owns a pipeline run."""
-    proc = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=Path(repo_root),
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    baked = os.environ.get(COMMIT_ENV_VAR, "").strip()
+    if baked:
+        if len(baked) != 40 or any(c not in "0123456789abcdef" for c in baked.lower()):
+            raise ProvenanceUnavailable(
+                f"{COMMIT_ENV_VAR} must be a full 40-character commit sha, got {baked!r}"
+            )
+        return baked.lower()
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(repo_root),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ProvenanceUnavailable(
+            f"no git repository at {repo_root} and {COMMIT_ENV_VAR} is unset — "
+            "a container image must bake the commit at build time"
+        ) from exc
     return proc.stdout.strip()
 
 
 def git_worktree_dirty(repo_root: str | Path) -> bool:
     """Return whether tracked or untracked files differ from the recorded commit."""
-    proc = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=normal"],
-        cwd=Path(repo_root),
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    baked = os.environ.get(DIRTY_ENV_VAR, "").strip().lower()
+    if baked:
+        return baked not in {"0", "false", "no"}
+    if os.environ.get(COMMIT_ENV_VAR, "").strip():
+        # The commit was baked but the build did not say whether its checkout
+        # was clean. Dirty is the pessimistic reading and the safe one: it means
+        # "do not trust this provenance", which is exactly true when nobody
+        # recorded the answer.
+        return True
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=normal"],
+            cwd=Path(repo_root),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ProvenanceUnavailable(
+            f"no git repository at {repo_root} and {DIRTY_ENV_VAR} is unset"
+        ) from exc
     return bool(proc.stdout.strip())
 
 

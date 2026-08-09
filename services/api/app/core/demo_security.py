@@ -94,7 +94,7 @@ class DemoGuardMiddleware:
         receive: Callable[[], Awaitable[dict[str, Any]]],
         send: Callable[[dict[str, Any]], Awaitable[None]],
     ) -> None:
-        if scope["type"] != "http" or not settings.TREEQ_DEMO_MODE:
+        if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
@@ -103,13 +103,23 @@ class DemoGuardMiddleware:
             await self.app(scope, receive, send)
             return
 
-        headers = {key.lower(): value for key, value in scope.get("headers", [])}
-        provided = headers.get(b"x-treeq-demo-token", b"").decode("latin-1")
-        if not token_matches(settings.TREEQ_DEMO_TOKEN, provided):
-            response = JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-            await response(scope, receive, send)
-            return
+        # The token gates WHO may call this. It is only meaningful in demo mode,
+        # where a URL is handed out deliberately.
+        if settings.TREEQ_DEMO_MODE:
+            headers = {key.lower(): value for key, value in scope.get("headers", [])}
+            provided = headers.get(b"x-treeq-demo-token", b"").decode("latin-1")
+            if not token_matches(settings.TREEQ_DEMO_TOKEN, provided):
+                response = JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+                await response(scope, receive, send)
+                return
 
+        # The rate limit is a different question - how much work one caller may
+        # ask for - and the answer does not depend on whether a token was
+        # checked. This used to sit inside the demo-mode branch, so turning demo
+        # mode off removed the limit along with the token, on the one route that
+        # runs a multi-minute subprocess. Analysis is unauthenticated either way,
+        # so with the limit gone a single anonymous caller could hold the
+        # instance indefinitely.
         if scope.get("method") == "POST" and path == _UPLOAD_PATH:
             client = (scope.get("client") or ("unknown", 0))[0]
             if not self._allow_upload(str(client)):

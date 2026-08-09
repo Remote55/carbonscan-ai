@@ -55,10 +55,13 @@ async def analyze_point_cloud(file: UploadFile = File(...)) -> AnalyzeResponse:
 
     Synchronous MVP (small files). Phase 2 moves heavy jobs to a queue + GPU worker.
     """
-    max_bytes = (
-        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES
-        if settings.TREEQ_DEMO_MODE
-        else settings.MAX_UPLOAD_SIZE_BYTES
+    # The smaller of the two, always. This route is unauthenticated and runs a
+    # multi-minute subprocess, and ingestion buffers roughly twice the file, so
+    # the 500 MB general limit was never a limit this endpoint could survive -
+    # it applied only when demo mode was off, which is exactly the configuration
+    # a public deployment runs. Demo mode may lower the cap; it may not raise it.
+    max_bytes = min(
+        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES, settings.MAX_UPLOAD_SIZE_BYTES
     )
     data = await read_upload_limited(file, max_bytes)
     ext = validate_upload(file.filename, data)

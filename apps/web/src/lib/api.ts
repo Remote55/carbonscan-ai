@@ -20,9 +20,14 @@ const BUILT_IN_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:80
  * that started the launcher, which defeats the point of deploying at all.
  *
  * What it still buys: the guard turns away anything that finds the tunnel
- * hostname without reading the site, and the per-client rate limit behind it is
- * unchanged. The token rotates every run, so it is a key to one demo session
- * rather than a standing credential.
+ * hostname without reading the site. The token rotates every run, so it is a
+ * key to one demo session rather than a standing credential.
+ *
+ * ⚠️ Leave this UNSET for a permanent backend. There the API runs with
+ * TREEQ_DEMO_MODE off and asks for no token, so baking one in publishes a
+ * credential that buys nothing and never rotates. The per-client upload rate
+ * limit does not depend on it - it used to live inside the demo-mode branch,
+ * which is why turning demo mode off once removed the limit as well.
  */
 const BUILT_IN_DEMO_TOKEN = process.env.NEXT_PUBLIC_DEMO_TOKEN || null;
 

@@ -15,6 +15,7 @@ from collections.abc import Callable
 
 from starlette.concurrency import run_in_threadpool
 
+from app.services.job_input import discard_job_input
 from app.services.job_store import JobStore
 from app.services.pipeline_runner import run_pipeline
 
@@ -42,6 +43,16 @@ async def process_one(
         await store.mark_failed(
             job.id, error_message=str(exc), error_traceback=traceback.format_exc()
         )
+    finally:
+        # Both outcomes are terminal - nothing retries a failed job - so the
+        # upload has no reader left either way. Nothing deleted these, so an
+        # instance accumulated every point cloud ever submitted until the disk
+        # filled. Removal must not turn a completed job into a failed one, hence
+        # the swallow: the result is already recorded by this point.
+        try:
+            discard_job_input(job.input_url)
+        except OSError:
+            pass
     return True
 
 

@@ -818,7 +818,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
         ),
         qsm: "798c7c8a67e90dc404e2626635a91f5f014b89f70aa118f7748ea78b93611a99",
         allometric: "da62fc88e2a79c01bf9a7c8c0c807f6901dbddccff5e83a76e8f603f5d9bf1c3",
-        main: "6dfecc1aa35d8d2ae6b51de7e611c5945e5ae7ac78905c0932974ccfddb4eeed",
+        main: "2fc4ae245b22b1ed6d6850da4af04c3a2aec7343eef1ab84566d9c15c1ce79d8",
     }
     for module, pinned in expected.items():
         body = Path(module.__file__).resolve().read_bytes().replace(b"\r\n", b"\n")

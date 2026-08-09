@@ -22,7 +22,7 @@ async def read_upload_limited(file: UploadFile, max_bytes: int) -> bytes:
     return b"".join(chunks)
 
 
-def validate_demo_ply(data: bytes, max_points: int) -> int:
+def validate_ply_vertex_count(data: bytes, max_points: int) -> int:
     """Validate a PLY header without decoding a possible binary body."""
     header_lines: list[str] = []
     offset = 0
@@ -84,20 +84,21 @@ def validate_upload(filename: str | None, data: bytes) -> str:
         raise HTTPException(status_code=400, detail="Demo uploads must be PLY")
     if not data:
         raise HTTPException(status_code=400, detail="Empty file")
-    max_size_bytes = (
-        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES
-        if settings.TREEQ_DEMO_MODE
-        else settings.MAX_UPLOAD_SIZE_BYTES
+    # Whichever is smaller, in every mode. These caps used to apply only with
+    # demo mode on, so the deployment that faces the public - demo mode off, no
+    # auth on this route - was the one running without them.
+    max_size_bytes = min(
+        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES, settings.MAX_UPLOAD_SIZE_BYTES
     )
-    max_size_mb = (
-        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_MB
-        if settings.TREEQ_DEMO_MODE
-        else settings.MAX_UPLOAD_SIZE_MB
+    max_size_mb = min(
+        settings.TREEQ_DEMO_MAX_UPLOAD_SIZE_MB, settings.MAX_UPLOAD_SIZE_MB
     )
     if len(data) > max_size_bytes:
         raise HTTPException(
             status_code=413, detail=f"File too large (> {max_size_mb} MB)"
         )
-    if settings.TREEQ_DEMO_MODE and ext == ".ply":
-        validate_demo_ply(data, settings.TREEQ_DEMO_MAX_POINTS)
+    if ext == ".ply":
+        # Reading the header costs nothing and is the only chance to refuse a
+        # cloud before the pipeline spends minutes on it.
+        validate_ply_vertex_count(data, settings.TREEQ_DEMO_MAX_POINTS)
     return ext

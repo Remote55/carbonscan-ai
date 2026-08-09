@@ -149,6 +149,15 @@ def process_points(
         if progress_callback:
             progress_callback(stage, pct)
 
+    # Resolved before any work, not while building the result. These shell out
+    # to git, and an image with no .git and no git binary therefore failed after
+    # the whole analysis had run - minutes of compute discarded to report a
+    # misconfiguration that was knowable at the first line. A run that cannot
+    # say which code produced it should not start.
+    repo_root = Path(__file__).resolve().parents[3]
+    git_commit = resolve_git_commit(repo_root)
+    git_dirty = git_worktree_dirty(repo_root)
+
     _p("ground_classification", 10)
     ground_mask = ground_classification.classify_ground_array(points)
 
@@ -272,12 +281,11 @@ def process_points(
         )
     algorithms = dict(ALGORITHM_MAP)
     algorithms["wood_leaf"] = wood_leaf_backend
-    repo_root = Path(__file__).resolve().parents[3]
     return PipelineResult(
         metadata={
             "pipeline_version": PIPELINE_VERSION,
-            "git_commit": resolve_git_commit(repo_root),
-            "git_dirty": git_worktree_dirty(repo_root),
+            "git_commit": git_commit,
+            "git_dirty": git_dirty,
             "wood_leaf_backend": wood_leaf_backend,
             "checkpoint_sha256": (
                 checkpoint_identity(model_path) if wood_leaf_backend == "pointnet" else None

@@ -8,7 +8,7 @@ from fastapi import HTTPException, UploadFile
 from app.services.upload_validation import (
     ANALYZE_EXTENSIONS,
     read_upload_limited,
-    validate_demo_ply,
+    validate_ply_vertex_count,
     validate_upload,
 )
 
@@ -54,21 +54,21 @@ def test_all_known_extensions_present():
 
 def test_demo_ply_rejects_bad_signature():
     with pytest.raises(HTTPException) as exc:
-        validate_demo_ply(b"not-ply\nformat ascii 1.0\nend_header\n", max_points=2_000_000)
+        validate_ply_vertex_count(b"not-ply\nformat ascii 1.0\nend_header\n", max_points=2_000_000)
     assert exc.value.status_code == 400
 
 
 def test_demo_ply_rejects_missing_end_header():
     data = b"ply\nformat ascii 1.0\nelement vertex 1\n"
     with pytest.raises(HTTPException) as exc:
-        validate_demo_ply(data, max_points=2_000_000)
+        validate_ply_vertex_count(data, max_points=2_000_000)
     assert exc.value.status_code == 400
 
 
 def test_demo_ply_rejects_vertex_count_above_limit():
     data = b"ply\nformat ascii 1.0\nelement vertex 2000001\nend_header\n"
     with pytest.raises(HTTPException) as exc:
-        validate_demo_ply(data, max_points=2_000_000)
+        validate_ply_vertex_count(data, max_points=2_000_000)
     assert exc.value.status_code == 413
 
 
@@ -77,7 +77,7 @@ def test_demo_ply_reads_only_ascii_header_for_binary_body():
         b"ply\nformat binary_little_endian 1.0\nelement vertex 1\nend_header\n"
         b"\xff\x00\x80"
     )
-    assert validate_demo_ply(data, max_points=2_000_000) == 1
+    assert validate_ply_vertex_count(data, max_points=2_000_000) == 1
 
 
 @pytest.mark.asyncio
