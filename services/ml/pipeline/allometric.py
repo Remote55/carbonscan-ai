@@ -44,6 +44,45 @@ DEFAULT_ROOT_TO_SHOOT_TROPICAL = 0.24
 # source of carbon error - see docs/superpowers/specs/2026-08-09-*.
 DEFAULT_WOOD_DENSITY_TROPICAL = 600.0
 
+# Wood density is never measured by this pipeline, and Chave is close to linear
+# in it, so it passes almost undiminished into the carbon figure. These bounds
+# turn that into a stated range instead of a single confident number.
+#
+# Known species: within-species density varies with CV 5.1% in the Demol cohort
+# - remarkably steady across all five, 3.4% to 6.7% - so two sigma is ±10%.
+# Unknown species: the spread is *between* species, not within one. 400-800
+# spans the observed density of every species we have data for (Demol 397-632,
+# species_db 580-850) around the 600 default.
+WOOD_DENSITY_SPREAD_KNOWN_SPECIES = 0.10
+DEFAULT_WOOD_DENSITY_RANGE = (400.0, 800.0)
+
+# ⚠️ WHAT THIS RANGE IS NOT
+#
+# It propagates one input. It is not a confidence interval on the carbon figure,
+# and it should not be presented as one.
+#
+# Against the 65 Demol trees weighed after felling (true AGB = fresh mass ×
+# dry-matter content, which cross-checks against volume × density to within
+# -1.1% ± 2.4%), predicting from the trees' own taped DBH and height:
+#
+#   Chave at the 600 default, i.e. what we ship   MAPE 41.0%   bias +40.8%
+#   Chave at each tree's own measured density     MAPE 20.0%   bias +18.1%
+#
+# So roughly 21 points of that error is not knowing the wood, which this range
+# covers, and roughly 18 points remains with the density known, which it does
+# not. That residual is Chave used outside its domain: it is a pantropical model
+# and these are Belgian temperate trees. A ±33% range around a centre that is
+# 41% high covered 41 of 65 trees.
+#
+# The honest position is that the carbon figure has never been validated on a
+# tropical tree, because no destructive tropical cohort is in this repo. What is
+# measured here says the model is unbiased for neither this cohort nor,
+# necessarily, for Thailand - it says we do not know.
+CARBON_VALIDATION_NOTE = (
+    "ยังไม่เคยตรวจสอบกับต้นไม้เขตร้อนที่โค่นชั่งจริง; "
+    "บนชุด Demol (เขตอบอุ่น) โมเดลให้ค่าสูงกว่าจริง 41%"
+)
+
 
 @dataclass(frozen=True)
 class SpeciesParams:
@@ -85,6 +124,13 @@ class CarbonResult:
     co2eq_kg: float
     wood_density: float
     source: str
+    #: CO2e recomputed at the low and high ends of the plausible wood density.
+    #: Density only — see CARBON_VALIDATION_NOTE for what this does not cover.
+    co2eq_low_kg: float = 0.0
+    co2eq_high_kg: float = 0.0
+    #: What the bounds above were derived from, in words, so a number that
+    #: travels into a report or an API response carries its own basis.
+    uncertainty_basis: str = ""
 
 
 # --- Species DB loader ---
@@ -245,6 +291,33 @@ def calculate_carbon(
     carbon = biomass * c_frac
     co2eq = carbon * CO2_PER_CARBON
 
+    def _to_co2eq(above_ground_kg: float) -> float:
+        return above_ground_kg * (1.0 + root_ratio) * c_frac * CO2_PER_CARBON
+
+    if method == "species_specific":
+        # a·DBH^b·H^c does not take a density, so there is nothing to propagate.
+        # The equation's own uncertainty is unknown to us, and reporting ±0
+        # would read as precision, so the bounds collapse and say why.
+        co2eq_low = co2eq_high = co2eq
+        basis = f"สมการเฉพาะชนิด ({source}) ไม่มีช่วงความไม่แน่นอนที่ตรวจสอบแล้ว"
+    else:
+        if species is not None:
+            spread = WOOD_DENSITY_SPREAD_KNOWN_SPECIES
+            rho_low = wood_density * (1.0 - spread)
+            rho_high = wood_density * (1.0 + spread)
+            basis = (
+                f"ความหนาแน่นไม้ {rho_low:.0f}-{rho_high:.0f} kg/m³ "
+                f"(±{spread:.0%} รอบค่าของ {species.name_th}); {CARBON_VALIDATION_NOTE}"
+            )
+        else:
+            rho_low, rho_high = DEFAULT_WOOD_DENSITY_RANGE
+            basis = (
+                f"ไม่ทราบชนิดไม้ — ความหนาแน่นสมมติช่วง {rho_low:.0f}-{rho_high:.0f} kg/m³; "
+                f"{CARBON_VALIDATION_NOTE}"
+            )
+        co2eq_low = _to_co2eq(calculate_agb_chave_pantropical(dbh_cm, height_m, rho_low))
+        co2eq_high = _to_co2eq(calculate_agb_chave_pantropical(dbh_cm, height_m, rho_high))
+
     return CarbonResult(
         species_sci=species_sci,
         dbh_cm=dbh_cm,
@@ -257,6 +330,9 @@ def calculate_carbon(
         co2eq_kg=co2eq,
         wood_density=wood_density,
         source=source,
+        co2eq_low_kg=co2eq_low,
+        co2eq_high_kg=co2eq_high,
+        uncertainty_basis=basis,
     )
 
 
@@ -285,6 +361,13 @@ def calculate_carbon_from_volume(
     carbon = biomass * carbon_fraction
     co2eq = carbon * CO2_PER_CARBON
 
+    # Here the caller supplied the density, so the range is the same ±10%
+    # within-species figure rather than the wide unknown-species one.
+    spread = WOOD_DENSITY_SPREAD_KNOWN_SPECIES
+    scale = (1.0 + root_to_shoot) * carbon_fraction * CO2_PER_CARBON
+    co2eq_low = volume_m3 * wood_density * (1.0 - spread) * scale
+    co2eq_high = volume_m3 * wood_density * (1.0 + spread) * scale
+
     return CarbonResult(
         species_sci=None,
         dbh_cm=0.0,
@@ -297,4 +380,10 @@ def calculate_carbon_from_volume(
         co2eq_kg=co2eq,
         wood_density=wood_density,
         source="V × ρ",
+        co2eq_low_kg=co2eq_low,
+        co2eq_high_kg=co2eq_high,
+        uncertainty_basis=(
+            f"ความหนาแน่นไม้ ±{spread:.0%} รอบ {wood_density:.0f} kg/m³ "
+            f"(ไม่รวมความคลาดเคลื่อนของปริมาตร)"
+        ),
     )

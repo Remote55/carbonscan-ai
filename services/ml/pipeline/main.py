@@ -50,6 +50,12 @@ class TreeResult:
     biomass_kg: float | None = None
     carbon_kg: float | None = None
     co2eq_kg: float | None = None
+    #: Bounds from the plausible wood density range, which this pipeline never
+    #: measures. Density only — allometric.CARBON_VALIDATION_NOTE says what is
+    #: outside them, and uncertainty_basis carries it per tree.
+    co2eq_low_kg: float | None = None
+    co2eq_high_kg: float | None = None
+    uncertainty_basis: str | None = None
     location: dict[str, float] = field(default_factory=dict)
     point_count: int = 0
     wood_leaf_iou: float | None = None
@@ -226,6 +232,9 @@ def process_points(
                 biomass_kg=round(carbon.biomass_kg, 2),
                 carbon_kg=round(carbon.carbon_kg, 2),
                 co2eq_kg=round(carbon.co2eq_kg, 2),
+                co2eq_low_kg=round(carbon.co2eq_low_kg, 2),
+                co2eq_high_kg=round(carbon.co2eq_high_kg, 2),
+                uncertainty_basis=carbon.uncertainty_basis,
                 location={"x": round(cx, 3), "y": round(cy, 3)},
                 point_count=len(tree_pts),
             )
@@ -247,6 +256,12 @@ def process_points(
 
     total_carbon = sum(t.carbon_kg or 0.0 for t in trees)
     total_co2 = sum(t.co2eq_kg or 0.0 for t in trees)
+    # Summing the per-tree bounds treats the density error as fully correlated
+    # across the plot, which for one species on one site it very nearly is.
+    # Adding them in quadrature would assume each tree's wood is an independent
+    # draw and would report a tighter plot total than we can support.
+    total_co2_low = sum(t.co2eq_low_kg or 0.0 for t in trees)
+    total_co2_high = sum(t.co2eq_high_kg or 0.0 for t in trees)
     detected = len(tree_clouds)
     measured = len(trees)
     excluded = len(diagnostics.excluded_segments)
@@ -286,6 +301,8 @@ def process_points(
             "excluded_trees": excluded,
             "total_carbon_kg": round(total_carbon, 2),
             "total_co2eq_kg": round(total_co2, 2),
+            "total_co2eq_low_kg": round(total_co2_low, 2),
+            "total_co2eq_high_kg": round(total_co2_high, 2),
         },
         trees=trees,
         diagnostics=diagnostics,

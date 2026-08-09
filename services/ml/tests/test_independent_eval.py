@@ -770,16 +770,20 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       allometric.py, which could be rewritten without this test noticing. A
       tripwire on the wrong file is worse than none, because it reports having
       checked.
+    - 6dfecc1 / da62fc8: the carbon figure now carries bounds from the plausible
+      wood density range, which the pipeline never measures. Additive - the
+      point estimate is untouched, which the judge-demo total confirms by not
+      moving. qsm.py is unchanged from the entry above.
     """
     import pipeline.allometric as pipeline_allometric
     import pipeline.main as pipeline_main
     import pipeline.qsm as pipeline_qsm
 
     expected = {
-        pipeline_main: "1aeaafaae55a113e624735ec9b51321157f8cc37d849d2360edd90309f716f2f",
+        pipeline_main: "6dfecc1aa35d8d2ae6b51de7e611c5945e5ae7ac78905c0932974ccfddb4eeed",
         pipeline_qsm: "798c7c8a67e90dc404e2626635a91f5f014b89f70aa118f7748ea78b93611a99",
         pipeline_allometric: (
-            "59c0c2a36d2e2ec141f413eb377830201eb5068df36b191c03329aec3baf47c1"
+            "da62fc88e2a79c01bf9a7c8c0c807f6901dbddccff5e83a76e8f603f5d9bf1c3"
         ),
     }
     for module, pinned in expected.items():
