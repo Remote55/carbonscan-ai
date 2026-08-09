@@ -65,7 +65,7 @@ class ExcludedSegment:
 
     tree_id: int
     stage: Literal["wood_leaf", "qsm"]
-    reason_code: Literal["WOOD_EMPTY", "QSM_INVALID"]
+    reason_code: Literal["WOOD_EMPTY", "QSM_INVALID", "QSM_LOW_FIT_QUALITY"]
 
 
 @dataclass
@@ -198,6 +198,18 @@ def process_points(
         if q.dbh_cm <= 0 or q.height_m <= 0:
             diagnostics.excluded_segments.append(
                 ExcludedSegment(tree_id=int(tid), stage="qsm", reason_code="QSM_INVALID")
+            )
+            continue
+        if q.model_quality < qsm.MIN_DBH_FIT_QUALITY:
+            # The circle fit failed on this stem and said so. Reporting the
+            # radius anyway is how one tree contributes a 92 cm DBH error to a
+            # cohort whose MAE is about 1 cm. Note the seed above is the tree id,
+            # so which trees hit this is a property of the segmentation order,
+            # not something a fixed seed protects anyone from.
+            diagnostics.excluded_segments.append(
+                ExcludedSegment(
+                    tree_id=int(tid), stage="qsm", reason_code="QSM_LOW_FIT_QUALITY"
+                )
             )
             continue
         carbon = allometric.calculate_carbon(

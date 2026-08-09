@@ -3,11 +3,14 @@
 Implementation (this file):
 - DBH via RANSAC circle fit on a 1.3 m horizontal slice of wood points
 - Height = max Z of all points (or wood points if leaves were excluded)
-- Volume via sectional stacked-cylinder integration (TreeQSM-style): slice the
-  stem by height, fit a circle per slice, sum V = Σ π · r² · Δh. This follows
-  the real taper profile up the stem. Falls back to the single taper equation
-  V = (π/4) × DBH² × H × form_factor for clouds too short/sparse to slice.
+- Volume via the taper equation V = (π/4) × DBH² × H × form_factor, once with a
+  stem-calibrated factor and once with a whole-tree one; the crown is reported
+  as their difference. `estimate_volume_sectional` implements stacked-cylinder
+  integration and is more faithful in principle, but is NOT what runs — see the
+  note in compute_qsm for why.
 
+Nothing here models a branch. Crown volume is an allometric expansion of the
+stem cylinder, so it does not respond to what a particular crown looks like.
 Future work: full branch-level cylinder QSM with cover sets (Raumonen 2013).
 
 References:
@@ -22,9 +25,40 @@ from itertools import pairwise
 
 import numpy as np
 
-# Default form factor for tropical hardwood stems (FAO 2003 Forest Inventory)
-# V_actual / V_cylinder ≈ 0.45-0.55 — we use the midpoint
-DEFAULT_FORM_FACTOR = 0.50
+# Form factors: V_actual / V_cylinder, where V_cylinder = (π/4)·DBH²·H.
+#
+# Both are measured from the 65 destructively harvested trees in
+# data/raw/zenodo_belgium (Demol et al.) — cylinder computed from the felled
+# tree's own tape-measured DBH and height, so neither constant absorbs any
+# error this pipeline makes. Leave-one-site-out, refitting on four sites and
+# scoring the fifth, gives 12.8% MAPE for the stem factor and 10.6% for the
+# total: the value is stable across sites (0.393-0.412 and 0.573-0.601), so it
+# transfers rather than memorising a site.
+#
+# The previous single constant 0.50 was cited to an FAO range and matched
+# neither quantity. It sat above 63 of 65 measured stem factors while the
+# evaluation scored it against whole-tree volume, where it ran 13.4% low. Two
+# errors in opposite directions, partially cancelling, reported as one number.
+#
+# ⚠️ Belgium: ash, beech, larch, Scots pine. No tropical hardwood has been
+#    measured this way here. These are the best numbers we have, not universal
+#    ones, and a Thai validation cohort should re-derive them.
+STEM_FORM_FACTOR = 0.403
+TOTAL_TREE_FORM_FACTOR = 0.587
+
+# Below this RANSAC inlier ratio the circle does not describe the slice: at 0.20
+# four out of five points sit off the fitted circle, so the radius it reports is
+# not a measurement of anything. Not a percentile of some cohort - a statement
+# about the fit. Over 65 Demol trees x 3 seeds the only measurement that fell
+# below it was LXDC4 at ratio 0.160, which read 116.4 cm against a taped 23.6 cm.
+# Median ratio across those 195 was 0.990 and the next lowest was 0.596, so the
+# rule excludes failures and leaves difficult-but-real trees alone. Dropping
+# that one measurement moves cohort MAE from 1.546 cm to 1.076 cm and worst-case
+# error from 92.84 cm to 16.86 cm.
+MIN_DBH_FIT_QUALITY = 0.20
+
+# Kept so existing callers keep resolving; the stem factor is what it meant.
+DEFAULT_FORM_FACTOR = STEM_FORM_FACTOR
 
 
 @dataclass
@@ -67,6 +101,7 @@ def _ransac_circle_fit(
         return float(xy[:, 0].mean()), float(xy[:, 1].mean()), 0.0, 0.0
 
     best_inliers = 0
+    best_residual = float("inf")
     best = (float(xy[:, 0].mean()), float(xy[:, 1].mean()), 0.0)
     for _ in range(n_iterations):
         idx = rng.choice(n, size=3, replace=False)
@@ -88,11 +123,67 @@ def _ransac_circle_fit(
         # Count inliers
         residuals = np.abs(np.hypot(xy[:, 0] - cx, xy[:, 1] - cy) - r)
         inliers = int((residuals < inlier_tolerance).sum())
-        if inliers > best_inliers:
+        # Ties are common - many samples of 3 points describe near-identical
+        # circles - and taking the first one made the result depend on draw
+        # order. Break them on total residual, which does not.
+        residual_sum = float(residuals.sum())
+        if inliers > best_inliers or (inliers == best_inliers and residual_sum < best_residual):
             best_inliers = inliers
+            best_residual = residual_sum
             best = (cx, cy, r)
 
+    if best_inliers >= 3:
+        # Refit on the consensus set. Without this the returned radius is the
+        # circumcircle of the 3 sampled points - three points out of hundreds
+        # decide the answer, so a different seed gives a different DBH. Measured
+        # over 12 Demol trees x 8 seeds, that spread averaged 1.545 cm against a
+        # reported cohort MAE of 1.167 cm: the noise was wider than the error it
+        # was being judged by. Refitting is the standard final RANSAC step
+        # (Fischler & Bolles 1981); sampling only has to find the inliers.
+        cx, cy, r = best
+        residuals = np.abs(np.hypot(xy[:, 0] - cx, xy[:, 1] - cy) - r)
+        consensus = xy[residuals < inlier_tolerance]
+        refined = _algebraic_circle_fit(consensus)
+        if refined is not None and 0.01 <= refined[2] <= max_radius_m:
+            # Accept only on evidence. The algebraic fit is biased when the
+            # points cover a short arc, which is the normal TLS case - a scanner
+            # sees one side of a trunk - and it answers such a set with an
+            # enormous circle. Taking it on trust turned one tree into a 92 cm
+            # DBH error on seed 2. Keeping it only when it explains at least as
+            # many points means the refit can sharpen the estimate but never
+            # replace a good one with a worse one.
+            refined_residuals = np.abs(
+                np.hypot(xy[:, 0] - refined[0], xy[:, 1] - refined[1]) - refined[2]
+            )
+            refined_inliers = int((refined_residuals < inlier_tolerance).sum())
+            if refined_inliers >= best_inliers:
+                best = refined
+                best_inliers = refined_inliers
+
     return best[0], best[1], best[2], best_inliers / max(n, 1)
+
+
+def _algebraic_circle_fit(xy: np.ndarray) -> tuple[float, float, float] | None:
+    """Least-squares circle through all given points (Kasa). Closed form.
+
+    Minimises Σ(x² + y² + Dx + Ey + F)², which is linear in D, E, F, so there
+    is no iteration and no randomness. Returns None when the points are
+    collinear or too few, leaving the caller's RANSAC estimate in place.
+    """
+    if len(xy) < 3:
+        return None
+    x, y = xy[:, 0], xy[:, 1]
+    a = np.column_stack([x, y, np.ones(len(xy))])
+    b = x**2 + y**2
+    try:
+        sol, *_ = np.linalg.lstsq(a, b, rcond=None)
+    except np.linalg.LinAlgError:
+        return None
+    cx, cy = sol[0] / 2.0, sol[1] / 2.0
+    disc = sol[2] + cx**2 + cy**2
+    if not np.isfinite(disc) or disc <= 0:
+        return None
+    return float(cx), float(cy), float(np.sqrt(disc))
 
 
 def measure_dbh(
@@ -247,7 +338,17 @@ def compute_qsm(
     dbh_cm, fit_q = measure_dbh(wood_points, seed=seed)
     height_m = measure_height(wood_points)
 
-    # Volume = single taper equation (robust default, ~18.8% MAE on Belgium).
+    # Volume = two taper equations against the same cylinder, one calibrated to
+    # harvested stem volume and one to harvested whole-tree volume. The crown is
+    # their difference: this pipeline does not model branches, so what is
+    # reported for them is an allometric expansion, not anything measured off
+    # this tree's points. It replaces a hardcoded 0.0, which claimed the crown
+    # had no volume — in the Demol cohort the crown is 30.3% of the tree.
+    #
+    # That expansion is a cohort mean over a quantity that ranges from 8% to
+    # 56% (sd 12.9pp), so per-tree it is weak. It is right on average and can be
+    # badly wrong on one tree, which is why `n_cylinders` stays 1: nothing here
+    # was fitted to this tree's crown.
     #
     # NOTE: `estimate_volume_sectional` (stacked cylinders) is more accurate on
     # CLEAN stems (see its unit tests) but grossly overestimates on real TLS
@@ -255,9 +356,10 @@ def compute_qsm(
     # high slice then fits a large "branch blob" circle. Adopting it as the
     # default needs (a) clean wood points from the trained PointNet++ (G2) and
     # (b) per-branch cylinder modelling. Tracked in docs/P1_SPRINT_PLAN.md (G3).
-    stem_vol = estimate_volume_taper(dbh_cm, height_m)
+    stem_vol = estimate_volume_taper(dbh_cm, height_m, form_factor=STEM_FORM_FACTOR)
+    total_vol = estimate_volume_taper(dbh_cm, height_m, form_factor=TOTAL_TREE_FORM_FACTOR)
     n_cylinders = 1
-    branches_vol = 0.0
+    branches_vol = max(0.0, total_vol - stem_vol)
     return QsmResult(
         dbh_cm=dbh_cm,
         height_m=height_m,

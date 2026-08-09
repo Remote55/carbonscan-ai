@@ -756,15 +756,39 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       the default, and the measurement path - segment, QSM, allometric,
       exclusions, counts - is byte-identical, which test_core_demo's output hash
       independently confirms by still passing.
-    """
-    import pipeline.main as pipeline_main
+    - 1aeaafa / 798c7c8 / 59c0c2a: the measurement path DID change here, and
+      unlike every entry above this one the numbers moved. Three things:
+      allometric.py gates species equations whose coefficients nobody has
+      checked, qsm.py replaces one unsourced form factor with two measured ones
+      and reports crown volume instead of claiming zero, and both qsm.py and
+      main.py stop reporting a DBH whose circle fit failed. Details are in the
+      commits; what matters here is that this pin is not evidence of stability
+      this time, it is a record of a deliberate break.
 
-    main_path = Path(pipeline_main.__file__).resolve()
-    normalized_main_bytes = main_path.read_bytes().replace(b"\r\n", b"\n")
-    assert (
-        hashlib.sha256(normalized_main_bytes).hexdigest()
-        == "9e66b423c9fad216c4010b16ca541589b79e955fe0ea072e63162578f5391f5c"
-    )
+      This entry also widens the pin. Until now it covered main.py alone - the
+      orchestrator - while DBH, volume and biomass are decided in qsm.py and
+      allometric.py, which could be rewritten without this test noticing. A
+      tripwire on the wrong file is worse than none, because it reports having
+      checked.
+    """
+    import pipeline.allometric as pipeline_allometric
+    import pipeline.main as pipeline_main
+    import pipeline.qsm as pipeline_qsm
+
+    expected = {
+        pipeline_main: "1aeaafaae55a113e624735ec9b51321157f8cc37d849d2360edd90309f716f2f",
+        pipeline_qsm: "798c7c8a67e90dc404e2626635a91f5f014b89f70aa118f7748ea78b93611a99",
+        pipeline_allometric: (
+            "59c0c2a36d2e2ec141f413eb377830201eb5068df36b191c03329aec3baf47c1"
+        ),
+    }
+    for module, pinned in expected.items():
+        body = Path(module.__file__).resolve().read_bytes().replace(b"\r\n", b"\n")
+        actual = hashlib.sha256(body).hexdigest()
+        assert actual == pinned, (
+            f"{Path(module.__file__).name} changed: {actual}\n"
+            "If the measurement is meant to move, say so in the History block above."
+        )
     assert (
         inspect.signature(pipeline_main.process_points).parameters["wood_leaf_backend"].default
         == "tlsep"
