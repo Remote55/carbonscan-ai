@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   analyzePointCloud,
+  fetchSpecies,
+  type SpeciesOption,
   ApiError,
   fetchSegmentedCloud,
   isApiConfigured,
@@ -37,6 +39,13 @@ export default function ViewerPage() {
   const [loaded, setLoaded] = useState<PointCloud | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [headerNote, setHeaderNote] = useState<string | null>(null);
+  // Naming the species replaces an assumed wood density with a measured one.
+  // Against the 65 destructively weighed reference trees that assumption is
+  // about half the carbon error, so this is the cheapest accuracy the product
+  // has: one field. The pipeline has accepted a species since it was written;
+  // nothing had ever offered the user a way to give one.
+  const [species, setSpecies] = useState<string | null>(null);
+  const [speciesOptions, setSpeciesOptions] = useState<SpeciesOption[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -135,12 +144,26 @@ export default function ViewerPage() {
     if (inputRef.current) inputRef.current.value = '';
   }, []);
 
+  useEffect(() => {
+    // Best effort. A backend that cannot list species still measures trees, and
+    // the picker simply does not appear.
+    let cancelled = false;
+    void fetchSpecies()
+      .then((data) => {
+        if (!cancelled) setSpeciesOptions(data.species);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const runAnalysis = useCallback(async () => {
     if (!file) return;
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
-      const result = await analyzePointCloud(file);
+      const result = await analyzePointCloud(file, species);
       setAnalysis(result);
 
       // Swap the picture for the pipeline's own classification. Failing to get
@@ -174,7 +197,7 @@ export default function ViewerPage() {
     } finally {
       setAnalyzing(false);
     }
-  }, [file]);
+  }, [file, species]);
 
   return (
     <>
@@ -342,6 +365,42 @@ export default function ViewerPage() {
               <CardContent className="space-y-5">
                 {apiReady ? (
                   <>
+                    {/* One field, and it is the largest accuracy gain the
+                        product has. Wood density is otherwise assumed, and
+                        against the 65 destructively weighed reference trees
+                        that assumption is about half the carbon error. Left
+                        optional because not knowing is legitimate — the result
+                        then says the density was assumed. */}
+                    {speciesOptions.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="species-select"
+                          className="block text-sm font-medium"
+                        >
+                          ชนิดไม้ (ถ้าทราบ)
+                        </label>
+                        <select
+                          id="species-select"
+                          value={species ?? ''}
+                          onChange={(e) => setSpecies(e.target.value || null)}
+                          disabled={analyzing}
+                          className="w-full max-w-sm rounded-lg border border-hairline bg-paper px-3 py-2 text-sm"
+                        >
+                          <option value="">ไม่ทราบ — ใช้ความหนาแน่นมาตรฐาน</option>
+                          {speciesOptions.map((option) => (
+                            <option key={option.name_sci} value={option.name_sci}>
+                              {option.name_th} ({option.name_sci}) ·{' '}
+                              {option.wood_density_kg_m3} kg/m³
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-forest-ink/70">
+                          ระบุชนิดไม้ช่วยลดความคลาดเคลื่อนของคาร์บอนได้ราวครึ่งหนึ่ง
+                          เพราะได้ความหนาแน่นไม้จริงแทนค่าสมมติ
+                        </p>
+                      </div>
+                    ) : null}
+
                     <Button type="button" onClick={runAnalysis} disabled={analyzing}>
                       {analyzing ? 'กำลังวิเคราะห์… (อาจใช้เวลาสักครู่)' : 'วิเคราะห์คาร์บอน'}
                     </Button>

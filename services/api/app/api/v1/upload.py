@@ -1,9 +1,12 @@
-"""File upload endpoints — stub for Phase 1.
+"""Point-cloud upload and synchronous analysis.
 
-TODO Phase 1:
+Input is a point cloud from a scanner. A photogrammetry path was sketched here
+and has been dropped: whether photographs of a real trunk yield enough points to
+fit a circle at breast height was never established, so it promised a capability
+nobody had shown was reachable.
+
+TODO:
 - LAS/LAZ direct upload to Supabase Storage (chunked via tus protocol)
-- Photogrammetry photo upload (multipart, 30-50 images)
-- Validation (file size, extension, EXIF for photos)
 - Create Job record + push to Queue
 """
 
@@ -11,12 +14,12 @@ import logging
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.schemas.analyze import AnalyzeResponse
-from app.services import segmented_cloud_store
+from app.services import segmented_cloud_store, species_catalogue
 from app.services.pipeline_runner import PipelineError, redact_operator_detail, run_pipeline
 from app.services.upload_validation import read_upload_limited, validate_upload
 
@@ -24,7 +27,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _run_pipeline_on_bytes(data: bytes, ext: str) -> dict:
+def _run_pipeline_on_bytes(data: bytes, ext: str, species: str | None = None) -> dict:
     """Persist bytes to a temp file, run the pipeline, clean up. Blocking — run
     in a threadpool from async endpoints.
 
@@ -37,7 +40,7 @@ def _run_pipeline_on_bytes(data: bytes, ext: str) -> dict:
         tmp_path = Path(tf.name)
     cloud_id, cloud_path = segmented_cloud_store.store.reserve()
     try:
-        result = run_pipeline(tmp_path, segmented_ply_out=cloud_path)
+        result = run_pipeline(tmp_path, segmented_ply_out=cloud_path, species=species)
         # commit returns None when the pipeline wrote nothing, and the response
         # then carries no id. A missing picture is reported as missing.
         result["segmented_cloud_id"] = segmented_cloud_store.store.commit(cloud_id, cloud_path)
@@ -50,7 +53,16 @@ def _run_pipeline_on_bytes(data: bytes, ext: str) -> dict:
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze_point_cloud(file: UploadFile = File(...)) -> AnalyzeResponse:
+async def analyze_point_cloud(
+    file: UploadFile = File(...),
+    species: str | None = Form(
+        default=None,
+        description=(
+            "Scientific name, if known. Halves the carbon error: the wood "
+            "density is otherwise assumed."
+        ),
+    ),
+) -> AnalyzeResponse:
     """Upload a point-cloud file, run the full pipeline, return carbon results.
 
     Synchronous MVP (small files). Phase 2 moves heavy jobs to a queue + GPU worker.
@@ -66,8 +78,18 @@ async def analyze_point_cloud(file: UploadFile = File(...)) -> AnalyzeResponse:
     data = await read_upload_limited(file, max_bytes)
     ext = validate_upload(file.filename, data)
 
+    # A name the catalogue does not know is refused rather than ignored. Falling
+    # back to the default density would answer with a number that looks like it
+    # used the species the caller asked for, and be 40% out without saying so.
+    chosen = (species or "").strip() or None
+    if chosen is not None and not species_catalogue.is_known(chosen):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown species '{chosen}'. See GET /api/v1/upload/species.",
+        )
+
     try:
-        result = await run_in_threadpool(_run_pipeline_on_bytes, data, ext)
+        result = await run_in_threadpool(_run_pipeline_on_bytes, data, ext, chosen)
     except PipelineError as exc:
         logger.error("Pipeline execution failed: %s", redact_operator_detail(exc.operator_detail))
         raise HTTPException(status_code=502, detail=exc.public_message) from exc
@@ -105,7 +127,37 @@ async def upload_las() -> dict[str, str]:
     return {"message": "Not implemented — see TODO in upload.py"}
 
 
-@router.post("/photos", status_code=501)
-async def upload_photos() -> dict[str, str]:
-    """Upload 30-50 photos for photogrammetry. TODO: implement."""
-    return {"message": "Not implemented — see TODO in upload.py"}
+# There was a POST /photos here, returning 501 with "TODO: implement", for a
+# photogrammetry path that has been dropped. Whether photogrammetry of a real
+# trunk even yields enough points to fit a circle at breast height was never
+# established, so the endpoint advertised a capability nobody had shown was
+# reachable. This service takes point clouds from a scanner.
+
+
+@router.get("/species")
+async def list_species() -> dict[str, object]:
+    """The species this deployment can cost, for a picker.
+
+    Naming one replaces an assumed wood density with a measured one, which is
+    the largest accuracy gain available at the cost of a single form field.
+    `coefficients_verified` is false on every row today: naming a species buys
+    its density, not its allometric equation, because none of those equations
+    has been checked against the paper it cites.
+    """
+    catalogue = species_catalogue.load_species()
+    return {
+        "species": [
+            {
+                "name_sci": item.name_sci,
+                "name_th": item.name_th,
+                "name_en": item.name_en,
+                "wood_density_kg_m3": item.wood_density,
+                "coefficients_verified": item.coefficients_verified,
+            }
+            for item in sorted(catalogue.values(), key=lambda s: s.name_sci)
+        ],
+        "note": (
+            "ไม่ระบุชนิดได้ ระบบจะใช้ความหนาแน่นไม้เขตร้อนมาตรฐาน "
+            "ซึ่งเป็นแหล่งความคลาดเคลื่อนที่ใหญ่ที่สุดของค่าคาร์บอน"
+        ),
+    }

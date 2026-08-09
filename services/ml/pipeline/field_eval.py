@@ -41,10 +41,10 @@ def circumference_to_dbh(circumference_cm: float) -> float:
 def load_point_cloud(path: str | Path, max_points: int = 200_000) -> np.ndarray:
     """Load XYZ from a point-cloud file → (N, 3) float64.
 
-    Supports the formats a mobile photogrammetry / LiDAR workflow produces:
+    Supports the formats a terrestrial LiDAR workflow produces:
         .txt / .xyz / .asc  — whitespace-separated XYZ
         .csv                — comma-separated XYZ
-        .ply                — Open3D reader (COLMAP / OpenMVS output)
+        .ply                — Open3D reader
         .las / .laz         — laspy reader (TLS / drone LiDAR)
     """
     path = Path(path)

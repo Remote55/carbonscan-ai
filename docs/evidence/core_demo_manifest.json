@@ -109,7 +109,7 @@
     {
       "name": "1. Ground segmentation",
       "status": "Implemented",
-      "implementation": "Percentile-grid ground heuristic",
+      "implementation": "Grid ground heuristic: the k-th lowest point per cell, k capped at 3",
       "evidence": "services/ml/pipeline/ground_classification.py",
       "claim": "Operational heuristic; not Cloth Simulation Filter (CSF)."
     },
@@ -151,7 +151,7 @@
     {
       "name": "6. QSM-derived geometry",
       "status": "Implemented",
-      "implementation": "RANSAC circle DBH, maximum-Z height, and taper/stacked-cylinder stem volume; branch volume is zero",
+      "implementation": "RANSAC circle DBH with a least-squares refit on the consensus set, maximum-Z height, and two taper equations calibrated to harvested stem and whole-tree volume; the crown is their difference, not a measured branch model",
       "evidence": "services/ml/pipeline/qsm.py",
       "claim": "Operational geometry estimate with known volume limitations; not full TreeQSM branch-axis modelling."
     },
@@ -165,7 +165,7 @@
     {
       "name": "8. Allometric carbon calculation",
       "status": "Implemented",
-      "implementation": "species_db.csv species-specific equations with Chave 2014 pantropical fallback",
+      "implementation": "Chave 2014 pantropical, at the named species' wood density when one is given; the species-specific equations in species_db.csv are gated off until their coefficients are checked against the cited papers",
       "evidence": "services/ml/pipeline/allometric.py; services/ml/data/species_db.csv",
       "claim": "Produces biomass, carbon stock, and CO2e estimates; coefficient verification against TGO 2017 remains required."
     },

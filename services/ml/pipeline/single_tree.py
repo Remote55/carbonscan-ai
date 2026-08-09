@@ -11,8 +11,7 @@ callable from anywhere else. This is that recipe as an ordinary function, plus
 the one thing an isolated cloud needs that a plot does not: somewhere to put
 z = 0.
 
-Reached by photogrammetry output and by any upload that is one tree rather than
-a stand.
+Reached by any upload that is one tree rather than a stand.
 """
 
 from __future__ import annotations

@@ -14,7 +14,7 @@
 ## Team
 | Role | Person | Focus |
 |---|---|---|
-| **Lead / Core** | User | AI/ML, Mobile (Flutter), Backend (FastAPI), Team Lead, Proposal |
+| **Lead / Core** | User | AI/ML, Backend (FastAPI), Team Lead |
 | **Frontend** | Person A | Next.js Web Dashboard, 3D Viewer, GIS Map |
 | **Design** | Person B | UI/UX (Figma), Branding, Video, Slides |
 
@@ -22,14 +22,16 @@
 
 ## Tech Stack
 - **Web:** Next.js 14 + TypeScript + Tailwind + shadcn/ui + Three.js + React Three Fiber + Leaflet
-- **Mobile:** Flutter (Android + iOS cross-platform) + Riverpod + TFLite
 - **Backend:** FastAPI (Python) + PostgreSQL + PostGIS + Supabase
-- **AI/ML:** PyTorch + PointNet++ + Open3D + laspy + PDAL + COLMAP + OpenMVS
+- **AI/ML:** numpy + scipy + scikit-image + Open3D + laspy (production path is tlsep — no GPU, no torch)
 - **Cloud:** Vercel (Web) + Railway (API) + RunPod Serverless GPU + Supabase
 
 ## Key Architecture Decisions
-1. **Dual-Input Pipeline** — รับทั้ง .las upload (Public Dataset/Auditor) + Photogrammetry จากภาพถ่ายมือถือ
-2. **ไม่ใช้ iPhone LiDAR** — ทีมไม่มี → ใช้ COLMAP/OpenMVS แทน
+1. **รับ point cloud จากเครื่องสแกนอย่างเดียว** (.ply / .las / .laz) — เส้นทางถ่ายด้วยโทรศัพท์
+   (COLMAP/OpenMVS) ถูกตัดออกเมื่อ 9 ส.ค. 2569 พร้อมแอป Flutter: gate ยังตอบ BLOCKED
+   และไม่เคยพิสูจน์ว่าภาพถ่ายลำต้นจริงให้จุดพอ fit วงกลมที่ 1.3 ม. ได้ไหม
+   ทิศทางคือทำเส้นทางที่ใช้ได้จริงให้แม่น แทนที่จะขยายไปเส้นทางที่ยังไม่รู้ว่าเป็นไปได้
+2. **ไม่ต้องใช้ GPU** — wood/leaf backend ที่ใช้จริงคือ tlsep (PCA บน KD-tree)
 3. **Cloud GPU On-demand** — RunPod Serverless แทนซื้อ Workstation
 4. **Open-Source First** — ทุก component ใช้ open-source ได้
 5. **Lock Scope** — Prototype รองรับต้นไม้ 3-5 ชนิด (สัก, ยางนา, ไผ่, ยางพารา, มะค่าโมง)
@@ -57,8 +59,6 @@
 | **CBAM** | Carbon Border Adjustment Mechanism (EU Carbon Tax) |
 | **ITD** | Individual Tree Detection |
 | **NEON** | National Ecological Observatory Network (USA — มี LiDAR Open Data) |
-| **SfM** | Structure from Motion (Photogrammetry) |
-| **MVS** | Multi-View Stereo |
 
 ## Preferences
 - ตอบเป็นภาษาไทย (แต่ technical terms ใช้ EN ได้)

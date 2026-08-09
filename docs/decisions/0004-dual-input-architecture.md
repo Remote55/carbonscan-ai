@@ -1,5 +1,9 @@
 # ADR 0004: Dual-Input Architecture (LAS + Photogrammetry)
 
+> **Superseded by [0007 — take input from a scanner only](0007-drop-the-photo-path.md)
+> (9 ส.ค. 2569).** The photogrammetry half of this decision was removed: its gate
+> had never run, scale was never addressed, and the working path was 41% out.
+
 - **Status:** Accepted
 - **Date:** 2026-05-20
 - **Deciders:** User (Team Lead)

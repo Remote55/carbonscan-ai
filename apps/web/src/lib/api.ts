@@ -288,10 +288,39 @@ export interface AnalyzeResponse {
   segmented_cloud_id?: string | null;
 }
 
-/** Upload a point-cloud file to the backend, run the pipeline, get carbon results. */
-export function analyzePointCloud(file: File): Promise<AnalyzeResponse> {
+export interface SpeciesOption {
+  name_sci: string;
+  name_th: string;
+  name_en: string;
+  wood_density_kg_m3: number;
+  /**
+   * Whether the species' own allometric equation has been checked against the
+   * paper it cites. False on every row today, so naming a species buys its wood
+   * density and not its equation.
+   */
+  coefficients_verified: boolean;
+}
+
+/** The species this backend can cost, for a picker. */
+export function fetchSpecies(): Promise<{ species: SpeciesOption[]; note: string }> {
+  return api.get<{ species: SpeciesOption[]; note: string }>('/upload/species');
+}
+
+/**
+ * Upload a point-cloud file to the backend, run the pipeline, get carbon results.
+ *
+ * `speciesSci` is optional and worth supplying. Wood density is otherwise
+ * assumed, and against the 65 destructively weighed reference trees that
+ * assumption accounts for roughly half the carbon error — 41% out with the
+ * default density, 20% with the tree's own.
+ */
+export function analyzePointCloud(
+  file: File,
+  speciesSci?: string | null,
+): Promise<AnalyzeResponse> {
   const formData = new FormData();
   formData.append('file', file);
+  if (speciesSci) formData.append('species', speciesSci);
   return api.upload<AnalyzeResponse>('/upload/analyze', formData);
 }
 
