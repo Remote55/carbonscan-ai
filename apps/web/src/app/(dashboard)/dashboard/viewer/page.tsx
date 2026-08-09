@@ -300,7 +300,7 @@ export default function ViewerPage() {
 
             {resultView ? (
               <div className="lg:col-span-4">
-                <ResultRail view={resultView} modeLabel="Live analysis" />
+                <ResultRail view={resultView} modeLabel="Live analysis" integrity="live-run" />
               </div>
             ) : null}
           </div>

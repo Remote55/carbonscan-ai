@@ -124,13 +124,31 @@ export function PointCloudViewer({
     [positions, aspect],
   );
 
+  // What this picture says, in words.
+  //
+  // A WebGL canvas is a blank element to anything that is not a pair of eyes:
+  // no role, no name, no text. The centrepiece of the product simply did not
+  // exist for a screen reader. It cannot be made to convey a point cloud, but
+  // it can say what it is showing and how much of it, and the measurements it
+  // illustrates are in the results table either way.
+  const description = useMemo(() => {
+    const count = Math.floor(positions.length / 3);
+    const points = count.toLocaleString("th-TH");
+    return labelled
+      ? `ภาพสามมิติของกลุ่มจุด ${points} จุด แยกสีตามลำต้น ใบ และพื้นดิน ` +
+          `ตัวเลขที่วัดได้อยู่ในตารางผลลัพธ์`
+      : `ภาพสามมิติของกลุ่มจุด ${points} จุด ยังไม่ได้แยกลำต้นกับใบ`;
+  }, [positions.length, labelled]);
+
   return (
-    <div className={className} ref={box}>
+    <div className={className} ref={box} role="img" aria-label={description}>
+      <p className="sr-only">{description}</p>
       {/* The camera prop is read when the canvas is created and ignored after,
           so a differently framed cloud has to remount it. That is the same
           moment the geometry is replaced anyway. */}
       {aspect === null ? null : (
         <Canvas
+          aria-hidden="true"
           key={`${framing.position.join()}|${framing.target.join()}`}
           camera={{ position: framing.position, fov: 50 }}
           style={{ background: "#0f1411" }}

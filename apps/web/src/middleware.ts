@@ -29,6 +29,11 @@ export function isPublicDashboardRoute(pathname: string): boolean {
   return PUBLIC_DASHBOARD_ROUTES.has(pathname.replace(/\/+$/, '') || '/');
 }
 
+/** A dashboard route that requires a session. One definition, two call sites. */
+export function isProtectedDashboardRoute(pathname: string): boolean {
+  return pathname.startsWith('/dashboard') && !isPublicDashboardRoute(pathname);
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (pathname === '/demo' || pathname.startsWith('/demo/')) {
@@ -38,11 +43,25 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // No Supabase env → skip auth handling entirely. Lets local `npm run dev`
-  // render public pages without secrets, and makes production degrade
-  // gracefully (no 500 on every request) if the env is ever missing, instead
-  // of throwing inside createServerClient.
+  // No Supabase env means no way to tell who is asking.
+  //
+  // Locally that is normal — `npm run dev` renders public pages without
+  // secrets — so keep serving. In production it is a misconfiguration, and
+  // "degrade gracefully" used to mean every /dashboard/* route answered without
+  // authentication, silently, to everyone. A dashboard that opens for anyone
+  // because a variable is missing is not a graceful degradation; it is the
+  // failure the middleware exists to prevent, arriving quietly.
+  //
+  // So: public pages still render, and protected ones behave exactly as they do
+  // for a signed-out visitor. Nobody is locked out who was not already; nobody
+  // gets in who should not.
   if (!supabaseUrl || !supabaseAnonKey) {
+    if (process.env.NODE_ENV === 'production' && isProtectedDashboardRoute(pathname)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/login';
+      redirectUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
     return NextResponse.next({ request });
   }
 
@@ -81,7 +100,7 @@ export async function middleware(request: NextRequest) {
 
   // Protect /dashboard/* routes — redirect unauthenticated users to /login
   const url = request.nextUrl;
-  const isProtected = pathname.startsWith('/dashboard') && !isPublicDashboardRoute(pathname);
+  const isProtected = isProtectedDashboardRoute(pathname);
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
 
   if (isProtected && !user) {

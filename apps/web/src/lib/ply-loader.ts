@@ -145,20 +145,33 @@ export function parsePly(buffer: ArrayBuffer): PointCloud {
   // an invented class is a claim the pipeline never made.
   const labelled = ic >= 0;
 
+  // `count` is a number in a file somebody uploaded. It is a claim about the
+  // body, not a measurement of it, and the two used to be assumed equal: the
+  // arrays were allocated from the header and never trimmed. A header reading
+  // `element vertex 1000000` over ten rows of data produced a million-point
+  // cloud — 999,990 of them zeroes stacked at the origin, rendered, and counted
+  // everywhere the length was read. Allocate from the header, fill from the
+  // body, then keep only what the body actually contained.
   const positions = new Float32Array(count * 3);
   const classes = new Uint8Array(count);
+  let written = 0;
 
   if (format === "ascii") {
     const text = asciiDecoder.decode(bytes.subarray(bodyStart));
     const rows = text.split(/\r?\n/);
-    let r = 0;
-    for (let written = 0; written < count && r < rows.length; r++) {
+    for (let r = 0; written < count && r < rows.length; r++) {
       const row = rows[r].trim();
       if (!row) continue;
       const tok = row.split(/\s+/);
-      positions[written * 3] = parseFloat(tok[ix]);
-      positions[written * 3 + 1] = parseFloat(tok[iy]);
-      positions[written * 3 + 2] = parseFloat(tok[iz]);
+      if (tok.length <= Math.max(ix, iy, iz, labelled ? ic : 0)) continue;
+      const x = parseFloat(tok[ix]);
+      const y = parseFloat(tok[iy]);
+      const z = parseFloat(tok[iz]);
+      // A row that does not parse is not a point at the origin.
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+      positions[written * 3] = x;
+      positions[written * 3 + 1] = y;
+      positions[written * 3 + 2] = z;
       if (labelled) classes[written] = parseInt(tok[ic], 10) & 0xff;
       written++;
     }
@@ -170,8 +183,13 @@ export function parsePly(buffer: ArrayBuffer): PointCloud {
       offsets.push(acc);
       acc += p.size;
     }
+    // Reading past the body throws a RangeError on a DataView, so a truncated
+    // or over-declared file used to take the whole viewer down rather than
+    // showing the points it does have.
+    const available = stride > 0 ? Math.floor((buffer.byteLength - bodyStart) / stride) : 0;
+    const readable = Math.min(count, Math.max(0, available));
     const view = new DataView(buffer, bodyStart);
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < readable; i++) {
       const base = i * stride;
       positions[i * 3] = readNumber(view, base + offsets[ix], properties[ix].type);
       positions[i * 3 + 1] = readNumber(view, base + offsets[iy], properties[iy].type);
@@ -180,9 +198,15 @@ export function parsePly(buffer: ArrayBuffer): PointCloud {
         classes[i] = readNumber(view, base + offsets[ic], properties[ic].type) & 0xff;
       }
     }
+    written = readable;
   }
 
-  return { positions, classes, labelled };
+  return {
+    positions: written === count ? positions : positions.slice(0, written * 3),
+    classes: written === count ? classes : classes.slice(0, written),
+    labelled,
+    declaredCount: count,
+  };
 }
 
 /**

@@ -126,8 +126,49 @@ async def test_analyze_returns_carbon_summary(client, monkeypatch):
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
+    # These numbers come from FAKE_RESULT, so on their own they only prove that
+    # a dict survived being serialised. What is worth checking at this boundary
+    # is that the schema carries the pipeline's fields through instead of
+    # dropping the ones it does not know about — which is a real bug this
+    # service has had, on the exclusion reason codes.
     assert data["summary"]["total_trees"] == 2
     assert data["summary"]["total_carbon_kg"] == 123.45
+    for tree_in, tree_out in zip(FAKE_RESULT["trees"], data["trees"], strict=True):
+        missing = {
+            key for key in tree_in if key not in tree_out or tree_out[key] != tree_in[key]
+        }
+        assert not missing, f"the response schema dropped or altered {sorted(missing)}"
+
+
+@pytest.mark.asyncio
+async def test_the_carbon_uncertainty_reaches_the_client(client, monkeypatch):
+    """The bounds are computed per tree and mean nothing if the API drops them.
+    Pydantic ignores unknown keys by default, so a field the pipeline adds and
+    the schema does not declare disappears in silence."""
+    import app.api.v1.upload as upload_mod
+
+    result = copy.deepcopy(FAKE_RESULT)
+    for tree in result["trees"]:
+        tree["co2eq_low_kg"] = tree["co2eq_kg"] * 0.7
+        tree["co2eq_high_kg"] = tree["co2eq_kg"] * 1.3
+        tree["uncertainty_basis"] = "ไม่ทราบชนิดไม้ — ความหนาแน่นสมมติช่วง 400-800 kg/m³"
+    result["summary"]["total_co2eq_low_kg"] = 200.0
+    result["summary"]["total_co2eq_high_kg"] = 400.0
+    monkeypatch.setattr(upload_mod, "run_pipeline", lambda path, **kw: result)
+
+    resp = await client.post(
+        "/api/v1/upload/analyze",
+        files={"file": ("plot.las", b"dummy-point-cloud-bytes", "application/octet-stream")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    first = data["trees"][0]
+    assert first["co2eq_low_kg"] == pytest.approx(172.0 * 0.7)
+    assert first["co2eq_high_kg"] == pytest.approx(172.0 * 1.3)
+    assert "ความหนาแน่น" in first["uncertainty_basis"]
+    assert data["summary"]["total_co2eq_low_kg"] == 200.0
+    assert data["summary"]["total_co2eq_high_kg"] == 400.0
     assert len(data["trees"]) == 2
     assert data["trees"][0]["dbh_cm"] == 20.1
     assert data["metadata"]["wood_leaf_backend"] == "tlsep"

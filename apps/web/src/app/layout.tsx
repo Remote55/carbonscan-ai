@@ -29,9 +29,12 @@ export const metadata: Metadata = {
   creator: 'TreeQ Carbon Platform Team',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://treeqcarbon.vercel.app'),
   icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
-    apple: '/logo.png',
+    // 1254x1254 at 1.28 MB used to be the favicon, the header mark and the
+    // touch icon alike — a megabyte and a quarter downloaded to draw 32 pixels.
+    // og:image below still wants the large one; nothing else does.
+    icon: '/logo-128.png',
+    shortcut: '/logo-128.png',
+    apple: '/apple-icon.png',
   },
   openGraph: {
     title: 'TreeQ Carbon Platform — Tree Biomass Carbon Assessment',

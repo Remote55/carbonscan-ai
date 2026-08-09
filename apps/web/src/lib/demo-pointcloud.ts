@@ -29,6 +29,16 @@ export interface PointCloud {
    * `classes` as absent, not as data.
    */
   labelled: boolean;
+  /**
+   * What a loaded file's header claimed its vertex count was.
+   *
+   * Present only for clouds parsed from a PLY, and kept separate from
+   * `classes.length` on purpose: the header is a claim by whoever wrote the
+   * file, and the two disagreeing is a fact about the upload worth surfacing
+   * rather than resolving silently in the header's favour. Undefined for
+   * generated clouds, which have no claim to check.
+   */
+  declaredCount?: number;
 }
 
 /** Tiny seedable PRNG (mulberry32) — keeps the demo deterministic. */

@@ -3,7 +3,30 @@ import type { ResultViewModel } from '../../lib/result-view-model';
 export interface ResultRailProps {
   view: ResultViewModel;
   modeLabel: string;
+  /**
+   * Whether these numbers came with something to check them against.
+   *
+   * `manifest-verified` means the artifact's hashes were compared to a
+   * published manifest before rendering. `live-run` means the pipeline produced
+   * them a moment ago and there is nothing to verify against — which is normal,
+   * and not the same claim.
+   *
+   * The heading used to read "ผลการประเมินที่ผ่านการยืนยันความสมบูรณ์" in every
+   * case. The only place this component is rendered is the live viewer, so that
+   * sentence appeared exclusively on the results where it was untrue.
+   */
+  integrity: 'manifest-verified' | 'live-run';
 }
+
+const HEADING: Record<ResultRailProps['integrity'], string> = {
+  'manifest-verified': 'ผลการประเมินที่ผ่านการยืนยันความสมบูรณ์',
+  'live-run': 'ผลการประเมินจากการวิเคราะห์รอบนี้',
+};
+
+const SUBHEADING: Record<ResultRailProps['integrity'], string> = {
+  'manifest-verified': 'ไฟล์ผลลัพธ์ถูกตรวจแฮชกับ manifest ที่เผยแพร่ไว้',
+  'live-run': 'คำนวณสดจากไฟล์ที่อัปโหลด ยังไม่มี manifest ให้ตรวจสอบย้อนหลัง',
+};
 
 const carbon = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
@@ -15,7 +38,7 @@ const co2e = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 3,
 });
 
-export function ResultRail({ view, modeLabel }: ResultRailProps) {
+export function ResultRail({ view, modeLabel, integrity }: ResultRailProps) {
   const diagnosticsAvailable = view.diagnosticsStatus === 'available';
 
   return (
@@ -24,8 +47,11 @@ export function ResultRail({ view, modeLabel }: ResultRailProps) {
         Carbon summary / {modeLabel}
       </p>
       <h2 className="mt-3 font-display text-2xl font-semibold leading-tight">
-        ผลการประเมินที่ผ่านการยืนยันความสมบูรณ์
+        {HEADING[integrity]}
       </h2>
+      <p className="mt-2 text-xs leading-relaxed text-forest-ink/70">
+        {SUBHEADING[integrity]}
+      </p>
 
       <div className="mt-5 rounded-xl bg-lichen p-[1.125rem]">
         <p className="text-xs font-medium text-deep-forest">CO₂ เทียบเท่า</p>

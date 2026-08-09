@@ -12,6 +12,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.core import demo_security
+from app.core.config import settings
 from app.services import segmented_cloud_store
 
 PLY = b"ply\nformat binary_little_endian 1.0\nelement vertex 0\nend_header\n"
@@ -23,11 +24,37 @@ def stored_cloud() -> str:
 
 
 async def test_returns_the_stored_bytes(client: AsyncClient, stored_cloud: str) -> None:
+    """Demo mode is off in the test settings, which is the open configuration.
+    The guarded one is exercised below — this test on its own says nothing
+    about whether the door exists."""
     response = await client.get(f"/api/v1/upload/segmented/{stored_cloud}")
 
     assert response.status_code == 200
     assert response.content == PLY
     assert response.headers["content-type"] == "application/octet-stream"
+
+
+@pytest.mark.asyncio
+async def test_the_guard_actually_fires_on_this_route(
+    client: AsyncClient, stored_cloud: str, monkeypatch
+) -> None:
+    """test_sits_behind_the_demo_token below checks that the path is on a list.
+    A list can be right while nothing consults it — for a GET, say. This sends
+    the request and reads the status."""
+    token = "d" * 64
+    monkeypatch.setattr(settings, "TREEQ_DEMO_MODE", True)
+    monkeypatch.setattr(settings, "TREEQ_DEMO_TOKEN", token)
+
+    refused = await client.get(f"/api/v1/upload/segmented/{stored_cloud}")
+    assert refused.status_code == 401
+    assert PLY not in refused.content
+
+    allowed = await client.get(
+        f"/api/v1/upload/segmented/{stored_cloud}",
+        headers={"X-TreeQ-Demo-Token": token},
+    )
+    assert allowed.status_code == 200
+    assert allowed.content == PLY
 
 
 async def test_unknown_and_malformed_ids_both_read_as_404(client: AsyncClient) -> None:

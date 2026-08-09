@@ -101,6 +101,61 @@ jobs:
       - name: Run tests
         working-directory: apps/web
         # Call vitest directly (avoid pnpm CLI eating `--run` flag).
-        # `--passWithNoTests` so empty test suites don't fail before we
-        # have actual tests written.
-        run: pnpm exec vitest run --passWithNoTests
+        # `--passWithNoTests` was here from before there were tests. There are
+        # now, so collecting none means the runner is broken, and a green tick
+        # for that is worse than a red one.
+        run: pnpm exec vitest run
+
+  # The browser gates. They existed and ran only when somebody remembered to run
+  # them locally, which is another way of saying they did not run.
+  e2e:
+    name: Browser Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: apps/web
+        # --with-deps pulls the system libraries the browser needs on a bare
+        # runner. Chromium only: both Playwright projects use it, and the other
+        # engines would double the install for no coverage.
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+          NEXT_PUBLIC_API_URL: "http://localhost:8000"
+        # playwright.config.ts serves the production build through
+        # demo-server.cjs, because /demo verifies artifact hashes and that is
+        # only meaningful against the files a real build emits.
+        run: pnpm build
+
+      - name: Run browser gates
+        working-directory: apps/web
+        run: pnpm exec playwright test
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

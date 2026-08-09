@@ -158,3 +158,91 @@ describe("decimate", () => {
     expect(Array.from(a.positions)).toEqual(Array.from(b.positions));
   });
 });
+
+describe("a header that lies about how many points there are", () => {
+  /**
+   * The count in a PLY header is a claim by whoever wrote the file, and this
+   * loader is handed files by users. It used to allocate from that claim and
+   * never trim, so an over-declared header produced a cloud padded with zeroes
+   * at the origin — rendered, and counted anywhere the array length was read.
+   */
+
+  function asciiWithDeclaredCount(declared: number, rows: string[]): ArrayBuffer {
+    const text =
+      "ply\nformat ascii 1.0\n" +
+      `element vertex ${declared}\n` +
+      "property float x\nproperty float y\nproperty float z\nproperty uchar class\n" +
+      "end_header\n" +
+      rows.join("\n") +
+      "\n";
+    return enc.encode(text).buffer as ArrayBuffer;
+  }
+
+  it("keeps only the points the ascii body actually contains", () => {
+    const cloud = parsePly(
+      asciiWithDeclaredCount(1_000_000, ["0 0 0 0", "1 1 1 1", "2 2 2 0"]),
+    );
+
+    expect(cloud.classes.length).toBe(3);
+    expect(cloud.positions.length).toBe(9);
+    expect(cloud.declaredCount).toBe(1_000_000);
+  });
+
+  it("does not invent points at the origin", () => {
+    const cloud = parsePly(asciiWithDeclaredCount(50, ["5 6 7 1"]));
+
+    expect(Array.from(cloud.positions)).toEqual([5, 6, 7]);
+  });
+
+  it("skips a row that is not three numbers rather than reading it as 0,0,0", () => {
+    const cloud = parsePly(
+      asciiWithDeclaredCount(4, ["1 1 1 0", "garbage row here", "3 3 3 1"]),
+    );
+
+    expect(cloud.classes.length).toBe(2);
+    expect(Array.from(cloud.positions)).toEqual([1, 1, 1, 3, 3, 3]);
+  });
+
+  it("survives a binary body shorter than the header claims", () => {
+    // 2 real points, header rewritten to claim 10_000. Reading past the body
+    // throws RangeError on a DataView, which took the viewer down entirely.
+    const real = buildBinaryPly(
+      [
+        [1, 2, 3],
+        [4, 5, 6],
+      ],
+      [0, 1],
+    );
+    const text = new TextDecoder().decode(new Uint8Array(real).subarray(0, 200));
+    const headerEnd = text.indexOf("end_header\n") + "end_header\n".length;
+    const patchedHeader = text
+      .slice(0, headerEnd)
+      .replace("element vertex 2", "element vertex 10000");
+    const head = enc.encode(patchedHeader);
+    const body = new Uint8Array(real).subarray(headerEnd);
+    const out = new Uint8Array(head.length + body.length);
+    out.set(head, 0);
+    out.set(body, head.length);
+
+    const cloud = parsePly(out.buffer);
+
+    expect(cloud.classes.length).toBe(2);
+    expect(Array.from(cloud.positions)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(cloud.declaredCount).toBe(10000);
+  });
+
+  it("leaves an honest file untouched", () => {
+    const cloud = parsePly(
+      buildBinaryPly(
+        [
+          [1, 1, 1],
+          [2, 2, 2],
+        ],
+        [0, 1],
+      ),
+    );
+
+    expect(cloud.classes.length).toBe(2);
+    expect(cloud.declaredCount).toBe(2);
+  });
+});

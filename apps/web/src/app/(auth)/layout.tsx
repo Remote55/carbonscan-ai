@@ -9,7 +9,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="container mx-auto flex h-16 items-center px-4">
           <Link href="/" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="TreeQ Carbon" className="h-8 w-8 object-contain" />
+            <img
+              src="/logo-128.png"
+              alt="TreeQ Carbon"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+            />
             <span className="font-display text-lg font-bold tracking-tight">TreeQ Carbon</span>
           </Link>
         </div>

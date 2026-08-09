@@ -56,10 +56,27 @@ class TestChavePantropical:
         agb = calculate_agb_chave_pantropical(dbh_cm=30, height_m=18, wood_density=660)
         assert 500 < agb < 800  # ballpark range
 
-    def test_chave_zero_inputs_handled(self):
-        """Doesn't crash but should be near-zero result."""
+    def test_a_seedling_weighs_almost_nothing(self):
+        """`agb >= 0` used to be the assertion here. The formula is a positive
+        constant times a positive base raised to a positive power, so it could
+        not fail for any input the function accepts — it asserted arithmetic,
+        not behaviour. What is worth checking is that the tiny end of the range
+        stays tiny rather than collapsing to zero or blowing up."""
         agb = calculate_agb_chave_pantropical(dbh_cm=0.01, height_m=0.01, wood_density=600)
-        assert agb >= 0
+        assert 0 < agb < 0.001
+
+    def test_output_rises_with_every_input(self):
+        base = calculate_agb_chave_pantropical(dbh_cm=30, height_m=18, wood_density=600)
+        assert calculate_agb_chave_pantropical(31, 18, 600) > base
+        assert calculate_agb_chave_pantropical(30, 19, 600) > base
+        assert calculate_agb_chave_pantropical(30, 18, 610) > base
+
+    def test_diameter_dominates_height(self):
+        """AGB goes as (rho·D²·H)^0.976, so doubling D must outweigh doubling H.
+        A transposed exponent would still pass a monotonicity check."""
+        wider = calculate_agb_chave_pantropical(dbh_cm=60, height_m=18, wood_density=600)
+        taller = calculate_agb_chave_pantropical(dbh_cm=30, height_m=36, wood_density=600)
+        assert wider > taller * 1.8
 
 
 class TestSpeciesSpecific:

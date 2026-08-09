@@ -50,7 +50,7 @@ describe('ResultRail', () => {
       },
     });
 
-    const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Frozen Evidence" />);
+    const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Frozen Evidence" integrity="manifest-verified" />);
 
     const pairs = definitionPairs(markup);
     const paragraphs = paragraphTexts(markup);
@@ -76,7 +76,7 @@ describe('ResultRail', () => {
       },
     });
 
-    const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Live Analysis" />);
+    const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Live Analysis" integrity="live-run" />);
 
     const pairs = definitionPairs(markup);
 
@@ -99,10 +99,58 @@ describe('ResultRail', () => {
       },
     });
 
-    const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Live Analysis" />);
+    const markup = renderToStaticMarkup(<ResultRail view={view} modeLabel="Live Analysis" integrity="live-run" />);
 
     expect(paragraphTexts(markup)).toContain(
       'ค่าประมาณชีวมวล ไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรอง',
     );
+  });
+});
+
+const VIEW = toResultViewModel({
+  summary: {
+    total_trees: 1,
+    measured_trees: 1,
+    detected_trees: 1,
+    excluded_trees: 0,
+    total_carbon_kg: 10,
+    total_co2eq_kg: 36.7,
+  },
+  diagnostics: { excluded_segments: [] },
+});
+
+describe('what the heading claims', () => {
+  /**
+   * The heading read "ผลการประเมินที่ผ่านการยืนยันความสมบูรณ์" — results whose
+   * integrity has been verified — in every case. This component is only
+   * rendered by the live viewer, so that sentence appeared exclusively on the
+   * results where nothing had been verified against anything.
+   */
+
+  it('does not claim verification for a live run', () => {
+    const markup = renderToStaticMarkup(
+      <ResultRail view={VIEW} modeLabel="Live analysis" integrity="live-run" />,
+    );
+
+    expect(markup).not.toContain('ผ่านการยืนยันความสมบูรณ์');
+    expect(markup).toContain('ยังไม่มี manifest');
+  });
+
+  it('claims it only when a manifest was actually checked', () => {
+    const markup = renderToStaticMarkup(
+      <ResultRail view={VIEW} modeLabel="Frozen evidence" integrity="manifest-verified" />,
+    );
+
+    expect(markup).toContain('ผ่านการยืนยันความสมบูรณ์');
+    expect(markup).toContain('ตรวจแฮชกับ manifest');
+  });
+
+  it('says something either way rather than going quiet', () => {
+    for (const integrity of ['live-run', 'manifest-verified'] as const) {
+      const markup = renderToStaticMarkup(
+        <ResultRail view={VIEW} modeLabel="x" integrity={integrity} />,
+      );
+      expect(markup).toContain('ผลการประเมิน');
+    }
   });
 });
