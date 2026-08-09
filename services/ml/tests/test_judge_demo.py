@@ -261,7 +261,17 @@ def test_judge_demo_uses_commit_snapshot_during_transient_data_edit(tmp_path, mo
 
     candidate = json.loads((output_dir / "candidate.json").read_text(encoding="utf-8"))
     result_text = (output_dir / "result.json").read_text(encoding="utf-8")
-    assert candidate["result"]["total_co2eq_kg"] == 4729.06
+    # 4729.06 until the allometric coefficient gate landed. run_judge_demo
+    # passes default_species="Tectona grandis", and teak's equation has never
+    # been checked against Tsutsumi 1983, so the tree is now costed with Chave
+    # 2014 at teak's own wood density instead. Lower, and defensible.
+    #
+    # The published artifacts under apps/web/public/demo still record 4729.06.
+    # That is not wrong - it is what the pipeline produced at that commit, and
+    # it still verifies against its own manifest - but it is no longer what this
+    # code produces. Regenerating them is a deliberate act on hash-verified
+    # evidence and is tracked separately.
+    assert candidate["result"]["total_co2eq_kg"] == 4613.45
     assert species_path.read_bytes() == original_species
     assert loaded_roots and loaded_roots[0] != ml_root
     assert not loaded_roots[0].exists()

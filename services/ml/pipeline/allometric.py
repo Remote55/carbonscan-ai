@@ -36,6 +36,13 @@ CHAVE_2014_EXPONENT = 0.976
 # IPCC 2006 defaults (Vol 4, Ch 4, Table 4.4)
 DEFAULT_CARBON_FRACTION = 0.47
 DEFAULT_ROOT_TO_SHOOT_TROPICAL = 0.24
+# Used only when the species is unknown, which on the production path is always:
+# nothing supplies a species to process_points. Roughly the pantropical mean in
+# the Global Wood Density Database; it is a stand-in for a measurement, and a
+# tree costed with it carries that in its `source`. Measured against the Demol
+# destructive cohort, whose true mean is 508, this default is the largest single
+# source of carbon error - see docs/superpowers/specs/2026-08-09-*.
+DEFAULT_WOOD_DENSITY_TROPICAL = 600.0
 
 
 @dataclass(frozen=True)
@@ -52,6 +59,15 @@ class SpeciesParams:
     agb_source: str
     root_to_shoot: float = DEFAULT_ROOT_TO_SHOOT_TROPICAL
     carbon_fraction: float = DEFAULT_CARBON_FRACTION
+    #: Has someone checked a, b and c against the cited primary source?
+    #:
+    #: Not "does it look plausible" — checked, units and functional form, against
+    #: the paper. Nobody has yet, so every row is currently False and every tree
+    #: is costed with Chave 2014 instead. Four of the five equations return
+    #: 1.4x-3.5x what Chave returns at the same density, and the ratio climbs
+    #: with diameter, so their exponents disagree with the reference too. Flip a
+    #: row to yes in species_db.csv once its source has actually been read.
+    coefficients_verified: bool = False
 
 
 @dataclass
@@ -105,6 +121,11 @@ def load_species_db(csv_path: str | Path | None = None) -> dict[str, SpeciesPara
                 agb_b=float(row["agb_b"]) if row.get("agb_b") else None,
                 agb_c=float(row["agb_c"]) if row.get("agb_c") else None,
                 agb_source=row.get("agb_source", ""),
+                # Absent column, empty cell, or anything that is not an explicit
+                # yes reads as unverified. The safe reading has to be the default
+                # one: a row nobody has annotated is a row nobody has checked.
+                coefficients_verified=(row.get("coefficients_verified") or "").strip().lower()
+                in {"yes", "true", "1"},
                 root_to_shoot=float(row.get("root_to_shoot") or DEFAULT_ROOT_TO_SHOOT_TROPICAL),
                 carbon_fraction=float(row.get("carbon_fraction") or DEFAULT_CARBON_FRACTION),
             )
@@ -181,16 +202,38 @@ def calculate_carbon(
     if prefer_method == "species_specific" and species is None:
         raise ValueError(f"No species-specific data for {species_sci}")
 
-    if species and species.agb_a is not None and prefer_method != "chave_pantropical":
+    # A species equation is used only once its coefficients have been checked
+    # against the cited source. Four of the five in species_db return 1.4x-3.5x
+    # what Chave 2014 returns for the same tree at the same density, with the
+    # ratio climbing across the diameter range - their exponents (2.15-2.42)
+    # disagree with Chave's effective 1.952, so the disagreement is structural,
+    # not a scale offset. Four of five wrong in the same direction is the shape
+    # of a unit error, not of independent published equations. Until someone
+    # reads the papers, costing a tree with them produces a number we cannot
+    # defend, and the density is the one parameter here we do have grounds for.
+    usable_species_equation = (
+        species is not None
+        and species.agb_a is not None
+        and species.coefficients_verified
+    )
+
+    if usable_species_equation and prefer_method != "chave_pantropical":
         method = "species_specific"
         agb = calculate_agb_species_specific(dbh_cm, height_m, species)
         wood_density = species.wood_density
         source = species.agb_source
     else:
         method = "chave_pantropical"
-        wood_density = species.wood_density if species else 600.0  # generic tropical
+        wood_density = species.wood_density if species else DEFAULT_WOOD_DENSITY_TROPICAL
         agb = calculate_agb_chave_pantropical(dbh_cm, height_m, wood_density)
         source = "Chave et al. 2014"
+        if species is not None and species.agb_a is not None and not species.coefficients_verified:
+            # Name what was skipped and why, so the figure carries its own
+            # caveat rather than needing this file to explain it.
+            source = (
+                f"Chave et al. 2014 (ใช้ความหนาแน่นของ {species.name_th}; "
+                f"สมการเฉพาะชนิดยังไม่ตรวจสอบกับต้นฉบับ — {species.agb_source})"
+            )
 
     # Belowground biomass
     root_ratio = species.root_to_shoot if species else DEFAULT_ROOT_TO_SHOOT_TROPICAL

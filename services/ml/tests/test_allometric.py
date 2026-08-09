@@ -76,11 +76,20 @@ class TestSpeciesSpecific:
 
 class TestFullCarbonCalc:
     def test_teak_full_calculation(self):
-        """End-to-end test with teak."""
+        """End-to-end test with teak.
+
+        Teak is costed with Chave now, not its own equation: no row in
+        species_db has had its coefficients checked against the cited paper, and
+        four of the five disagree with Chave by 1.4x-3.5x with a diameter-
+        dependent ratio. See test_allometric_coefficient_gate.py for the gate
+        itself; this test only asserts the chain of arithmetic that follows,
+        whichever model produced the AGB.
+        """
         result = calculate_carbon(dbh_cm=30, height_m=18, species_sci="Tectona grandis")
 
         assert result.species_sci == "Tectona grandis"
-        assert result.method == "species_specific"
+        assert result.method == "chave_pantropical"
+        assert result.wood_density == 660, "teak's own density must still be used"
         assert result.agb_kg > 0
         assert result.bgb_kg == pytest.approx(
             result.agb_kg * DEFAULT_ROOT_TO_SHOOT_TROPICAL,
