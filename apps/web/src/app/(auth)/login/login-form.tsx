@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { signIn } from '@/lib/auth';
+import { resendConfirmation, signIn } from '@/lib/auth';
 
 export function LoginForm() {
   const router = useRouter();
@@ -14,6 +14,33 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'failed'>(
+    'idle',
+  );
+  const [resendError, setResendError] = useState<string | null>(null);
+
+  // The callback route redirects here with ?error=auth_callback_failed when a
+  // confirmation link does not work. Nothing read it, so the page looked
+  // completely ordinary: no message, no way to try again, and an account that
+  // could never be confirmed. Whoever clicked the link could not have known.
+  const callbackFailed = params.get('error') === 'auth_callback_failed';
+
+  async function handleResend() {
+    if (!email) {
+      setResendError('กรอกอีเมลก่อน แล้วกดส่งลิงก์ยืนยันใหม่');
+      setResendState('failed');
+      return;
+    }
+    setResendState('sending');
+    setResendError(null);
+    const result = await resendConfirmation(email);
+    if (result.error) {
+      setResendError(result.error);
+      setResendState('failed');
+      return;
+    }
+    setResendState('sent');
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,6 +110,37 @@ export function LoginForm() {
             placeholder="••••••••"
           />
         </div>
+
+        {callbackFailed && (
+          <div
+            className="rounded-lg border border-hairline bg-lichen/40 px-4 py-3 text-sm"
+            role="status"
+          >
+            <p className="font-medium">ลิงก์ยืนยันอีเมลใช้ไม่ได้</p>
+            <p className="mt-1 text-forest-ink/75">
+              ลิงก์อาจหมดอายุหรือถูกใช้ไปแล้ว กรอกอีเมลด้านล่างแล้วขอลิงก์ใหม่ได้
+            </p>
+            {resendState === 'sent' ? (
+              <p className="mt-2 font-medium text-canopy">
+                ส่งลิงก์ใหม่แล้ว ตรวจกล่องอีเมล (รวมถึงโฟลเดอร์สแปม)
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendState === 'sending'}
+                className="mt-2 font-medium text-primary underline disabled:opacity-60"
+              >
+                {resendState === 'sending' ? 'กำลังส่ง…' : 'ส่งลิงก์ยืนยันใหม่'}
+              </button>
+            )}
+            {resendError && (
+              <p className="mt-2 text-destructive" role="alert">
+                {resendError}
+              </p>
+            )}
+          </div>
+        )}
 
         {error && (
           <div

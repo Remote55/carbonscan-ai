@@ -14,6 +14,7 @@ import { DatasetGallery } from '@/components/Dataset/dataset-gallery';
 import { PointCloudViewer } from '@/components/viewer/point-cloud-viewer';
 import { type PointCloud } from '@/lib/demo-pointcloud';
 import { decimate, parsePly } from '@/lib/ply-loader';
+import { LIMITS_LABEL_TH } from '@/lib/upload-limits';
 
 const { baseline, candidate } = CORE_DEMO_EVIDENCE;
 const { demol65, pointnetIndependent } = CORE_DEMO_EVIDENCE.validation;
@@ -33,7 +34,7 @@ const JOURNEY = [
       'รองรับข้อมูล Point Cloud จากเครื่องสแกน LiDAR หรือภาพถ่ายทางอากาศ',
     technical: [
       'Point Cloud รูปแบบ .ply',
-      'จำกัด 2 ล้านจุด หรือ 100 MB ต่อไฟล์',
+      LIMITS_LABEL_TH,
     ],
   },
   {

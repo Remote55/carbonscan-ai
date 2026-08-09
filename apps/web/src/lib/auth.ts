@@ -64,6 +64,26 @@ export async function signUp(
 }
 
 /**
+ * Send the confirmation email again.
+ *
+ * A confirmation link can fail for reasons the person who clicked it cannot do
+ * anything about: it expired, it was already used, or the deployment's redirect
+ * URL was wrong when the account was created. Before this existed the callback
+ * sent them to /login with an error nothing displayed, and there was no way
+ * forward at all — the account could never be confirmed and never be used.
+ */
+export async function resendConfirmation(email: string): Promise<AuthResult> {
+  const supabase = createClient();
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: `${authRedirectOrigin()}/auth/callback` },
+  });
+
+  return { user: null, error: error?.message ?? null };
+}
+
+/**
  * Sign in with email + password.
  */
 export async function signIn(email: string, password: string): Promise<AuthResult> {

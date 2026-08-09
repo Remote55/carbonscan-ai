@@ -10,6 +10,11 @@ import {
   type AnalyzeResponse,
 } from '@/lib/api';
 import { consumeRuntimeHandoff } from '@/lib/demo-runtime';
+import {
+  headerMismatchNote,
+  rejectCloudAfterParsing,
+  rejectFileBeforeReading,
+} from '@/lib/upload-limits';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResultRail } from '@/components/demo/result-rail';
@@ -31,6 +36,7 @@ export default function ViewerPage() {
 
   const [loaded, setLoaded] = useState<PointCloud | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [headerNote, setHeaderNote] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -73,8 +79,12 @@ export default function ViewerPage() {
   );
 
   const loadFile = useCallback(async (f: File) => {
-    if (!f.name.toLowerCase().endsWith('.ply')) {
-      setError('รองรับเฉพาะไฟล์ .ply เท่านั้น');
+    // Checked before the file is read. The size is known from the picker, so
+    // an over-limit scan never has to be pulled into memory to be refused —
+    // which is what used to happen, followed by an upload and a 413.
+    const refusal = rejectFileBeforeReading(f);
+    if (refusal) {
+      setError(refusal.reason);
       return;
     }
     setIsLoading(true);
@@ -82,14 +92,19 @@ export default function ViewerPage() {
     setAnalysis(null);
     setAnalyzeError(null);
     setAnalysedCloud(null);
+    setHeaderNote(null);
     try {
       const buffer = await f.arrayBuffer();
-      const parsed = decimate(parsePly(buffer), MAX_POINTS);
-      if (parsed.classes.length === 0) {
-        setError('ไฟล์นี้ไม่มีจุด (point) ที่อ่านได้');
+      const cloud = parsePly(buffer);
+      const trueCount = cloud.classes.length;
+      const tooMany = rejectCloudAfterParsing(trueCount, cloud.declaredCount);
+      if (tooMany) {
+        setError(tooMany.reason);
         return;
       }
+      const parsed = decimate(cloud, MAX_POINTS);
       setLoaded(parsed);
+      setHeaderNote(headerMismatchNote(trueCount, cloud.declaredCount));
       setFile(f);
       setFileName(f.name);
     } catch (err) {
@@ -256,6 +271,16 @@ export default function ViewerPage() {
               {error ? (
                 <p className="mt-3 text-sm text-destructive" role="alert">
                   {error}
+                </p>
+              ) : null}
+
+              {/* Not an error — the file is usable. But a point total is a
+                  number somebody may write down, and when the header and the
+                  body disagree they deserve to know which one they are
+                  looking at. */}
+              {headerNote ? (
+                <p className="mt-3 text-sm text-forest-ink/70" role="status">
+                  {headerNote}
                 </p>
               ) : null}
             </CardContent>

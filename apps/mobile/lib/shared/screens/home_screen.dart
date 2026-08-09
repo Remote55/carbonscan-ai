@@ -57,8 +57,15 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 48),
 
               // Hero
+              //
+              // Was 'แปลงต้นไม้ของคุณ / เป็นรายได้' — turn your trees into
+              // income. Every web surface states the opposite: this system is
+              // not certification-grade and cannot issue a carbon credit, so
+              // there is nothing here to sell. The app promising the one thing
+              // the rest of the product spends its copy disclaiming is wrong
+              // whether this app is finished or retired.
               Text(
-                'แปลงต้นไม้ของคุณ\nเป็นรายได้',
+                'วัดคาร์บอนในต้นไม้ของคุณ',
                 style: theme.textTheme.displaySmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   height: 1.2,
@@ -66,7 +73,8 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'สแกนต้นไม้ด้วยกล้องมือถือ — ใช้เวลา 5 นาที',
+                'สแกนด้วยกล้องมือถือเพื่อประเมินชีวมวลและคาร์บอน '
+                '— ไม่ใช่การรับรองคาร์บอนเครดิต',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
@@ -120,11 +128,15 @@ class _StatsCard extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 16),
+            // No revenue tile. It read '฿0 / รายได้' — zero baht of income —
+            // which is not a measurement waiting for data but a category this
+            // product does not have. There is no credit to sell and no payout
+            // to count, so a counter for it only teaches the reader to expect
+            // one.
             const Row(
               children: [
                 Expanded(child: _StatItem(value: '0', label: 'ต้นไม้ที่สแกน')),
                 Expanded(child: _StatItem(value: '0', label: 'kg CO₂eq')),
-                Expanded(child: _StatItem(value: '฿0', label: 'รายได้')),
               ],
             ),
           ],
