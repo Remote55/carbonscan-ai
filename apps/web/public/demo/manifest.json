@@ -1,5 +1,5 @@
 {
-  "analyzed_commit": "9aaf68d4f65c26d317b2cbe9174bf3f1efb032a0",
+  "analyzed_commit": "ec55c2c72866997769c93fc70c4133f4e5d8981f",
   "artifacts": {
     "input": {
       "path": "/demo/input.ply",
@@ -8,12 +8,12 @@
     },
     "result": {
       "path": "/demo/result.json",
-      "sha256": "2be7ee3e241a8d4e779cc59916eec85d67b1a476d763f54803038ca63cc4ec73",
-      "size_bytes": 2733
+      "sha256": "fc9ba9135453269daecee367b32ab818e7e52cc564de627dc4a10584af63f792",
+      "size_bytes": 4196
     },
     "segmented": {
       "path": "/demo/segmented.ply",
-      "sha256": "8e6f98fca831cc01079c482c00b25272fd67bfaaa448c5353c93511874d47405",
+      "sha256": "e729354e5b0d458415e6f614b5ab09a36e37e1a01b1ff499b7832e6932fe6173",
       "size_bytes": 1886824
     }
   },
@@ -32,8 +32,8 @@
     "status": "candidate"
   },
   "result": {
-    "total_carbon_kg": 1289.74,
-    "total_co2eq_kg": 4729.06,
+    "total_carbon_kg": 1295.17,
+    "total_co2eq_kg": 4748.95,
     "total_trees": 3
   },
   "schema_version": 1,

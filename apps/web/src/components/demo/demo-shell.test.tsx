@@ -62,8 +62,8 @@ describe('DemoShell frozen evidence failure', () => {
     expect(markup).not.toContain('ต้นไม้ที่คำนวณสำเร็จ');
     expect(markup).not.toContain('Carbon stock estimate');
     expect(markup).not.toContain('CO₂e estimate');
-    expect(markup).not.toContain('1,289.74');
-    expect(markup).not.toContain('4,729.06');
+    expect(markup).not.toContain('1,295.17');
+    expect(markup).not.toContain('4,748.95');
   });
 });
 
@@ -82,8 +82,13 @@ describe('DemoShell frozen evidence result', () => {
     expect(markup).toContain('ต้นไม้ที่ตรวจพบ 5');
     expect(markup).toContain('ต้นไม้ที่คำนวณสำเร็จ 3');
     expect(markup).toContain('ไม่รวมผล 2');
-    expect(markup).toContain('1,289.74 kg C');
-    expect(markup).toContain('4,729.06 kg CO₂e');
+    // Hardcoded on purpose. Reading these from the manifest would make the
+    // test pass whatever the manifest said; typed out, changing the published
+    // figure costs somebody a deliberate edit. It has moved once, when the
+    // ground estimator stopped putting the floor up the trunk:
+    // 1,289.74 / 4,729.06 -> 1,295.17 / 4,748.95.
+    expect(markup).toContain('1,295.17 kg C');
+    expect(markup).toContain('4,748.95 kg CO₂e');
   });
 
   it('guides the judge through the five evidence stages', () => {

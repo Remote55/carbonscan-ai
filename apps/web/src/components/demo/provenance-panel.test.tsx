@@ -57,7 +57,11 @@ describe('ProvenancePanel', () => {
     expect(markup).toContain('Input / artifact hashes');
     expect(markup).toContain('Pipeline / backend');
     expect(markup).toContain('Git commit');
-    expect(markup).toContain('9aaf68d4f65c');
+    // Derived, unlike the totals in demo-shell.test.tsx. The commit changes
+    // every time the demo is legitimately regenerated, for reasons that say
+    // nothing about the evidence, and every neighbouring assertion here already
+    // reads from the manifest. This checks the panel renders the field.
+    expect(markup).toContain(manifestJson.analyzed_commit.slice(0, 12));
     expect(markup).toContain(manifestJson.artifacts.input.sha256);
     expect(markup).toContain(manifestJson.artifacts.result.sha256);
     expect(markup).toContain(manifestJson.artifacts.segmented.sha256);
