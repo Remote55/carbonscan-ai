@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 
 ALGORITHM_MAP = {
-    "ground_segmentation": "percentile_grid",
+    "ground_segmentation": "lowest_rank_grid",
     "height_normalization": "knn_idw",
     "chm": "max_z_morphology",
     "tree_segmentation": "watershed",

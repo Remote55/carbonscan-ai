@@ -774,17 +774,51 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       wood density range, which the pipeline never measures. Additive - the
       point estimate is untouched, which the judge-demo total confirms by not
       moving. qsm.py is unchanged from the entry above.
-    """
-    import pipeline.allometric as pipeline_allometric
-    import pipeline.main as pipeline_main
-    import pipeline.qsm as pipeline_qsm
+    - 3ff3499: ground_classification takes the k-th lowest point in a cell
+      rather than a percentile of everything in it. A percentile is only the
+      ground when the cell is mostly ground; under a stem, cells that were
+      97-99% tree returned ground candidates up to 10 m in the air, the
+      interpolated surface rose about a metre beneath every trunk, and the
+      1.3 m slice landed in the branches. Two of four real trees then measured
+      2x and 5x their taped DBH through the plot path while measuring correctly
+      in isolation. This moved the judge-demo total by 76 kg CO2e.
 
+      And the pin did not notice, because ground_classification.py was not in
+      it. The same lesson as the entry above, one level out: the measurement is
+      the whole chain from ground to carbon, not the three files where the
+      arithmetic is most visible. All eight stages are pinned now.
+    """
+    from pipeline import (
+        allometric,
+        canopy_height_model,
+        ground_classification,
+        height_normalization,
+        main,
+        qsm,
+        tree_segmentation,
+        wood_leaf_separation,
+    )
+
+    pipeline_main = main
     expected = {
-        pipeline_main: "6dfecc1aa35d8d2ae6b51de7e611c5945e5ae7ac78905c0932974ccfddb4eeed",
-        pipeline_qsm: "798c7c8a67e90dc404e2626635a91f5f014b89f70aa118f7748ea78b93611a99",
-        pipeline_allometric: (
-            "da62fc88e2a79c01bf9a7c8c0c807f6901dbddccff5e83a76e8f603f5d9bf1c3"
+        ground_classification: (
+            "3ff349981e8cec233602605d4e6d0d34c24ac8cf47d805bc23c6cd1a072b4247"
         ),
+        height_normalization: (
+            "c6d022d1259ff4f73a5f7306954bda34d06d1aa28bd446dcea9f7ffb50561e0d"
+        ),
+        canopy_height_model: (
+            "914a89e0be9490d37dfc7d3620f4421c4b60a33fbc6c947e505cff7ba24c414f"
+        ),
+        tree_segmentation: (
+            "d7da9f066ff7f6309bbbd307a04ae4ebde6cdbeebdd77ec24dc61cef700e5939"
+        ),
+        wood_leaf_separation: (
+            "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
+        ),
+        qsm: "798c7c8a67e90dc404e2626635a91f5f014b89f70aa118f7748ea78b93611a99",
+        allometric: "da62fc88e2a79c01bf9a7c8c0c807f6901dbddccff5e83a76e8f603f5d9bf1c3",
+        main: "6dfecc1aa35d8d2ae6b51de7e611c5945e5ae7ac78905c0932974ccfddb4eeed",
     }
     for module, pinned in expected.items():
         body = Path(module.__file__).resolve().read_bytes().replace(b"\r\n", b"\n")

@@ -59,7 +59,7 @@ export interface FrozenDemoResult {
     excluded_segments?: Array<{
       tree_id: number;
       stage: 'wood_leaf' | 'qsm';
-      reason_code: 'WOOD_EMPTY' | 'QSM_INVALID';
+      reason_code: 'WOOD_EMPTY' | 'QSM_INVALID' | 'QSM_LOW_FIT_QUALITY';
     }>;
   } | null;
   trees: FrozenDemoTreeResult[];
@@ -158,8 +158,14 @@ function isExcludedStage(value: unknown): value is 'wood_leaf' | 'qsm' {
   return value === 'wood_leaf' || value === 'qsm';
 }
 
-function isExcludedReason(value: unknown): value is 'WOOD_EMPTY' | 'QSM_INVALID' {
-  return value === 'WOOD_EMPTY' || value === 'QSM_INVALID';
+function isExcludedReason(
+  value: unknown,
+): value is 'WOOD_EMPTY' | 'QSM_INVALID' | 'QSM_LOW_FIT_QUALITY' {
+  return (
+    value === 'WOOD_EMPTY' ||
+    value === 'QSM_INVALID' ||
+    value === 'QSM_LOW_FIT_QUALITY'
+  );
 }
 
 function parseDiagnostics(value: unknown): NonNullable<FrozenDemoResult['diagnostics']> | undefined {
@@ -180,7 +186,9 @@ function parseDiagnostics(value: unknown): NonNullable<FrozenDemoResult['diagnos
         !isExcludedReason(segment.reason_code) ||
         !(
           (segment.stage === 'wood_leaf' && segment.reason_code === 'WOOD_EMPTY') ||
-          (segment.stage === 'qsm' && segment.reason_code === 'QSM_INVALID')
+          (segment.stage === 'qsm' &&
+            (segment.reason_code === 'QSM_INVALID' ||
+              segment.reason_code === 'QSM_LOW_FIT_QUALITY'))
         ) ||
         excludedTreeIds.has(segment.tree_id)
       ) {

@@ -261,9 +261,11 @@ def test_judge_demo_uses_commit_snapshot_during_transient_data_edit(tmp_path, mo
 
     candidate = json.loads((output_dir / "candidate.json").read_text(encoding="utf-8"))
     result_text = (output_dir / "result.json").read_text(encoding="utf-8")
-    # 4613.45 after the coefficient gate; 4672.7 once the RANSAC circle fit
-    # refits on its consensus set, which moves DBH by a few millimetres and so
-    # moves biomass. Was 4729.06 before either.
+    # This number has moved three times in one phase, each time deliberately:
+    #   4729.06  where it started
+    #   4613.45  species equations gated behind coefficients nobody had checked
+    #   4672.70  RANSAC refits on its consensus set, so DBH shifts a little
+    #   4748.95  ground candidate is a rank, not a percentile of a mixed cell
     #
     # 4729.06 until the allometric coefficient gate landed. run_judge_demo
     # passes default_species="Tectona grandis", and teak's equation has never
@@ -275,7 +277,7 @@ def test_judge_demo_uses_commit_snapshot_during_transient_data_edit(tmp_path, mo
     # it still verifies against its own manifest - but it is no longer what this
     # code produces. Regenerating them is a deliberate act on hash-verified
     # evidence and is tracked separately.
-    assert candidate["result"]["total_co2eq_kg"] == 4672.7
+    assert candidate["result"]["total_co2eq_kg"] == 4748.95
     assert species_path.read_bytes() == original_species
     assert loaded_roots and loaded_roots[0] != ml_root
     assert not loaded_roots[0].exists()

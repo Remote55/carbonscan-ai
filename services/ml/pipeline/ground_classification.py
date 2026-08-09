@@ -11,9 +11,13 @@ PHASE 1 IMPLEMENTATION NOTE
 ---------------------------
 Production target is the PDAL `filters.csf` (Cloth Simulation Filter). Until
 PDAL is installable on the team's Windows dev boxes without conda gymnastics,
-we ship a lighter-weight heuristic: per-grid lowest-percentile, with a vertical
+we ship a lighter-weight heuristic: per-grid k-th-lowest point, with a vertical
 band threshold. On the synthetic plots and on NEON tiles it agrees with PDAL's
 CSF to within ±2% of ground point count. Phase 2 will swap in true CSF.
+
+That agreement was measured when the candidate was a percentile of each cell's
+points. It is not evidence for the current rank-based candidate, and both
+comparisons were against plots whose ground was visible; see GROUND_RANK.
 """
 
 from __future__ import annotations
@@ -22,27 +26,32 @@ from pathlib import Path
 
 import numpy as np
 
+#: Which point, counting up from the lowest in a grid cell, is taken as the
+#: ground candidate. 1 would be the true minimum and would follow any single
+#: low outlier; 3 tolerates two of them. It is deliberately not a fraction of
+#: the cell's population — see the note in classify_ground_array.
+GROUND_RANK = 3
+
 
 def classify_ground_array(
     points: np.ndarray,
     *,
     grid_resolution: float = 1.0,
-    percentile: float = 5.0,
     z_threshold: float = 0.3,
 ) -> np.ndarray:
     """Classify ground vs non-ground points using a grid-based heuristic.
 
     Algorithm:
     1. Partition XY space into `grid_resolution` × `grid_resolution` cells
-    2. In each cell, the candidate ground elevation is the `percentile`-th
-       percentile of Z values (more robust to outliers than absolute min)
+    2. In each cell, the candidate ground elevation is the GROUND_RANK-th
+       lowest Z — an order statistic from the bottom, so it does not move when
+       the cell fills up with trunk and branch returns
     3. Any point within `z_threshold` meters of its cell's candidate ground
        elevation is labelled ground
 
     Args:
         points: (N, 3) array of XYZ coordinates (meters)
         grid_resolution: Cell size for the XY grid (meters)
-        percentile: Percentile to call "ground" within each cell (0-100)
         z_threshold: Tolerance above the cell's ground candidate
 
     Returns:
@@ -76,7 +85,7 @@ def classify_ground_array(
 
     # Per-cell ground-candidate elevation
     ground_z = np.full(len(cell_ids), np.inf)
-    # Vectorised percentile-per-cell via argsort/groupby pattern
+    # Vectorised per-cell order statistic via argsort/groupby pattern
     order = np.argsort(cell_id, kind="stable")
     sorted_cells = cell_id[order]
     sorted_z = z[order]
@@ -88,7 +97,31 @@ def classify_ground_array(
         if end <= start:
             continue
         cell = sorted_cells[start]
-        ground_z[cell] = np.percentile(sorted_z[start:end], percentile)
+        cell_z = np.sort(sorted_z[start:end])
+        # A rank from the bottom, not a percentile of everything in the cell.
+        #
+        # A percentile asks "how far up this cell's points is the 5% mark",
+        # which is only the ground when most of the cell is ground. Under a
+        # stem it is not: a 1 m cell holding 10,000 trunk and branch returns
+        # over 50 ground returns puts the 5% mark 500 points above the lowest,
+        # which is somewhere up the trunk. Measured on one Demol tree dropped
+        # onto flat ground, cells that were 97-99% tree returned ground
+        # candidates of 0.23, 4.09, 4.16, 7.95 and 10.03 m where the true
+        # ground sat at -0.04 m. The estimator failed hardest exactly where it
+        # matters, directly beneath the trees being measured.
+        #
+        # The k-th lowest point does not care how many tree points share the
+        # cell. k > 1 keeps one stray low return - a multipath ghost below the
+        # surface - from dragging the whole cell down with it.
+        #
+        # k has to shrink on sparse cells, though, and only shrink. An airborne
+        # sweep can leave a cell holding two points, one ground and one canopy;
+        # asking for the 3rd lowest there returns the canopy and calls it the
+        # floor. So k climbs to GROUND_RANK as the cell fills and is capped
+        # there - it never tracks the population upward, which is the failure
+        # the percentile had.
+        rank = min(GROUND_RANK, 1 + len(cell_z) // 25)
+        ground_z[cell] = cell_z[rank - 1]
 
     # Each point's threshold = its cell's ground candidate + tolerance
     is_ground = z <= (ground_z[cell_id] + z_threshold)

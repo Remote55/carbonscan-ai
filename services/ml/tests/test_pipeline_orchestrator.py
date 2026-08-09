@@ -48,7 +48,7 @@ def test_process_points_records_auditable_provenance(synth_points):
     assert len(metadata["git_commit"]) == 40
     assert isinstance(metadata["git_dirty"], bool)
     assert metadata["checkpoint_sha256"] is None
-    assert metadata["algorithms"]["ground_segmentation"] == "percentile_grid"
+    assert metadata["algorithms"]["ground_segmentation"] == "lowest_rank_grid"
     assert metadata["algorithms"]["wood_leaf"] == "tlsep"
     assert metadata["algorithms"]["species"] == "stub"
     assert metadata["evidence_status"] == "baseline"

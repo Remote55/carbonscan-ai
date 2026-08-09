@@ -42,6 +42,7 @@ export interface ResultForView {
 const REASON_LABELS_TH: Record<ExcludedReasonCode, string> = {
   WOOD_EMPTY: 'ไม่พบจุดลำต้นหลังแยกลำต้น–ใบ จึงวัดขนาดไม่ได้',
   QSM_INVALID: 'ไม่สามารถประเมินค่า DBH หรือความสูงได้',
+  QSM_LOW_FIT_QUALITY: 'วงกลมที่ฟิตกับลำต้นไม่แนบพอ ค่า DBH ที่ได้จึงไม่น่าเชื่อถือ',
 };
 
 const COUNT_LABELS_TH = {

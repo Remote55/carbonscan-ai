@@ -16,6 +16,12 @@ class AnalyzeTree(BaseModel):
     biomass_kg: float | None = None
     carbon_kg: float | None = None
     co2eq_kg: float | None = None
+    #: Bounds from the plausible wood density range, which the pipeline never
+    #: measures, plus a sentence saying so. Optional because results stored by
+    #: earlier pipeline versions do not carry them.
+    co2eq_low_kg: float | None = None
+    co2eq_high_kg: float | None = None
+    uncertainty_basis: str | None = None
     location: dict[str, float] = Field(default_factory=dict)
     point_count: int = 0
 
@@ -25,7 +31,10 @@ class AnalyzeExcludedSegment(BaseModel):
 
     tree_id: int
     stage: Literal["wood_leaf", "qsm"]
-    reason_code: Literal["WOOD_EMPTY", "QSM_INVALID"]
+    # Must track pipeline.main.ExcludedSegment. A code the pipeline can emit and
+    # this Literal does not list fails validation at the API boundary, so the
+    # whole response dies over one unmeasurable tree.
+    reason_code: Literal["WOOD_EMPTY", "QSM_INVALID", "QSM_LOW_FIT_QUALITY"]
 
 
 class AnalyzeDiagnostics(BaseModel):
@@ -49,6 +58,10 @@ class AnalyzeSummary(BaseModel):
     detected_trees: int | None = None
     measured_trees: int | None = None
     excluded_trees: int | None = None
+    #: Plot totals at the ends of the density range. Summed, not added in
+    #: quadrature: on one site the density error is shared, not independent.
+    total_co2eq_low_kg: float | None = None
+    total_co2eq_high_kg: float | None = None
 
 
 class AnalyzeMetadata(BaseModel):

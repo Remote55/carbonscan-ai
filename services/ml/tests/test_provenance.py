@@ -44,7 +44,7 @@ def _evidence() -> dict:
 
 def test_algorithm_map_names_actual_implementations():
     assert ALGORITHM_MAP == {
-        "ground_segmentation": "percentile_grid",
+        "ground_segmentation": "lowest_rank_grid",
         "height_normalization": "knn_idw",
         "chm": "max_z_morphology",
         "tree_segmentation": "watershed",

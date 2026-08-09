@@ -205,12 +205,26 @@ export interface AnalyzeTree {
   biomass_kg: number | null;
   carbon_kg: number | null;
   co2eq_kg: number | null;
+  /**
+   * Bounds from the plausible wood-density range, which the pipeline never
+   * measures, and a sentence naming what they cover. Optional: results from
+   * earlier pipeline versions have none. They are not a confidence interval —
+   * `uncertainty_basis` says so, and it is the text to show, not a rewrite.
+   */
+  co2eq_low_kg?: number | null;
+  co2eq_high_kg?: number | null;
+  uncertainty_basis?: string | null;
   location: Record<string, number>;
   point_count: number;
 }
 
 /** Why a detected segment produced no measurement. */
-export type ExcludedReasonCode = 'WOOD_EMPTY' | 'QSM_INVALID';
+export type ExcludedReasonCode =
+  | 'WOOD_EMPTY'
+  | 'QSM_INVALID'
+  /** The breast-height circle fit did not describe the stem, so the diameter
+   *  it produced was not a measurement. Added with the fit-quality gate. */
+  | 'QSM_LOW_FIT_QUALITY';
 
 export interface AnalyzeExcludedSegment {
   tree_id: number;
@@ -233,6 +247,9 @@ export interface AnalyzeSummary {
    */
   detected_trees?: number | null;
   measured_trees?: number | null;
+  /** Plot totals at the ends of the density range. See AnalyzeTree. */
+  total_co2eq_low_kg?: number | null;
+  total_co2eq_high_kg?: number | null;
   excluded_trees?: number | null;
 }
 
