@@ -62,6 +62,11 @@ class TreeResult:
     #: much is unsettled — see allometric.CarbonResult.
     co2eq_volume_route_kg: float | None = None
     method_disagreement: float | None = None
+    #: Share of this tree's crown that the scan resolved into branch-shaped
+    #: wood, 0-1. The crown is roughly 30% of a tree's volume and is estimated
+    #: from an equation rather than measured, so a low figure here marks a
+    #: result whose largest unmeasured part was also poorly seen.
+    crown_resolved_fraction: float | None = None
     #: RANSAC inlier ratio for this tree's breast-height circle: how much of
     #: the slice the fitted circle actually explains.
     #:
@@ -276,6 +281,10 @@ def process_points(
                     else round(carbon.method_disagreement, 4)
                 ),
                 dbh_fit_quality=round(q.model_quality, 4),
+                crown_resolved_fraction=(
+                    None if q.crown_resolved_fraction is None
+                    else round(q.crown_resolved_fraction, 4)
+                ),
                 location={"x": round(cx, 3), "y": round(cy, 3)},
                 point_count=len(tree_pts),
             )

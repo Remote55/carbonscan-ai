@@ -89,8 +89,16 @@ class QsmResult:
     stem_volume_m3: float
     branches_volume_m3: float
     total_volume_m3: float
-    n_cylinders: int  # placeholder for Phase 2 — currently 1 (taper)
+    n_cylinders: int  # discs integrated up the stem; 1 means the taper fallback
     model_quality: float  # 0-1 fit quality (RANSAC inlier ratio for DBH)
+    #: Share of crown wood points that resolved into branch-shaped segments.
+    #:
+    #: Not used to compute anything — see pipeline/branches.py for why measuring
+    #: crown volume that way loses to the estimate it would replace. It is
+    #: reported because it varies from 3% to 79% across the reference trees, and
+    #: a crown the scan barely resolved is one whose share of the carbon, about
+    #: 30%, rests on an equation rather than on data.
+    crown_resolved_fraction: float | None = None
 
 
 def _ransac_circle_fit(
@@ -549,6 +557,18 @@ def compute_qsm(
     # to be, less what the stem was measured to be. On the reference trees the
     # tracked stem never exceeded the estimated total, and their ratio averaged
     # 0.708 against a harvested 0.672, so the decomposition holds together.
+    # How much of the crown the scan resolved into branch-shaped wood. A
+    # diagnostic, not an input: measuring crown volume from these cubes scored
+    # 89.6% MAPE against the 54.2% of the estimate it would have replaced, and a
+    # known cylinder came out 3.89x too large because one branch spread across
+    # four columns of cubes is counted four times. See pipeline/branches.py.
+    crown_points = wood_points[wood_points[:, 2] > profile.crown_base_m]
+    crown_resolved: float | None = None
+    if len(crown_points) >= 50:
+        from pipeline.branches import measure_crown_coverage
+
+        crown_resolved = measure_crown_coverage(crown_points).measured_point_fraction
+
     total_vol = estimate_volume_taper(dbh_cm, height_m, form_factor=TOTAL_TREE_FORM_FACTOR)
     if total_vol > stem_vol:
         branches_vol = total_vol - stem_vol
@@ -572,4 +592,5 @@ def compute_qsm(
         total_volume_m3=stem_vol + branches_vol,
         n_cylinders=n_cylinders,
         model_quality=fit_q,
+        crown_resolved_fraction=crown_resolved,
     )

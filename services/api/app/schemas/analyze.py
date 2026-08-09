@@ -30,6 +30,9 @@ class AnalyzeTree(BaseModel):
     #: RANSAC inlier ratio for the breast-height circle. Near 1.0 is a clean
     #: stem; the pipeline refuses anything below 0.20 outright.
     dbh_fit_quality: float | None = None
+    #: How much of the crown the scan resolved into branch-shaped wood, 0-1.
+    #: The crown is about 30% of a tree and is estimated rather than measured.
+    crown_resolved_fraction: float | None = None
     location: dict[str, float] = Field(default_factory=dict)
     point_count: int = 0
 

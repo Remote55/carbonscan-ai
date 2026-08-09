@@ -816,9 +816,9 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
         wood_leaf_separation: (
             "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
         ),
-        qsm: "8c0139fda807ad50d6606d4564e6900fc32b138480921c4598914920a62b3cce",
+        qsm: "06a445b654793853f6f76139a265f36f3b8fcb1175a58be282b1ad2376c2d053",
         allometric: "7764d3a8feced5da9d19911f8adb193ba62ebff6ee4e729611c04d2ac76d4201",
-        main: "d49b6f01af555604507bd014a7a98d9061edc92797b5a0e7d3b5ac3fc2106926",
+        main: "8c8085ad86a2a92f8926346455c24bd8f3c47c7d03b2beb4b86c04038b0dd4d0",
     }
     for module, pinned in expected.items():
         body = Path(module.__file__).resolve().read_bytes().replace(b"\r\n", b"\n")

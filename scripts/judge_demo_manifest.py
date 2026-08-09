@@ -320,6 +320,7 @@ def _validate_result_payload(candidate: dict[str, Any], result_bytes: bytes) -> 
         "co2eq_volume_route_kg",
         "method_disagreement",
         "dbh_fit_quality",
+        "crown_resolved_fraction",
         "location",
         "point_count",
         "wood_leaf_iou",

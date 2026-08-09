@@ -233,6 +233,13 @@ export interface AnalyzeTree {
    * tree the fit found difficult, which is worth showing rather than hiding.
    */
   dbh_fit_quality?: number | null;
+  /**
+   * How much of the crown the scan resolved into branch-shaped wood, 0-1. The
+   * crown is roughly 30% of a tree's volume and is estimated from an equation
+   * rather than measured, so a low value marks a result whose largest
+   * unmeasured part was also the least well seen.
+   */
+  crown_resolved_fraction?: number | null;
   location: Record<string, number>;
   point_count: number;
 }
