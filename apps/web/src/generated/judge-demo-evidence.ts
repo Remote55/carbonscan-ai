@@ -8,7 +8,7 @@ export interface JudgeDemoEvidenceIdentity {
 }
 
 export const JUDGE_DEMO_EVIDENCE: JudgeDemoEvidenceIdentity = {
-  manifestSha256: '28bb19f3e83ff1e528edbacc0f4c098f0475734108ecef259dc48b197b309fd9',
+  manifestSha256: '1f2bca71a01c64b7be23fcad459fad3be30d59fb5d582ad1f0f4aa647519da1b',
   manifestPath: '/demo/manifest.json',
   inputPath: '/demo/input.ply',
   segmentedPath: '/demo/segmented.ply',
