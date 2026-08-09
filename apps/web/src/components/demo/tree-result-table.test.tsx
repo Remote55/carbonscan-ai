@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import type { ResultViewModel } from '../../lib/result-view-model';
+import type { MeasuredRow, ResultViewModel } from '../../lib/result-view-model';
 import { contrastRatio, tokenHex } from '../../test-support/wcag';
 import { TreeResultTable } from './tree-result-table';
 
@@ -15,9 +15,9 @@ const view: ResultViewModel = {
   },
   diagnosticsStatus: 'available',
   measuredRows: [
-    { treeId: 2, dbhCm: 33.62, heightM: 21.35, carbonKg: 484.15, co2eqKg: 1775.21 },
-    { treeId: 3, dbhCm: 23.83, heightM: 17.04, carbonKg: 197.3, co2eqKg: 723.44 },
-    { treeId: 5, dbhCm: 40.52, heightM: 16.67, carbonKg: 608.29, co2eqKg: 2230.41 },
+    { treeId: 2, dbhCm: 33.62, heightM: 21.35, carbonKg: 484.15, co2eqKg: 1775.21, dbhFitQuality: null, co2eqVolumeRouteKg: null, methodDisagreement: null },
+    { treeId: 3, dbhCm: 23.83, heightM: 17.04, carbonKg: 197.3, co2eqKg: 723.44, dbhFitQuality: null, co2eqVolumeRouteKg: null, methodDisagreement: null },
+    { treeId: 5, dbhCm: 40.52, heightM: 16.67, carbonKg: 608.29, co2eqKg: 2230.41, dbhFitQuality: null, co2eqVolumeRouteKg: null, methodDisagreement: null },
   ],
   excludedRows: [
     {
@@ -144,5 +144,60 @@ describe('TreeResultTable', () => {
     expect(
       contrastRatio(tokenHex(statusToken('EXCLUDED')), tokenHex('gallery-ivory')),
     ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('rows the pipeline was less sure about', () => {
+  /**
+   * The pipeline computes a fit quality for every stem and a second carbon
+   * estimate for every tree, and the table showed neither. Every row read
+   * READY, including the ones the fit found hard.
+   */
+  function viewWith(overrides: Partial<MeasuredRow>) {
+    return {
+      ...view,
+      measuredRows: [{ ...view.measuredRows[0], ...overrides }],
+      excludedRows: [],
+    };
+  }
+
+  it('says READY when the fit was clean and the models agree', () => {
+    const markup = renderToStaticMarkup(
+      <TreeResultTable
+        view={viewWith({ dbhFitQuality: 0.99, methodDisagreement: 0.14 })}
+      />,
+    );
+
+    expect(markup).toContain('READY');
+    expect(markup).not.toContain('CHECK');
+  });
+
+  it('flags a stem the circle fit struggled with', () => {
+    const markup = renderToStaticMarkup(
+      <TreeResultTable view={viewWith({ dbhFitQuality: 0.42 })} />,
+    );
+
+    expect(markup).toContain('CHECK');
+    expect(markup).toContain('42%');
+  });
+
+  it('flags a tree the two carbon models disagree badly about', () => {
+    const markup = renderToStaticMarkup(
+      <TreeResultTable view={viewWith({ methodDisagreement: 0.35 })} />,
+    );
+
+    expect(markup).toContain('CHECK');
+    expect(markup).toContain('35%');
+  });
+
+  it('stays quiet for a result that never reported either', () => {
+    const markup = renderToStaticMarkup(
+      <TreeResultTable
+        view={viewWith({ dbhFitQuality: null, methodDisagreement: null })}
+      />,
+    );
+
+    expect(markup).toContain('READY');
+    expect(markup).not.toContain('CHECK');
   });
 });

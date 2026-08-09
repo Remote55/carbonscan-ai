@@ -36,6 +36,10 @@ export interface ResultForView {
     height_m: number;
     carbon_kg?: number | null;
     co2eq_kg?: number | null;
+    // Optional: results stored by an earlier pipeline carry none of these.
+    dbh_fit_quality?: number | null;
+    co2eq_volume_route_kg?: number | null;
+    method_disagreement?: number | null;
   }>;
 }
 
@@ -69,7 +73,21 @@ export interface MeasuredRow {
   heightM: number;
   carbonKg: number;
   co2eqKg: number;
+  /**
+   * How much of the breast-height slice the fitted circle explains. Null for
+   * results from a pipeline version that did not report it.
+   *
+   * Shown because a table where every row looks equally certain is a table
+   * that hides which rows are not.
+   */
+  dbhFitQuality: number | null;
+  /** The same tree through the other carbon model, and the gap between them. */
+  co2eqVolumeRouteKg: number | null;
+  methodDisagreement: number | null;
 }
+
+/** Below this the circle fit found the stem hard, and the row should say so. */
+export const FIT_QUALITY_UNCERTAIN = 0.9;
 
 export interface ResultViewModel {
   counts: { detected: number | null; measured: number; excluded: number | null };
@@ -95,6 +113,9 @@ export function toResultViewModel(response: ResultForView): ResultViewModel {
     heightM: tree.height_m,
     carbonKg: tree.carbon_kg ?? 0,
     co2eqKg: tree.co2eq_kg ?? 0,
+    dbhFitQuality: tree.dbh_fit_quality ?? null,
+    co2eqVolumeRouteKg: tree.co2eq_volume_route_kg ?? null,
+    methodDisagreement: tree.method_disagreement ?? null,
   }));
 
   // Trust the counts only when the run reported all three, they reconcile, and

@@ -62,6 +62,17 @@ class TreeResult:
     #: much is unsettled — see allometric.CarbonResult.
     co2eq_volume_route_kg: float | None = None
     method_disagreement: float | None = None
+    #: RANSAC inlier ratio for this tree's breast-height circle: how much of
+    #: the slice the fitted circle actually explains.
+    #:
+    #: The pipeline has always computed it and always discarded it, so every
+    #: tree in a result looked equally well measured. On the reference cohort
+    #: the median is 0.99 and a failed fit reads 0.16 — the difference between
+    #: a diameter worth writing down and one that is an artefact. Anything
+    #: below qsm.MIN_DBH_FIT_QUALITY is excluded outright; between there and
+    #: about 0.9 is a stem the fit found difficult, and saying so is the
+    #: difference between a number and a measurement.
+    dbh_fit_quality: float | None = None
     location: dict[str, float] = field(default_factory=dict)
     point_count: int = 0
     wood_leaf_iou: float | None = None
@@ -264,6 +275,7 @@ def process_points(
                     None if carbon.method_disagreement is None
                     else round(carbon.method_disagreement, 4)
                 ),
+                dbh_fit_quality=round(q.model_quality, 4),
                 location={"x": round(cx, 3), "y": round(cy, 3)},
                 point_count=len(tree_pts),
             )

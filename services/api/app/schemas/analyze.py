@@ -27,6 +27,9 @@ class AnalyzeTree(BaseModel):
     #: been checked against a tropical tree.
     co2eq_volume_route_kg: float | None = None
     method_disagreement: float | None = None
+    #: RANSAC inlier ratio for the breast-height circle. Near 1.0 is a clean
+    #: stem; the pipeline refuses anything below 0.20 outright.
+    dbh_fit_quality: float | None = None
     location: dict[str, float] = Field(default_factory=dict)
     point_count: int = 0
 

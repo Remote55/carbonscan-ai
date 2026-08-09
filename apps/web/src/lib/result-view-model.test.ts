@@ -136,7 +136,34 @@ describe("measured rows", () => {
       heightM: 18.4,
       carbonKg: 484.15,
       co2eqKg: 1775.9,
+      // Null rather than absent: a result stored by an older pipeline carries
+      // none of these, and a row must not imply a quality nobody reported.
+      dbhFitQuality: null,
+      co2eqVolumeRouteKg: null,
+      methodDisagreement: null,
     });
+  });
+
+  it("carries the fit quality and the second estimate when the pipeline reports them", () => {
+    const vm = toResultViewModel({
+      ...RESPONSE_WITH_DIAGNOSTICS,
+      trees: [
+        {
+          tree_id: 2,
+          dbh_cm: 33.62,
+          height_m: 18.4,
+          carbon_kg: 484.15,
+          co2eq_kg: 1775.9,
+          dbh_fit_quality: 0.42,
+          co2eq_volume_route_kg: 1540.2,
+          method_disagreement: 0.1327,
+        },
+      ],
+    });
+
+    expect(vm.measuredRows[0].dbhFitQuality).toBe(0.42);
+    expect(vm.measuredRows[0].co2eqVolumeRouteKg).toBe(1540.2);
+    expect(vm.measuredRows[0].methodDisagreement).toBe(0.1327);
   });
 
   it("keeps the ids that are missing visible through the excluded rows", () => {

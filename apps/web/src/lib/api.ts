@@ -227,6 +227,12 @@ export interface AnalyzeTree {
    */
   co2eq_volume_route_kg?: number | null;
   method_disagreement?: number | null;
+  /**
+   * How much of the breast-height slice the fitted circle explains. Near 1.0 is
+   * a clean stem; the pipeline refuses anything below 0.20. Between them is a
+   * tree the fit found difficult, which is worth showing rather than hiding.
+   */
+  dbh_fit_quality?: number | null;
   location: Record<string, number>;
   point_count: number;
 }

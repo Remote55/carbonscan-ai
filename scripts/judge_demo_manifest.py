@@ -319,6 +319,7 @@ def _validate_result_payload(candidate: dict[str, Any], result_bytes: bytes) -> 
         # knows they differ by about 15%, is publishing the narrower story.
         "co2eq_volume_route_kg",
         "method_disagreement",
+        "dbh_fit_quality",
         "location",
         "point_count",
         "wood_leaf_iou",

@@ -1,5 +1,5 @@
 {
-  "analyzed_commit": "ec55c2c72866997769c93fc70c4133f4e5d8981f",
+  "analyzed_commit": "a3441f0f074a9af4156d3835ac565485c1c7f734",
   "artifacts": {
     "input": {
       "path": "/demo/input.ply",
@@ -8,8 +8,8 @@
     },
     "result": {
       "path": "/demo/result.json",
-      "sha256": "fc9ba9135453269daecee367b32ab818e7e52cc564de627dc4a10584af63f792",
-      "size_bytes": 4196
+      "sha256": "9729363ab35dcf1db05faed19cda13960b4098f4f28102b4bfa1b9d96f5372e5",
+      "size_bytes": 4834
     },
     "segmented": {
       "path": "/demo/segmented.ply",
@@ -39,7 +39,7 @@
   "schema_version": 1,
   "source": {
     "core_manifest_path": "docs/evidence/core_demo_manifest.json",
-    "core_manifest_sha256": "42db89cac6aae7e84d2a0c614bd82bc4fa12e5b533a5393abb1ccf6e451b607c"
+    "core_manifest_sha256": "ed6ca110b8884f244bbf68cc501d8f06bb0bd3301cdad2ac21ea50bafe845302"
   },
   "viewer": {
     "original": true,

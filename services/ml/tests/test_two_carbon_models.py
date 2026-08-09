@@ -188,3 +188,43 @@ class TestTheNumbersInTheComments:
             "the bias no longer varies with diameter; the comment in "
             "allometric.py about functional form needs revisiting"
         )
+
+
+class TestFitQualityIsReported:
+    """The pipeline always knew how well each stem was fitted, and never said.
+
+    On the reference cohort the median inlier ratio is 0.99 while a failed fit
+    reads 0.16. Every tree in a result looked equally well measured, which is
+    the difference between a number and a measurement.
+    """
+
+    def test_a_measured_tree_carries_its_fit_quality(self):
+        import os
+
+        os.environ.setdefault("TREEQ_GIT_COMMIT", "0" * 40)
+        os.environ.setdefault("TREEQ_GIT_DIRTY", "false")
+        from pipeline.main import process_points
+        from pipeline.synthetic import generate_synthetic_plot
+
+        points, _labels, _trees = generate_synthetic_plot(seed=42)
+        result = process_points(points)
+
+        assert result.trees, "the fixture produced no trees"
+        for tree in result.trees:
+            assert tree.dbh_fit_quality is not None, f"tree {tree.tree_id} reports no quality"
+            assert 0.0 <= tree.dbh_fit_quality <= 1.0
+
+    def test_nothing_below_the_exclusion_bar_survives_into_the_results(self):
+        import os
+
+        os.environ.setdefault("TREEQ_GIT_COMMIT", "0" * 40)
+        os.environ.setdefault("TREEQ_GIT_DIRTY", "false")
+        from pipeline.main import process_points
+        from pipeline.qsm import MIN_DBH_FIT_QUALITY
+        from pipeline.synthetic import generate_synthetic_plot
+
+        points, _labels, _trees = generate_synthetic_plot(seed=7)
+        result = process_points(points)
+
+        for tree in result.trees:
+            assert tree.dbh_fit_quality >= MIN_DBH_FIT_QUALITY

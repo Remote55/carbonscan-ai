@@ -6,7 +6,30 @@
  * were never detected, or were quietly discarded. Listing them inline answers
  * that without anyone having to ask.
  */
-import type { ResultViewModel } from '../../lib/result-view-model';
+import {
+  FIT_QUALITY_UNCERTAIN,
+  type MeasuredRow,
+  type ResultViewModel,
+} from '../../lib/result-view-model';
+
+/**
+ * What to say about one measured row beyond its numbers.
+ *
+ * Two things the pipeline knows and the table used to drop: how well the circle
+ * fit explained the stem, and how far the second carbon model lands from the
+ * first. A table where every row looks equally certain is a table that hides
+ * which rows are not.
+ */
+function rowCaveat(row: MeasuredRow): string | null {
+  const notes: string[] = [];
+  if (row.dbhFitQuality !== null && row.dbhFitQuality < FIT_QUALITY_UNCERTAIN) {
+    notes.push(`วงกลมที่ฟิตกับลำต้นอธิบายจุดได้ ${Math.round(row.dbhFitQuality * 100)}%`);
+  }
+  if (row.methodDisagreement !== null && row.methodDisagreement >= 0.2) {
+    notes.push(`สองวิธีคำนวณต่างกัน ${Math.round(row.methodDisagreement * 100)}%`);
+  }
+  return notes.length > 0 ? notes.join(' · ') : null;
+}
 
 const decimal = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
@@ -61,7 +84,16 @@ export function TreeResultTable({ view }: { view: ResultViewModel }) {
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.carbonKg)}</td>
                 <td className="px-3 py-3 tabular-nums">{decimal.format(entry.row.co2eqKg)}</td>
                 <td className="px-3 py-3 font-mono text-[0.6875rem] font-medium tracking-wide text-canopy">
-                  READY
+                  {rowCaveat(entry.row) ? (
+                    <>
+                      <span className="text-evidence-amber">CHECK</span>
+                      <span className="mt-1 block font-sans text-sm font-normal normal-case tracking-normal text-forest-ink/75">
+                        {rowCaveat(entry.row)}
+                      </span>
+                    </>
+                  ) : (
+                    'READY'
+                  )}
                 </td>
               </tr>
             ) : (
