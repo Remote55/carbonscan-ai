@@ -1,5 +1,5 @@
 {
-  "analyzed_commit": "89210fcf6b5799303f70c08a7272eb370d2ec808",
+  "analyzed_commit": "e88e616dd10195b9a95e2af419fc53dc2de7adb0",
   "artifacts": {
     "input": {
       "path": "/demo/input.ply",
@@ -8,8 +8,8 @@
     },
     "result": {
       "path": "/demo/result.json",
-      "sha256": "2cd0312e3c432f61579abb20d6357832b09c6e85fa49b0aebb45ea23cd953390",
-      "size_bytes": 5046
+      "sha256": "01eeb9f6d1c3144a1b99a095c000b6911fa7d46f46b52ed7f925149b10424bf9",
+      "size_bytes": 5041
     },
     "segmented": {
       "path": "/demo/segmented.ply",
