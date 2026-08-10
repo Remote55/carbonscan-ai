@@ -68,10 +68,11 @@ gated behind demo mode, which a public deployment turns off.
 |---|---|---|
 | `TREEQ_DEMO_MODE` | `false` | no token gate; the caps and the rate limit apply regardless |
 | `TREEQ_DEMO_TOKEN` | unset | only read when demo mode is on |
-| `RATE_LIMIT_UPLOAD` | `5` (default) | per client per minute, on a route that runs a multi-minute subprocess |
+| `RATE_LIMIT_UPLOAD` | `5` (default) | per client per minute, on a route that runs a subprocess |
+| `TRUST_PROXY_HEADERS` | **`true`** | **set this.** Railway, Fly, HF Spaces and Cloudflare all terminate the connection, so the socket peer is the proxy — leave it off and every caller in the world shares one rate-limit bucket. Leave it **off** when nothing sits in front, because the header is caller-controlled and would otherwise be a free reset |
+| `MAX_CONCURRENT_ANALYSES` | `2` (default) | analyses in flight at once, across all callers. The rate limit bounds how often ONE caller may ask; this bounds how much work exists. Raise only with the host's RAM in hand — each slot holds an upload in memory plus a pipeline subprocess |
 | `TREEQ_DEMO_MAX_UPLOAD_SIZE_MB` | `100` (default) | the effective cap in every mode; ingestion buffers about twice this |
 | `TREEQ_DEMO_MAX_POINTS` | `2_000_000` (default) | checked from the PLY header before any work starts |
-| `JOB_UPLOAD_DIR` | `/app/job-uploads` (set in the image) | mount it if a worker runs in a second container |
 
 On the web side, set `NEXT_PUBLIC_API_URL` to the backend origin and leave
 `NEXT_PUBLIC_DEMO_TOKEN` **unset**. With demo mode off the API asks for no
@@ -97,6 +98,7 @@ KD-tree neighbourhoods, pure numpy.
   only thing standing between a public URL and the instance. They are now
   enforced in every mode, and `services/api/tests/test_public_deployment_limits.py`
   fails if any of them is ever put back behind a mode flag.
-- The async job queue needs a worker process (`python -m app.worker`) that this
-  single-container setup does not start. `/upload/analyze` is synchronous and
-  does not need it.
+- The async job queue that used to be listed here has been removed rather than
+  finished. Nothing called it, no deployment started its worker, and
+  `/jobs/analyze` answered 202 "queued" for work that could not run.
+  `/upload/analyze` is synchronous and is the path this service offers.

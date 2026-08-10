@@ -5,9 +5,14 @@ and has been dropped: whether photographs of a real trunk yield enough points to
 fit a circle at breast height was never established, so it promised a capability
 nobody had shown was reachable.
 
+Analysis is synchronous and finishes inside the request: the pipeline measured a
+16-tree plot of 447,089 points in 10 seconds and this route caps an analysis at
+200,000. An async queue existed alongside it and was removed — nothing called
+it, no deployment started its worker, and it answered 202 "queued" for work that
+could not run.
+
 TODO:
 - LAS/LAZ direct upload to Supabase Storage (chunked via tus protocol)
-- Create Job record + push to Queue
 """
 
 import logging
@@ -19,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.schemas.analyze import AnalyzeResponse
-from app.services import segmented_cloud_store, species_catalogue
+from app.services import analysis_slots, segmented_cloud_store, species_catalogue
 from app.services.pipeline_runner import PipelineError, redact_operator_detail, run_pipeline
 from app.services.upload_validation import read_upload_limited, validate_upload
 
@@ -65,7 +70,8 @@ async def analyze_point_cloud(
 ) -> AnalyzeResponse:
     """Upload a point-cloud file, run the full pipeline, return carbon results.
 
-    Synchronous MVP (small files). Phase 2 moves heavy jobs to a queue + GPU worker.
+    Runs the pipeline and returns the full result. Concurrency is capped by
+    MAX_CONCURRENT_ANALYSES; a caller arriving when every slot is busy gets 503.
     """
     # The smaller of the two, always. This route is unauthenticated and runs a
     # multi-minute subprocess, and ingestion buffers roughly twice the file, so
@@ -88,11 +94,25 @@ async def analyze_point_cloud(
             detail=f"Unknown species '{chosen}'. See GET /api/v1/upload/species.",
         )
 
+    # Taken before the work and released after it. run_in_threadpool's pool is
+    # 40 threads wide, so without this an unauthenticated route could hold forty
+    # pipeline subprocesses at once, each with its own interpreter and cloud.
+    # Refused rather than queued: the caller learns now instead of waiting
+    # behind a multi-minute subprocess for something else to time out.
+    if not analysis_slots.slots.try_acquire():
+        logger.warning("analysis refused: all %d slots busy", analysis_slots.slots.limit)
+        raise HTTPException(
+            status_code=503,
+            detail="Server is analysing other uploads. Try again shortly.",
+            headers={"Retry-After": "30"},
+        )
     try:
         result = await run_in_threadpool(_run_pipeline_on_bytes, data, ext, chosen)
     except PipelineError as exc:
         logger.error("Pipeline execution failed: %s", redact_operator_detail(exc.operator_detail))
         raise HTTPException(status_code=502, detail=exc.public_message) from exc
+    finally:
+        analysis_slots.slots.release()
 
     return AnalyzeResponse(**result)
 

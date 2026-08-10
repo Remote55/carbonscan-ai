@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import threading
 import time
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -67,12 +67,48 @@ def compute_readiness_hmac(token: str, nonce: str) -> str:
     return hmac.new(bytes.fromhex(token), nonce.encode("ascii"), hashlib.sha256).hexdigest()
 
 
+def client_key(scope: dict[str, Any]) -> str:
+    """The address to rate-limit by.
+
+    ``scope["client"]`` is the socket peer. Behind Railway, Fly, HF Spaces or
+    Cloudflare that is the proxy, not the caller, so keying on it puts every
+    user of a deployed service into ONE bucket — RATE_LIMIT_UPLOAD for the whole
+    world, where the first caller starves the rest.
+
+    X-Forwarded-For fixes that and is caller-controlled, so it is only read when
+    the operator states that a proxy is in front. Otherwise anyone could send a
+    fresh value per request and have no limit at all. The left-most entry is the
+    original client; a proxy appends, so entries to its right are hops.
+    """
+    peer = str((scope.get("client") or ("unknown", 0))[0])
+    if not settings.TRUST_PROXY_HEADERS:
+        return peer
+    for key, value in scope.get("headers", []):
+        if key.lower() == b"x-forwarded-for":
+            first = value.decode("latin-1").split(",")[0].strip()
+            if first:
+                return first
+    return peer
+
+
 class DemoGuardMiddleware:
     """Protect only the judge-demo readiness and synchronous upload routes."""
 
+    #: Distinct clients tracked at once. Without a bound the table grows by one
+    #: entry per address seen and never shrinks — a slow leak on a public URL,
+    #: since a client's entry was only pruned when that same client returned.
+    #:
+    #: Expiry alone cannot bound it: a burst of addresses that are all recent
+    #: leaves nothing to expire, so the table has to evict as well. Eviction is
+    #: least-recently-seen, which means flushing a victim's budget takes
+    #: MAX_TRACKED_CLIENTS distinct addresses inside the 60 s window rather than
+    #: a couple. That trade is inherent to bounding the table at all, and an
+    #: unbounded one is the worse answer.
+    MAX_TRACKED_CLIENTS = 4096
+
     def __init__(self, app: Callable[..., Awaitable[None]]) -> None:
         self.app = app
-        self._upload_attempts: dict[str, deque[float]] = defaultdict(deque)
+        self._upload_attempts: OrderedDict[str, deque[float]] = OrderedDict()
         self._rate_lock = threading.Lock()
 
     def _allow_upload(self, client: str) -> bool:
@@ -80,7 +116,23 @@ class DemoGuardMiddleware:
         cutoff = now - 60
         limit = settings.RATE_LIMIT_UPLOAD
         with self._rate_lock:
-            attempts = self._upload_attempts[client]
+            attempts = self._upload_attempts.get(client)
+            if attempts is None:
+                attempts = deque()
+                self._upload_attempts[client] = attempts
+                if len(self._upload_attempts) > self.MAX_TRACKED_CLIENTS:
+                    # Cheap first: drop whatever has aged out. Only if that
+                    # frees nothing does anyone lose a live budget.
+                    for key in [
+                        key
+                        for key, seen in self._upload_attempts.items()
+                        if key != client and (not seen or seen[-1] <= cutoff)
+                    ]:
+                        del self._upload_attempts[key]
+                while len(self._upload_attempts) > self.MAX_TRACKED_CLIENTS:
+                    self._upload_attempts.popitem(last=False)
+            self._upload_attempts.move_to_end(client)
+
             while attempts and attempts[0] <= cutoff:
                 attempts.popleft()
             if limit <= 0 or len(attempts) >= limit:
@@ -121,8 +173,7 @@ class DemoGuardMiddleware:
         # so with the limit gone a single anonymous caller could hold the
         # instance indefinitely.
         if scope.get("method") == "POST" and path == _UPLOAD_PATH:
-            client = (scope.get("client") or ("unknown", 0))[0]
-            if not self._allow_upload(str(client)):
+            if not self._allow_upload(client_key(scope)):
                 response = JSONResponse(
                     status_code=429,
                     content={"detail": "Too many requests"},
