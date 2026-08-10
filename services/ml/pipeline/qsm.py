@@ -49,16 +49,65 @@ import numpy as np
 STEM_FORM_FACTOR = 0.403
 TOTAL_TREE_FORM_FACTOR = 0.587
 
-# Below this RANSAC inlier ratio the circle does not describe the slice: at 0.20
-# four out of five points sit off the fitted circle, so the radius it reports is
-# not a measurement of anything. Not a percentile of some cohort - a statement
-# about the fit. Over 65 Demol trees x 3 seeds the only measurement that fell
-# below it was LXDC4 at ratio 0.160, which read 116.4 cm against a taped 23.6 cm.
-# Median ratio across those 195 was 0.990 and the next lowest was 0.596, so the
-# rule excludes failures and leaves difficult-but-real trees alone. Dropping
-# that one measurement moves cohort MAE from 1.546 cm to 1.076 cm and worst-case
-# error from 92.84 cm to 16.86 cm.
-MIN_DBH_FIT_QUALITY = 0.20
+# The RANSAC inlier ratio a breast-height circle must reach to be reported.
+#
+# This was 0.20, argued as the floor below which a circle describes nothing: at
+# 0.20 four out of five points sit off it, so the radius is not a measurement of
+# anything. That argument is still correct, and it is still the wrong threshold,
+# because a floor is not a detector. "Is this a circle at all" and "is this
+# circle good enough to trust" are different questions, and the product needs
+# the second one answered.
+#
+# Measured on the single-tree path (compute_qsm calls measure_dbh with the same
+# arguments, so this is that path's own distribution) - 65 Demol trees x 3 seeds
+# x 3 point densities of 200k, 12k and 4k per tree, spanning a single-tree upload
+# down to one tree's share of a 50-tree plot. 585 fits against taped DBH:
+#
+#     gate    kept   good lost   bad kept    MAE cm   worst cm
+#     0.20     584           0         13      1.56      64.67
+#     0.70     564          11          4      1.14      59.74
+#     0.78     557          14          0      0.98       3.41
+#     0.80     552          19          0      0.97       3.41
+#     0.90     510          61          0      0.95       3.41
+#
+# "bad" is an error over 5 cm. At 0.20 thirteen of them are reported as results,
+# the worst reading 64.67 cm out on a taped stem - because a slice holding few
+# points is EASY to fit: with fifteen points a circle can pass near all of them
+# and still be the wrong circle. The ratio RISES as the measurement becomes
+# meaningless, which is why the old gate went quiet exactly where it was needed.
+#
+# 0.78 is where the last bad fit is caught, and that is precisely why it is not
+# the value used. It sits on the boundary of the worst case these 65 trees happen
+# to contain (LXDC5 at 0.750, FEXC14 at 0.778); a 66th tree would move it. 0.80
+# clears that boundary with a margin for 5 further fits out of 571 - 0.9%.
+#
+# The plot path is a different computation - a grid ground classifier, KNN-IDW
+# normalisation and a watershed all run first - so it was measured separately, on
+# a plot built the way tests/test_plot_pipeline_real_trees.py builds one: 16 real
+# Demol scans stood at 14 m spacing on a sloped ground plane, 447,089 points,
+# every stage running for real. All 16 detected and measured, and fit quality is
+# bimodal: fifteen fits between 0.913 and 1.000, and FEXC14 at 0.537 reading
+# 25.6 cm against a taped 39.8. Any gate from 0.60 to 0.90 drops that one and
+# nothing else, moving plot MAE from 1.61 cm to 0.77 cm and worst-case error from
+# 14.18 cm to 1.60 cm. On a real plot this threshold costs nothing at all.
+#
+# Feeding ONE tree to the plot path looks far worse - good and bad fits overlap
+# between 0.10 and 0.69 there - but that is the misuse single_tree.py exists to
+# replace, not evidence about this constant.
+#
+# The honest downgrade: 0.20 was a statement about arithmetic, true anywhere.
+# 0.80 is fitted to 65 temperate trees and inherits every limit that cohort has
+# - see allometric.CARBON_VALIDATION_NOTE.
+#
+# What it costs: two trees are now refused outright rather than measured. FEXC14
+# is refused correctly - it reads 25-26 cm against a taped 39.8 on every seed,
+# density and path, and was the single worst fit on the plot too. LXDC4 is the
+# real loss: 22.6-23.6 cm against a taped 23.6, accurate, and gone, because its
+# slice is messy enough that no fit explains much of it. An excluded tree is
+# reported as excluded with its reason code in
+# PipelineDiagnostics.excluded_segments. A tree that is 14 cm wrong is reported
+# as a measurement.
+MIN_DBH_FIT_QUALITY = 0.80
 
 #: Crown volume as a multiple of stem volume, used only when the taper equation
 #: contradicts the measurement.

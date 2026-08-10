@@ -205,13 +205,37 @@ class TestTheFailureThisGateExistsFor:
         )
 
     @pytest.mark.skipif(not (CLOUDS / "LXDC4.txt").exists(), reason="cohort clouds absent")
-    def test_the_same_tree_on_other_seeds_is_kept(self):
-        """The gate must reject a failed fit, not a difficult tree."""
+    def test_this_tree_is_now_refused_on_every_seed_and_that_is_the_price(self):
+        """What raising the gate to 0.80 costs, recorded rather than glossed.
+
+        This test used to assert the opposite — that seeds 0, 1, 3 and 4 were
+        kept — under a 0.20 gate, on the principle that a gate should reject a
+        failed fit and not a difficult tree. The principle is sound and the
+        threshold could not deliver it: the same 0.20 that kept LXDC4 also kept
+        thirteen measurements that were more than 5 cm wrong, one of them by
+        64.67 cm, because a sparse slice is easy to fit and the inlier ratio
+        goes UP as the measurement becomes meaningless.
+
+        So LXDC4 is now refused on every seed, and these are accurate numbers
+        being thrown away. That is the trade, and it is only defensible because
+        the pipeline reports the refusal: the tree appears in
+        PipelineDiagnostics.excluded_segments with reason QSM_LOW_FIT_QUALITY,
+        not as a missing row.
+
+        If a later change recovers this tree without letting the 64 cm failures
+        back in, this test is the one to delete.
+        """
         pts = _real_stem("LXDC4.txt")
         for seed in (0, 1, 3, 4):
             dbh, quality = qsm.measure_dbh(pts, seed=seed)
-            assert quality >= qsm.MIN_DBH_FIT_QUALITY, f"seed {seed} wrongly gated"
-            assert 20 < dbh < 27, f"seed {seed} gave {dbh:.1f} cm against a taped 23.6"
+            assert 20 < dbh < 27, (
+                f"seed {seed} gave {dbh:.1f} cm against a taped 23.6 — the point of "
+                "this test is that an ACCURATE measurement is being refused"
+            )
+            assert quality < qsm.MIN_DBH_FIT_QUALITY, (
+                f"seed {seed} now passes the gate at quality {quality:.3f}; if that "
+                "is intended, the cost recorded here no longer applies"
+            )
 
     @pytest.mark.skipif(not (CLOUDS / "FEXC16.txt").exists(), reason="cohort clouds absent")
     def test_a_healthy_stem_is_nowhere_near_the_gate(self):
@@ -223,11 +247,20 @@ class TestTheFailureThisGateExistsFor:
 
 
 class TestFitQualityGate:
-    def test_threshold_sits_far_below_a_healthy_fit(self):
+    def test_threshold_sits_below_a_healthy_fit(self):
+        """A clean stem must clear the gate with room to spare.
+
+        Expressed as an absolute margin, not as a multiple of the gate: this
+        assertion read ``ratio > MIN_DBH_FIT_QUALITY * 2``, which stops being
+        satisfiable at all above 0.5 because an inlier ratio cannot exceed 1.0.
+        A test that cannot fail for the right reason is not a check.
+        """
         xy = _ring(0.15, 300, noise=0.004)
         _, _, _, ratio = qsm._ransac_circle_fit(xy, rng=np.random.default_rng(0))
-        assert ratio > qsm.MIN_DBH_FIT_QUALITY * 2, (
-            "the gate must not be anywhere near a normal stem"
+        assert ratio > 0.95, f"a clean ring fitted at only {ratio:.3f}"
+        assert qsm.MIN_DBH_FIT_QUALITY <= 0.90, (
+            "the gate must leave headroom above it for real stems, which are "
+            "noisier than this synthetic ring"
         )
 
     def test_noise_alone_does_not_reach_the_threshold(self):

@@ -787,6 +787,35 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       it. The same lesson as the entry above, one level out: the measurement is
       the whole chain from ground to carbon, not the three files where the
       arithmetic is most visible. All eight stages are pinned now.
+    - qsm.py only: MIN_DBH_FIT_QUALITY 0.20 -> 0.80. The numbers move, and this
+      entry is a record of a deliberate break, not of stability.
+
+      0.20 was argued as the floor below which a circle describes nothing, and
+      that argument is still correct. It is also not a detector, and the gate
+      needs to be one. A slice holding few points is EASY to fit: with fifteen
+      points a circle passes near all of them and reports a high inlier ratio
+      while being the wrong circle, so the old gate went quiet exactly where it
+      was needed.
+
+      Measured two ways, because the constant is read on two paths that are not
+      the same computation. Single-tree path (compute_qsm -> measure_dbh on a
+      whole cloud), 65 Demol trees x 3 seeds x 3 point densities = 585 fits
+      against taped DBH: at 0.20, thirteen fits are over 5 cm wrong and the worst
+      reads 64.67 cm out; at 0.80, none are, worst-case error is 3.41 cm, and the
+      cost is 19 accurate fits out of 571. Plot path (the full chain, on 16 real
+      scans stood on a sloped plane at 14 m spacing, 447,089 points): fit quality
+      is bimodal, fifteen fits at 0.913-1.000 and FEXC14 at 0.537 reading 25.6 cm
+      against a taped 39.8; 0.80 drops that one and no accurate measurement,
+      moving plot MAE 1.61 -> 0.77 cm.
+
+      Two trees are now refused outright. FEXC14 is refused correctly - it reads
+      25-26 cm against a taped 39.8 on every seed, density and path. LXDC4 is the
+      real cost: accurate at 22.6-23.6 cm, and gone. Both are reported as
+      exclusions with a reason code, which is the only reason the trade is
+      defensible.
+
+      The honest downgrade is recorded beside the constant: 0.20 was a statement
+      about arithmetic, true anywhere; 0.80 is fitted to 65 temperate trees.
     """
     from pipeline import (
         allometric,
@@ -816,7 +845,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
         wood_leaf_separation: (
             "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
         ),
-        qsm: "61b2ccd5c910970ce1e68285069d3de9d482f64a103385941c6403986c8b81ee",
+        qsm: "9e3e1d025088be81c968a9ca5127de235e5a1c99ebd59319bc2e80272cbb5e9d",
         allometric: "7764d3a8feced5da9d19911f8adb193ba62ebff6ee4e729611c04d2ac76d4201",
         main: "8c8085ad86a2a92f8926346455c24bd8f3c47c7d03b2beb4b86c04038b0dd4d0",
     }

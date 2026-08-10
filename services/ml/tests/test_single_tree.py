@@ -108,12 +108,24 @@ class TestAgainstTapeMeasurements:
                 f"{name}: {result.dbh_cm:.1f} cm against a taped {truth:.1f}"
             )
 
-    def test_the_plot_pipeline_is_wrong_for_one_tree(self, sample_trees):
+    def test_the_plot_pipeline_cannot_measure_one_tree(self, sample_trees):
         """The reason this module exists, measured rather than asserted.
 
         process_points classifies ground from a grid and runs a watershed to
-        find stems. Given one tree there is no plot for either step to work
-        with, and the diameter that comes out is several times the truth.
+        find stems. Given one tree there is no plot for either step to work with.
+
+        This asserted, until MIN_DBH_FIT_QUALITY was raised to 0.80, that the
+        plot path answered with a diameter several times the truth. It no longer
+        answers: two of these clouds are invisible to the watershed, and on the
+        other two the breast-height circle explains so little of its slice
+        (quality 0.31 and 0.41) that the gate refuses it. Both of those refused
+        fits were in fact close - 2.5% and 8.3% out - which is the cost recorded
+        in qsm.MIN_DBH_FIT_QUALITY, not an argument against the gate: on the
+        population the plot path is actually for, a 16-tree plot, the same
+        threshold drops one 14 cm error and no accurate measurement at all.
+
+        Refusing is the better failure, because an exclusion is reported as an
+        exclusion. It is still a failure, and it is still why this module exists.
         """
         from pipeline.main import process_points
 
@@ -126,13 +138,15 @@ class TestAgainstTapeMeasurements:
             for tree in plot.trees:
                 plot_errors.append(abs(tree.dbh_cm - truth) / truth)
 
-        assert single_errors, "the single-tree path measured nothing"
-        assert plot_errors, "the plot path measured nothing, so there is nothing to compare"
+        assert len(single_errors) == len(sample_trees), (
+            f"the single-tree path measured {len(single_errors)} of "
+            f"{len(sample_trees)} clouds"
+        )
         assert st.mean(single_errors) < 0.10
-        assert st.mean(plot_errors) > st.mean(single_errors) * 2, (
-            f"plot path {100 * st.mean(plot_errors):.0f}% vs single-tree "
-            f"{100 * st.mean(single_errors):.0f}% — if these have converged, this "
-            "module may no longer be needed"
+        assert len(plot_errors) < len(single_errors), (
+            f"the plot path measured {len(plot_errors)} of these single-tree "
+            f"clouds against the single-tree path's {len(single_errors)} — if it "
+            "has caught up, this module may no longer be needed"
         )
 
     def test_a_ghost_return_does_not_stop_a_measurement(self, sample_trees):
