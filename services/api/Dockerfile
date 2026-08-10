@@ -40,9 +40,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libproj-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY services/api/pyproject.toml ./
+# README.md is not documentation here, it is a build input: pyproject declares
+# `readme = "README.md"` and hatchling reads it while generating metadata.
+# Copying only pyproject.toml therefore failed the build outright -
+#
+#     OSError: Readme file does not exist: README.md
+#
+# - at this line, before anything else in the file could be wrong. Reproduced by
+# building from a directory holding just pyproject.toml, which is what this
+# stage was.
+#
+# The install is here for the dependency set, not for the package: `app/` is
+# deliberately not in this stage, so the wheel hatchling builds is empty (about
+# 1.5 kB) and the application is imported from WORKDIR in the runtime stage.
+# That is why only these two files are copied - a layer that changed with every
+# source edit would rebuild the whole dependency tree on each commit. It was
+# `pip install -e .`, which additionally leaves an editable finder pointing at
+# /build, a path the runtime stage does not have.
+COPY services/api/pyproject.toml services/api/README.md ./
 RUN pip install --upgrade pip && \
-    pip install -e .
+    pip install .
 
 # The pipeline's runtime surface, not services/ml/pyproject.toml. That file
 # also pulls pandas, geopandas, rasterio, opencv, shapely and torch, none of
