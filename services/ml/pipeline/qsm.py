@@ -91,13 +91,15 @@ class QsmResult:
     total_volume_m3: float
     n_cylinders: int  # discs integrated up the stem; 1 means the taper fallback
     model_quality: float  # 0-1 fit quality (RANSAC inlier ratio for DBH)
-    #: Share of crown wood points that resolved into branch-shaped segments.
+    #: Share of crown points that can be traced back to the trunk as branches.
     #:
-    #: Not used to compute anything — see pipeline/branches.py for why measuring
-    #: crown volume that way loses to the estimate it would replace. It is
-    #: reported because it varies from 3% to 79% across the reference trees, and
-    #: a crown the scan barely resolved is one whose share of the carbon, about
-    #: 30%, rests on an equation rather than on data.
+    #: Not used to compute anything. pipeline/skeleton.py measures crown volume
+    #: correctly on synthetic cylinders and is 1490% out on real crowns, because
+    #: branches in a real crown cannot be told apart at this point density —
+    #: which is why the volume stays with the equation. What the trace does say
+    #: is how much of a crown holds together as followable wood at all: 0% to
+    #: 73% across the reference trees. A crown at the low end is one whose ~30%
+    #: share of the tree rests on an equation and nothing else.
     crown_resolved_fraction: float | None = None
 
 
@@ -557,17 +559,25 @@ def compute_qsm(
     # to be, less what the stem was measured to be. On the reference trees the
     # tracked stem never exceeded the estimated total, and their ratio averaged
     # 0.708 against a harvested 0.672, so the decomposition holds together.
-    # How much of the crown the scan resolved into branch-shaped wood. A
-    # diagnostic, not an input: measuring crown volume from these cubes scored
-    # 89.6% MAPE against the 54.2% of the estimate it would have replaced, and a
-    # known cylinder came out 3.89x too large because one branch spread across
-    # four columns of cubes is counted four times. See pipeline/branches.py.
+    # How much of the crown can be traced back to the trunk at all. A
+    # diagnostic, not an input: the skeleton's volume is exact on synthetic
+    # cylinders and 1490% out on real crowns, because branches in a real crown
+    # cannot be told apart at this point density. See pipeline/skeleton.py.
     crown_points = wood_points[wood_points[:, 2] > profile.crown_base_m]
     crown_resolved: float | None = None
     if len(crown_points) >= 50:
-        from pipeline.branches import measure_crown_coverage
+        from pipeline.skeleton import trace_crown
 
-        crown_resolved = measure_crown_coverage(crown_points).measured_point_fraction
+        crown_resolved = trace_crown(
+            crown_points,
+            root_xyz=np.array(
+                [
+                    float(crown_points[:, 0].mean()),
+                    float(crown_points[:, 1].mean()),
+                    float(crown_points[:, 2].min()),
+                ]
+            ),
+        ).traced_point_fraction
 
     total_vol = estimate_volume_taper(dbh_cm, height_m, form_factor=TOTAL_TREE_FORM_FACTOR)
     if total_vol > stem_vol:
