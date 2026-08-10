@@ -81,32 +81,69 @@ can go with `drop extension postgis cascade`. It was left in place because
 georeferencing (below) is the one plausible reason to want a database here
 again, and that work would need it back.
 
-## Open security item
+## Open security item: `spatial_ref_sys`
 
-Supabase's advisor reported, at **critical** level, three tables with Row Level
-Security disabled — anyone holding the anon key could read or modify every row.
-The teardown removed two of them (`alembic_version`, `species_db`). One is left:
+Supabase's advisor reported three tables with Row Level Security disabled. The
+teardown removed two (`alembic_version`, `species_db`). One is left, and it
+**cannot be fixed from any interface this project has**.
+
+### What is actually exposed
+
+Measured, not assumed:
 
 ```
-public.spatial_ref_sys    RLS disabled
+table owner                supabase_admin
+anon    SELECT ✓  INSERT ✓  UPDATE ✓  DELETE ✓
+authenticated  same
 ```
 
-It is PostGIS's static table of coordinate-system definitions. Nothing secret
-is in it, and nothing in this project reads it, so the practical exposure today
-is that someone with the anon key could corrupt reference data no code uses.
-The advisory will keep appearing until it is dealt with, in one of two ways:
+PostGIS is installed in `public`, which is the schema PostgREST exposes, so
+`spatial_ref_sys` is reachable over the REST API with the anon key. Reading it
+matters to nobody — it is the EPSG registry, ~8,500 rows of public reference
+data. **Writing to it does matter:** an anon caller can corrupt or empty the
+table, and every `ST_Transform` in the project then fails or returns wrong
+coordinates, silently. Nothing uses PostGIS today, so nothing breaks today —
+but this is the table the georeferencing work would depend on.
 
-```sql
--- Remove it at the root, since no table uses a geometry column any more:
-drop extension postgis cascade;
+### Why it cannot be fixed here
+
+Every route is blocked by ownership. The connection available to this project —
+and to the dashboard's SQL editor — is `postgres`, not the owner.
+
+| attempt | result |
+|---|---|
+| `alter table public.spatial_ref_sys enable row level security` | `ERROR 42501: must be owner of table spatial_ref_sys` |
+| `revoke insert, update, delete on public.spatial_ref_sys from anon, authenticated` | **reports success and changes nothing** |
+| `alter extension postgis set schema extensions` | needs extension ownership, and PostGIS does not support `SET SCHEMA` |
+| `drop extension postgis` | needs extension ownership |
+
+The revoke is the one to watch. Postgres only revokes grants the calling role
+issued, and `pg_class.relacl` shows every grant here was issued by
+`supabase_admin`:
+
+```
+anon=arwdDxtm/supabase_admin
+authenticated=arwdDxtm/supabase_admin
 ```
 
-```sql
--- Or keep PostGIS and turn RLS on. Note that this table is owned by the
--- extension, and enabling RLS with no policy blocks all access rather than
--- restricting it — add a read policy if anything is ever going to read it.
-alter table public.spatial_ref_sys enable row level security;
-```
+So the statement is legal, affects nothing, and returns success. A migration
+named `revoke_write_on_spatial_ref_sys` is recorded in this project's Supabase
+migration history and **did nothing** — it is left in place rather than deleted,
+because rewriting migration history to hide a mistake is worse than the mistake,
+but do not read it as a fix.
+
+### What can be done
+
+1. **Leave it.** Nothing reads or writes PostGIS in this project. Revisit before
+   any georeferencing work goes live, because that work makes the table load-
+   bearing.
+2. **Drop PostGIS.** `drop extension postgis cascade` removes the table and the
+   advisory together — no table uses a geometry column any more. It also needs
+   ownership, so it would have to go through Supabase support, and it gives up
+   the extension that georeferencing would need back.
+3. **Ask Supabase support** to move PostGIS into the `extensions` schema, which
+   already exists on this project. Out of `public`, PostgREST stops exposing it
+   and the advisory resolves properly. This is the real fix.
 
 `public.users` has RLS enabled already.
 
