@@ -291,6 +291,54 @@ def test_ml_ci_lints_only_directories_that_exist():
             )
 
 
+def test_every_dockerfile_copy_source_exists():
+    """A COPY of a path that is not there fails the build, late and obscurely.
+
+    The API image could not be built at all because pyproject declares
+    `readme = "README.md"` and the builder stage copied only pyproject.toml, so
+    hatchling raised OSError while generating metadata. Nothing noticed, because
+    the tests run against the source tree rather than the image.
+
+    Sources are repository-relative: the build context is the repository root.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    dockerfile = repo_root / "services/api/Dockerfile"
+    missing = []
+    for line in dockerfile.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("COPY "):
+            continue
+        tokens = stripped.split()[1:]
+        # --from=builder copies out of an earlier stage, not the context.
+        if any(token.startswith("--from=") for token in tokens):
+            continue
+        sources = [token for token in tokens if not token.startswith("--")][:-1]
+        for source in sources:
+            if not (repo_root / source).exists():
+                missing.append(source)
+    assert not missing, f"Dockerfile COPYs paths that do not exist: {missing}"
+
+
+def test_api_ci_builds_and_exercises_the_image():
+    """Building it is the only thing that can prove it builds.
+
+    docs/DEPLOY_PUBLIC.md carried "the image is unbuilt" as an open item for
+    long enough that it broke without anyone finding out. /health is not enough
+    on its own — an earlier image passed it while every analysis failed, because
+    the ML pipeline was not in it.
+    """
+    workflow = Path(".github/workflows/ci-api.yml").read_text(encoding="utf-8")
+
+    assert "docker/build-push-action" in workflow, "nothing builds the image"
+    assert "file: services/api/Dockerfile" in workflow
+    assert "context: ." in workflow, "the build context must be the repository root"
+    assert "GIT_COMMIT=" in workflow, "process_points refuses a run it cannot attribute"
+    assert "/api/v1/health/pipeline" in workflow, "readiness is what proves the ML runtime"
+    assert "/api/v1/upload/analyze" in workflow, "the route the product is stays unexercised"
+    # A pipeline change alters the image's contents, so it has to trigger this.
+    assert '"services/ml/pipeline/**"' in workflow
+
+
 def test_ml_ci_checkout_fetches_full_provenance_history():
     workflow = Path(".github/workflows/ci-ml.yml").read_text(encoding="utf-8")
     checkout_step = re.search(
