@@ -12,12 +12,13 @@
 > them and no deployment started the worker), and the tree/spatial/marketplace
 > endpoints — `Tree.location` required WGS84 coordinates and nothing in this
 > system produces one, so they could not be implemented as specified. See
-> `alembic/versions/0003_drop_jobs.py` and `0004_drop_trees.py`.
+> `docs/DATABASE_TEARDOWN.md`, which also lists the tables still standing in
+> Supabase and the SQL to drop them.
 >
 > Still Planned: direct LAS/photo storage, WebSocket progress, GPU dispatch.
 
 > **Owner:** User
-> **Tech:** Python 3.11 + FastAPI + PostgreSQL/PostGIS + Supabase
+> **Tech:** Python 3.11 + FastAPI + Supabase (auth only). No database.
 
 ---
 
@@ -103,7 +104,8 @@ services/api/
 
 ### Prerequisites
 - Python 3.11
-- PostgreSQL 16 + PostGIS (local or Supabase)
+- Nothing else. There is no database to provision — see
+  `docs/DATABASE_TEARDOWN.md`.
 
 ### Install
 ```bash
@@ -120,9 +122,6 @@ pip install -e ".[dev]"
 # Copy env
 cp .env.example .env
 # Edit .env
-
-# Database migrations
-alembic upgrade head
 
 # Run dev server
 uvicorn app.main:app --reload

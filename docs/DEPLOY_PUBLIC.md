@@ -43,7 +43,7 @@ which one is true.
 ## Run
 
 ```bash
-docker run -p 8000:8000 -e TREEQ_DEMO_MODE=false -e DATABASE_URL=... -e JWT_SECRET=... treeq-api
+docker run -p 8000:8000 -e TREEQ_DEMO_MODE=false treeq-api
 ```
 
 Then check both:

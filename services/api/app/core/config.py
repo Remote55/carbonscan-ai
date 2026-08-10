@@ -5,7 +5,6 @@ Uses Pydantic Settings v2 for type-safe config with `.env` file support.
 
 from functools import lru_cache
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,11 +47,14 @@ class Settings(BaseSettings):
     def TREEQ_DEMO_MAX_UPLOAD_SIZE_BYTES(self) -> int:
         return self.TREEQ_DEMO_MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
-    # --- Database ---
-    DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/carbonscan",
-    )
-    DATABASE_ECHO: bool = False
+    # DATABASE_URL and DATABASE_ECHO sat here, over a SQLAlchemy async engine,
+    # alembic and six tables. Not one of those tables had a reader or a writer:
+    # jobs went with the async queue, trees could not be filled because nothing
+    # produces a WGS84 coordinate, and users, plots, transactions and species_db
+    # were never touched by any code path. This service stores nothing between
+    # requests — an analysis is computed and returned. See
+    # docs/DATABASE_TEARDOWN.md for the tables left standing in Supabase and the
+    # SQL to remove them.
 
     # --- Supabase ---
     SUPABASE_URL: str = ""

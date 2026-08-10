@@ -1,5 +1,20 @@
 # 🗄 Supabase Setup Guide
 
+> [!CAUTION]
+> **ส่วน schema/migration ในเอกสารนี้ล้าสมัยแล้ว — อย่าทำตาม**
+>
+> API ไม่มีฐานข้อมูลแล้ว ตาราง `users` `plots` `jobs` `trees` `transactions`
+> `species_db` ไม่มีโค้ดไหนอ่านหรือเขียนเลย และถูกถอดออกทั้งชุดพร้อม SQLAlchemy
+> กับ alembic — คำสั่ง `alembic upgrade head` ข้างล่างรันไม่ได้แล้วเพราะ alembic
+> ไม่อยู่ในรีโปแล้ว
+>
+> ถ้าเคยทำตามเอกสารนี้ ตารางยังค้างอยู่บน Supabase — ดู
+> **`docs/DATABASE_TEARDOWN.md`** ว่ามีอะไรอยู่และ SQL ที่ใช้ลบ
+>
+> **ส่วนที่ยังใช้ได้:** การสร้าง project, การตั้งค่า Authentication และการเก็บ
+> `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_KEY` — auth คือสิ่ง
+> เดียวที่ระบบยังใช้ Supabase ทำ
+
 > Step-by-step guide สำหรับ User สร้าง Supabase project + ใส่ schema
 >
 > เวลาทั้งหมด: **~15 นาที**

@@ -32,12 +32,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-# System deps for psycopg/asyncpg and GIS libs
+# build-essential is for wheels with no manylinux build (open3d and laspy's
+# lazrs carry C extensions). libpq-dev, libgeos-dev and libproj-dev were here
+# too, for asyncpg and geoalchemy2; the database layer is gone, and with it the
+# reason to compile against Postgres and GIS headers.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
-    libgeos-dev \
-    libproj-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # README.md is not documentation here, it is a build input: pyproject declares
@@ -94,10 +94,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TREEQ_GIT_DIRTY=${GIT_DIRTY} \
     ML_DIR=/app/services/ml
 
+# libgl1 and libgomp1 are open3d's; curl is what the HEALTHCHECK calls.
+# libpq5, libgeos-c1v5 and libproj25 went with the database layer.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    libgeos-c1v5 \
-    libproj25 \
     libgl1 \
     libgomp1 \
     curl \
@@ -114,8 +113,6 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # API
 COPY --chown=app:app services/api/app/ ./app/
-COPY --chown=app:app services/api/alembic/ ./alembic/
-COPY --chown=app:app services/api/alembic.ini ./
 
 # ML pipeline. `data/` carries species_db.csv, which allometric.load_species_db
 # resolves relative to its own file, so the layout under services/ml must match

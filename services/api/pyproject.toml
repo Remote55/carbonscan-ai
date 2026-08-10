@@ -31,15 +31,10 @@ dependencies = [
     "pydantic-settings>=2.3.0",
     "email-validator>=2.1.0",
 
-    # Database
-    "sqlalchemy[asyncio]>=2.0.30",
-    "asyncpg>=0.29.0",
-    "geoalchemy2>=0.15.0",
-    "alembic>=1.13.0",
-    # alembic/env.py imports it directly. It arrived transitively through
-    # pydantic-settings, which is a dependency of a dependency deciding whether
-    # migrations run.
-    "python-dotenv>=1.0.0",
+    # No database. sqlalchemy, asyncpg, geoalchemy2, alembic and python-dotenv
+    # were here for six tables with no reader and no writer; the layer is gone.
+    # This service computes an analysis and returns it, storing nothing between
+    # requests. See docs/DATABASE_TEARDOWN.md.
 
     # Auth is Supabase's, verified over HTTP in app/services/supabase.py.
     # python-jose and passlib[bcrypt] were here for app/core/security.py, which
@@ -48,10 +43,9 @@ dependencies = [
     # calls the REST API with httpx.
     "httpx>=0.27.0",
 
-    # Removed as unused: shapely (no importer; geoalchemy2 covers the ORM's
-    # geometry column), reportlab (no PDF is generated), rich (nothing renders
-    # to a terminal), websockets (already an extra of uvicorn[standard], and no
-    # socket is served).
+    # Removed as unused: shapely, reportlab (no PDF is generated), rich
+    # (nothing renders to a terminal), websockets (already an extra of
+    # uvicorn[standard], and no socket is served).
 
     # Logging — see app/core/logging.py
     "structlog>=24.1.0",
@@ -85,10 +79,6 @@ packages = ["app"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = [
-    "alembic/",       # auto-generated migrations have non-standard import patterns
-]
-
 [tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
@@ -113,7 +103,6 @@ ignore = [
     "RUF002",  # ambiguous unicode in docstrings
     "RUF003",  # ambiguous unicode in comments
     "N802",  # uppercase @property names match env-var-style settings (CORS_ORIGINS_LIST)
-    "N811",  # SQLAlchemy "UUID as PgUUID" is conventional alias
     "N818",  # AppException base class doesn't need "Error" suffix
 ]
 

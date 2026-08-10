@@ -1,12 +1,17 @@
-"""FastAPI dependency-injection helpers."""
+"""FastAPI dependency-injection helpers.
 
-from collections.abc import AsyncGenerator
+There was a DbSession alias and a get_db_session generator here, over a
+SQLAlchemy async engine. No table in that database had a reader or a writer,
+so the whole layer has been removed — see docs/DATABASE_TEARDOWN.md.
+
+What is left is the only dependency this service actually has: who is calling.
+That is answered by Supabase over HTTP, not by a local table.
+"""
+
 from typing import Annotated, Any
 
 from fastapi import Depends, Header
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.core.exceptions import UnauthorizedError
 from app.services.supabase import verify_supabase_token
 
@@ -39,13 +44,5 @@ async def get_current_user_id(
     return user["id"]
 
 
-# Type aliases for ergonomics
-DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
-
-
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Backward-compatible alias for `get_db`."""
-    async for session in get_db():
-        yield session

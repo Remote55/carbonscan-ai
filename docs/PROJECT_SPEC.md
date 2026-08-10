@@ -130,7 +130,7 @@ D:\Project_Carbon\
 │   │   │   ├── services/       pipeline_runner.py, upload_validation.py,
 │   │   │   │                   segmented_cloud_store.py, species_catalogue.py, supabase.py
 │   │   │   └── core/           config.py, database.py, exceptions.py
-│   │   └── alembic/            migrations (0001_initial, 0002_job_result_json, 0003_drop_jobs)
+│   │   (ไม่มี alembic/ และ models/ แล้ว — ไม่มีฐานข้อมูล ดู docs/DATABASE_TEARDOWN.md)
 │   └── ml/                     PyTorch pipeline (heavy deps)
 │       ├── pipeline/           8-step pipeline (ดู §9) + main.py orchestrator + allometric.py
 │       ├── training/           woodleaf_dataset.py, realdata_dataset.py, train_woodleaf.py

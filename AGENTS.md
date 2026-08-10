@@ -57,7 +57,6 @@ python -m venv .venv && .venv/Scripts/activate     # Windows (หรือ sourc
 pip install -e .        # หรือ requirements
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 pytest                  # 79 tests
-alembic upgrade head    # migrations
 ```
 
 ### ML (`services/ml`)

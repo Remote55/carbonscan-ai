@@ -5,10 +5,8 @@ import time
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException
-from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 
-from app.api.deps import DbSession
 from app.core.config import settings
 from app.core.demo_security import compute_readiness_hmac
 from app.services.pipeline_runner import (
@@ -27,19 +25,11 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/health/ready")
-async def readiness(db: DbSession) -> dict[str, str | bool]:
-    """Readiness probe — checks DB connection."""
-    try:
-        await db.execute(text("SELECT 1"))
-        db_ok = True
-    except Exception:
-        db_ok = False
-
-    return {
-        "status": "ok" if db_ok else "degraded",
-        "database": db_ok,
-    }
+# GET /health/ready was here, answering `SELECT 1` against a database this
+# service no longer has. It would have reported "degraded" on a perfectly
+# healthy deployment for the absence of something nothing uses — a readiness
+# probe pointed at the wrong question. /health/pipeline below is the one that
+# matters: it asks whether an analysis can actually run.
 
 
 #: One successful probe is cached for this long. The probe starts a Python

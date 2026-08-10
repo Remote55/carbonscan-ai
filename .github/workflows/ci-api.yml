@@ -36,21 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Sidecar Postgres + PostGIS for integration tests
-    services:
-      postgres:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: carbonscan_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # A postgis/postgis:16-3.4 sidecar was started here for every run, for
+    # integration tests against a database this service no longer has. It was
+    # pulled and health-checked on each push to serve nothing.
 
     steps:
       - name: Checkout
@@ -63,10 +51,8 @@ jobs:
           cache: "pip"
           cache-dependency-path: services/api/pyproject.toml
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgeos-dev libproj-dev
+      # libgeos-dev and libproj-dev were installed here for geoalchemy2, which
+      # went with the database layer. Nothing left in this package needs them.
 
       - name: Install Python dependencies
         working-directory: services/api
@@ -87,8 +73,9 @@ jobs:
       - name: Run tests
         working-directory: services/api
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/carbonscan_test
-          JWT_SECRET: test-secret-key-for-ci-only-do-not-use-in-prod
+          # DATABASE_URL and JWT_SECRET were set here. Neither setting exists
+          # any more: there is no database, and the JWT system they fed was
+          # never imported by anything.
           APP_ENV: test
           APP_DEBUG: "false"
         # pyproject.toml's pytest config already includes --cov=app, --cov-report=term-missing
