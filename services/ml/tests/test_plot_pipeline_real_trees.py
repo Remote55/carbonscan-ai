@@ -94,8 +94,8 @@ class Plot:
         ground = np.column_stack([gx.ravel(), gy.ravel(), SLOPE * gx.ravel()])
         ground[:, 2] += np.random.default_rng(99).normal(0, 0.02, len(ground))
 
-        self.points = np.vstack([ground] + parts)
-        self.source = np.concatenate([np.full(len(ground), -1)] + labels)
+        self.points = np.vstack([ground, *parts])
+        self.source = np.concatenate([np.full(len(ground), -1), *labels])
         self.is_ground = self.source == -1
 
         self.ground_mask = ground_classification.classify_ground_array(self.points)
@@ -171,7 +171,7 @@ class TestStage4Segmentation:
         assert len(plot.clouds) == len(TREES)
 
     def test_each_segment_is_one_tree(self, plot):
-        for tid, cloud in plot.clouds.items():
+        for tid, _cloud in plot.clouds.items():
             src = plot.source[plot.tree_ids == tid]
             src = src[src >= 0]
             assert len(src) > 0, f"segment {tid} is entirely ground"
@@ -263,7 +263,9 @@ class TestGroundCandidateIsRobust:
         rng = np.random.default_rng(4)
         xy = rng.uniform(0.0, 40.0, size=(600, 2))
         ground = np.column_stack([xy, xy[:, 0] * 0.25])
-        canopy = ground + [0.0, 0.0, 9.0]
+        # RUF005 suppressed: a numpy broadcast of a shape-(3,) offset over an
+        # (N, 3) array, not list concatenation.
+        canopy = ground + [0.0, 0.0, 9.0]  # noqa: RUF005
         mask = ground_classification.classify_ground_array(np.vstack([ground, canopy]))
         assert mask[:600].mean() > 0.95
         assert mask[600:].mean() < 0.05, "canopy in a two-point cell was called ground"

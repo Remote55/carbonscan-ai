@@ -95,8 +95,12 @@ class TestCorrectness:
     def test_result_does_not_move_when_the_survey_is_translated(self) -> None:
         """Shifting a plot to real-world coordinates must not change which
         points are ground - the grid is anchored to the cloud's own minimum."""
-        points = np.vstack([_flat_plot(30.0), _flat_plot(30.0) + [0, 0, 7.0]])
-        shifted = points + [500_000.0, 4_200_000.0, 0.0]  # UTM-scale offset
+        # RUF005 is suppressed on both lines below: each `+` is a numpy
+        # broadcast of a shape-(3,) offset over an (N, 3) array, not list
+        # concatenation. The suggested `[*array, 0, 0, 7.0]` would build a list
+        # of N+3 items instead.
+        points = np.vstack([_flat_plot(30.0), _flat_plot(30.0) + [0, 0, 7.0]])  # noqa: RUF005
+        shifted = points + [500_000.0, 4_200_000.0, 0.0]  # noqa: RUF005 — UTM-scale offset
 
         assert np.array_equal(
             classify_ground_array(points), classify_ground_array(shifted)

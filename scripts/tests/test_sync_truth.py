@@ -43,7 +43,9 @@ STATUS_BANNER_DOCS = (
     Path("services/api/README.md"),
     Path("services/ml/README.md"),
     Path("apps/web/README.md"),
-    Path("apps/mobile/README.md"),
+    # apps/mobile/README.md was here until the phone path was dropped. The file
+    # went with the app; the entry did not, so this parametrised test failed on
+    # a missing file rather than on a missing banner.
 )
 
 WAN_DEVELOPMENT_DOCS = (
@@ -264,7 +266,29 @@ def test_ml_ci_does_not_swallow_test_failures():
     assert "python-docx" in workflow
     assert "python -m pytest scripts/tests/" in workflow
     assert workflow.count('"docs/evidence/pointnet_independent_eval/**"') == 2
-    assert "ruff check pipeline/ photogrammetry/ training/" in workflow
+    assert "ruff check pipeline/ training/" in workflow
+
+
+def test_ml_ci_lints_only_directories_that_exist():
+    """A lint command naming a missing directory fails before it lints anything.
+
+    This assertion used to read `ruff check pipeline/ photogrammetry/ training/`,
+    pinning a command that could not run: photogrammetry/ has no tracked files
+    since the photo path was dropped, so on a fresh checkout ruff exits E902
+    "cannot find the file specified" and the step fails without evaluating a
+    single rule. The test passed the whole time, because it checked that the
+    string was present rather than that the command worked.
+    """
+    workflow = Path(".github/workflows/ci-ml.yml").read_text(encoding="utf-8")
+    repo_root = Path(__file__).resolve().parents[2]
+    for match in re.finditer(r"(?m)^\s+run: ruff (?:check|format[^\n]*?--diff) (.+)$", workflow):
+        for token in match.group(1).split():
+            if token.startswith("-") or "*" in token or token == "||":
+                break
+            target = (repo_root / "services" / "ml" / token).resolve()
+            assert target.exists(), (
+                f"ci-ml.yml lints {token!r}, which does not exist in the repository"
+            )
 
 
 def test_ml_ci_checkout_fetches_full_provenance_history():
@@ -404,9 +428,14 @@ def test_active_web_package_uses_current_product_name():
     assert package["description"] == "TreeQ Carbon Platform — Web Dashboard (Next.js 14)"
 
 
-def test_mobile_ci_uses_flutter_version_supported_by_app():
-    workflow = Path(".github/workflows/ci-mobile.yml").read_text(encoding="utf-8")
-    pubspec = Path("apps/mobile/pubspec.yaml").read_text(encoding="utf-8")
+def test_nothing_still_refers_to_the_deleted_mobile_app():
+    """apps/mobile and ci-mobile.yml are gone; their guards must go with them.
 
-    assert 'FLUTTER_VERSION: "3.44.0"' in workflow
-    assert 'flutter: ">=3.44.0"' in pubspec
+    This was test_mobile_ci_uses_flutter_version_supported_by_app, checking that
+    the Flutter version in ci-mobile.yml matched apps/mobile/pubspec.yaml. Both
+    files were deleted with the phone path and the test stayed, failing on
+    FileNotFoundError ever since — one of the reasons `pytest scripts/tests/`
+    has been red. Replaced by the check that actually still means something.
+    """
+    for path in (Path(".github/workflows/ci-mobile.yml"), Path("apps/mobile")):
+        assert not path.exists(), f"{path} is back; the guard it needs is not"

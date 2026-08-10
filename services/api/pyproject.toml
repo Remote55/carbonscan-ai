@@ -104,6 +104,13 @@ select = [
 ignore = [
     "E501",  # line too long (handled by formatter)
     "B008",  # FastAPI Depends() in defaults
+    # ρ, × and π are the notation the allometric equations are written in, and
+    # the schema comments quote them. services/ml already ignores these three
+    # for the same reason; the API carries the same prose, so it needs the same
+    # exemption. Without it `ruff check .` fails on app/schemas/analyze.py.
+    "RUF001",  # ambiguous unicode in strings
+    "RUF002",  # ambiguous unicode in docstrings
+    "RUF003",  # ambiguous unicode in comments
     "N802",  # uppercase @property names match env-var-style settings (CORS_ORIGINS_LIST)
     "N811",  # SQLAlchemy "UUID as PgUUID" is conventional alias
     "N818",  # AppException base class doesn't need "Error" suffix

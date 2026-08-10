@@ -103,6 +103,18 @@ def valid_result(candidate: dict) -> dict:
                 "biomass_kg": candidate["result"]["total_carbon_kg"] / 0.47 / 3,
                 "carbon_kg": candidate["result"]["total_carbon_kg"] / 3,
                 "co2eq_kg": candidate["result"]["total_co2eq_kg"] / 3,
+                # These seven are required by _validate_candidate_result, whose
+                # comments explain why each one may not be dropped. They were
+                # added to that check and not to this fixture, so every test
+                # using it failed with "tree semantics are incomplete" — the
+                # validator was right and the fixture was stale.
+                "co2eq_low_kg": candidate["result"]["total_co2eq_kg"] / 3 * 0.8,
+                "co2eq_high_kg": candidate["result"]["total_co2eq_kg"] / 3 * 1.2,
+                "uncertainty_basis": "wood density range 400-800 kg/m3",
+                "co2eq_volume_route_kg": candidate["result"]["total_co2eq_kg"] / 3 * 1.15,
+                "method_disagreement": 0.15,
+                "dbh_fit_quality": 0.99,
+                "crown_resolved_fraction": 0.42,
                 "location": {"x": float(index), "y": 0.0},
                 "point_count": 41,
                 "wood_leaf_iou": None,

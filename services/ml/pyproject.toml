@@ -100,6 +100,9 @@ ignore = [
     "RUF003", # ambiguous unicode in comments
     "N803",   # function args lowercase (allow physics/math variable names)
     "N806",   # variable in function should be lowercase (allow math notation)
+    # ProvenanceUnavailable reads as the condition it names. services/api makes
+    # the same call for AppException, so the two packages agree.
+    "N818",   # exception name should carry an Error suffix
 ]
 
 [tool.black]

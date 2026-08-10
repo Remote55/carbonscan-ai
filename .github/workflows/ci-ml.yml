@@ -103,14 +103,19 @@ jobs:
           pip install -e ".[dev]"
           pip install python-docx
 
+      # photogrammetry/ used to be listed here. It has no tracked files - the
+      # photo path was dropped and its modules deleted - so on a fresh checkout
+      # the directory does not exist and ruff exits with E902 "cannot find the
+      # file specified" before linting anything. This step has therefore been
+      # failing, which is its own answer to why lint drift went unnoticed.
       - name: Ruff lint
         working-directory: services/ml
-        run: ruff check pipeline/ photogrammetry/ training/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
+        run: ruff check pipeline/ training/ scripts/ tests/ ../../scripts/*.py ../../scripts/tests/
 
       - name: Ruff format check (advisory)
         working-directory: services/ml
         # Phase 1: re-enable strict after running `ruff format .` locally.
-        run: ruff format --check --diff pipeline/ photogrammetry/ training/ tests/ || echo "::warning::Ruff format drift"
+        run: ruff format --check --diff pipeline/ training/ tests/ || echo "::warning::Ruff format drift"
 
       - name: Run allometric tests
         working-directory: services/ml
