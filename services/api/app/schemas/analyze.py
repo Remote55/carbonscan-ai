@@ -88,6 +88,14 @@ class AnalyzeMetadata(BaseModel):
     evidence_status: str
     candidate_status: str
     n_input_points: int = Field(ge=0)
+    #: Points in the uploaded file, and the share of them that was measured.
+    #: The pipeline thins anything over 200,000 points, and n_input_points is
+    #: the count AFTER that — true about the array, wrong about the file. These
+    #: two say so. Optional so results stored by an earlier pipeline still
+    #: deserialise, and None rather than a default, because "this run did not
+    #: record it" and "nothing was discarded" are different claims.
+    n_source_points: int | None = Field(default=None, ge=0)
+    analysed_point_fraction: float | None = Field(default=None, ge=0.0, le=1.0)
     status: str
     input_file: str | None = None
 

@@ -816,6 +816,23 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
 
       The honest downgrade is recorded beside the constant: 0.20 was a statement
       about arithmetic, true anywhere; 0.80 is fitted to 65 temperate trees.
+    - main.py only, and additive: metadata gains `n_source_points` and
+      `analysed_point_fraction`. No measurement changes — `n_input_points` keeps
+      its value and its meaning, which the judge-demo total confirms by not
+      moving.
+
+      What it fixes is a number that was true about the array and wrong about
+      the file. load_point_cloud thins anything over 200,000 points by uniform
+      random choice, and `n_input_points` was reported as len(points) AFTER
+      that, so a five-million-point scan was published as a 200,000-point one
+      with nothing recording that 96% of it never reached a measurement.
+
+      The thinning itself stays. Measured against taped DBH on the Demol
+      cohort, random decimation holds to about 0.85 cm MAE down to 5,000 points
+      per tree and beats voxel decimation at every budget — a voxel grid thins
+      a dense stem as hard as sparse foliage and leaves too few points on the
+      breast-height circle, scoring 35 cm MAE at 20,000 points against random's
+      0.86. Being silent about it was the defect, not the choice of method.
     """
     from pipeline import (
         allometric,
@@ -847,7 +864,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
         ),
         qsm: "9e3e1d025088be81c968a9ca5127de235e5a1c99ebd59319bc2e80272cbb5e9d",
         allometric: "7764d3a8feced5da9d19911f8adb193ba62ebff6ee4e729611c04d2ac76d4201",
-        main: "8c8085ad86a2a92f8926346455c24bd8f3c47c7d03b2beb4b86c04038b0dd4d0",
+        main: "8531dcb526dfa910d814dba3e5bd274fc5fe0aab80c14122e87742c11dcafd79",
     }
     for module, pinned in expected.items():
         body = Path(module.__file__).resolve().read_bytes().replace(b"\r\n", b"\n")

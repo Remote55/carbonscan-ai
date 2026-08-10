@@ -131,3 +131,36 @@ def test_process_points_pointnet_backend(synth_points):
     )
     assert result.summary["total_trees"] >= 1
     assert result.metadata["wood_leaf_backend"] == "pointnet"
+
+
+class TestTheResultSaysHowMuchOfTheFileWasMeasured:
+    """`n_input_points` counts what was measured, not what was uploaded.
+
+    The pipeline thins any cloud over 200,000 points, so those two numbers
+    differ for exactly the files most likely to be trusted — the big ones. The
+    result now carries both, plus the ratio, so a reader can tell a scan that
+    was measured whole from one that was sampled at 4%.
+    """
+
+    def test_an_undecimated_run_reports_the_whole_file(self, synth_points):
+        result = process_points(synth_points)
+
+        measured = len(synth_points)
+        assert result.metadata["n_input_points"] == measured
+        assert result.metadata["n_source_points"] == measured
+        assert result.metadata["analysed_point_fraction"] == 1.0
+
+    def test_a_thinned_run_says_so(self, synth_points):
+        source = len(synth_points) * 25
+
+        result = process_points(synth_points, n_source_points=source)
+
+        assert result.metadata["n_input_points"] == len(synth_points), (
+            "the measured count must keep its meaning"
+        )
+        assert result.metadata["n_source_points"] == source
+        assert result.metadata["analysed_point_fraction"] == 0.04
+
+    def test_a_source_smaller_than_the_cloud_is_a_programming_error(self, synth_points):
+        with pytest.raises(ValueError, match="fewer than"):
+            process_points(synth_points, n_source_points=10)

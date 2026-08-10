@@ -46,6 +46,31 @@ def load_point_cloud(path: str | Path, max_points: int = 200_000) -> np.ndarray:
         .csv                — comma-separated XYZ
         .ply                — Open3D reader
         .las / .laz         — laspy reader (TLS / drone LiDAR)
+
+    Thins to ``max_points`` by uniform random choice. See
+    ``load_point_cloud_with_source_count`` for why the discarded count matters
+    and how to get it.
+    """
+    return load_point_cloud_with_source_count(path, max_points=max_points)[0]
+
+
+def load_point_cloud_with_source_count(
+    path: str | Path, max_points: int = 200_000
+) -> tuple[np.ndarray, int]:
+    """The cloud, and how many points the file actually held.
+
+    The two differ whenever a file exceeds ``max_points``, and the difference
+    was invisible: ``process_points`` reports ``len(points)`` as
+    ``n_input_points``, so a five-million-point scan was published as a
+    200,000-point one with nothing saying that 96% of it had been discarded.
+    The number was true about the array and wrong about the file, which is the
+    harder kind of wrong to notice.
+
+    The thinning itself is defensible — measured against taped DBH on the Demol
+    cohort, random decimation holds to about 0.85 cm MAE down to 5,000 points
+    per tree, and beats voxel decimation at every budget, because a voxel grid
+    thins a dense stem as hard as sparse foliage and leaves too few points on
+    the breast-height circle. What was not defensible was doing it silently.
     """
     path = Path(path)
     suffix = path.suffix.lower()
@@ -66,10 +91,11 @@ def load_point_cloud(path: str | Path, max_points: int = 200_000) -> np.ndarray:
     else:
         raise ValueError(f"Unsupported point cloud format: {suffix!r}")
 
-    if len(pts) > max_points:
+    source_count = len(pts)
+    if source_count > max_points:
         rng = np.random.default_rng(0)
-        pts = pts[rng.choice(len(pts), max_points, replace=False)]
-    return pts
+        pts = pts[rng.choice(source_count, max_points, replace=False)]
+    return pts, source_count
 
 
 def normalize_ground(points: np.ndarray) -> np.ndarray:

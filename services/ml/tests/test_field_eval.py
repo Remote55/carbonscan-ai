@@ -12,6 +12,7 @@ from pipeline.field_eval import (
     circumference_to_dbh,
     error_metrics,
     load_point_cloud,
+    load_point_cloud_with_source_count,
     normalize_ground,
     predict_tree,
 )
@@ -73,6 +74,50 @@ def test_load_point_cloud_unsupported(tmp_path):
         raise AssertionError("expected ValueError")
     except ValueError:
         pass
+
+
+class TestTheDiscardedPointsAreCounted:
+    """A thinned cloud has to say it was thinned.
+
+    load_point_cloud drops everything over max_points by uniform random choice,
+    and process_points reported len(points) as `n_input_points`. A
+    five-million-point scan was therefore published as a 200,000-point one,
+    with nothing in the result recording that 96% of the file never reached a
+    measurement — a number that is true about the array and wrong about the
+    file.
+    """
+
+    @staticmethod
+    def _cloud(tmp_path, n):
+        path = tmp_path / "plot.txt"
+        rng = np.random.default_rng(0)
+        np.savetxt(path, rng.uniform(0, 10, (n, 3)))
+        return path
+
+    def test_the_source_count_survives_the_thinning(self, tmp_path):
+        path = self._cloud(tmp_path, 500)
+
+        points, source = load_point_cloud_with_source_count(path, max_points=100)
+
+        assert len(points) == 100
+        assert source == 500, "the file's own size was lost"
+
+    def test_an_untouched_cloud_reports_its_own_length(self, tmp_path):
+        path = self._cloud(tmp_path, 40)
+
+        points, source = load_point_cloud_with_source_count(path, max_points=100)
+
+        assert len(points) == 40
+        assert source == 40
+
+    def test_the_old_signature_still_returns_just_the_array(self, tmp_path):
+        """Every existing caller passes this straight into numpy."""
+        path = self._cloud(tmp_path, 40)
+
+        points = load_point_cloud(path, max_points=100)
+
+        assert isinstance(points, np.ndarray)
+        assert points.shape == (40, 3)
 
 
 def test_normalize_ground_sets_min_z_zero():

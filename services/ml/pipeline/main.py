@@ -139,6 +139,7 @@ def process_points(
     model_path: str | None = None,
     default_species: str | None = None,
     segmented_ply_out: str | None = None,
+    n_source_points: int | None = None,
     progress_callback: Any = None,
 ) -> PipelineResult:
     """Run the pipeline on an in-memory (N, 3) point cloud.
@@ -155,6 +156,9 @@ def process_points(
         default_species: scientific name for the allometric equation
         segmented_ply_out: optional path to write a per-point segmented PLY
             (whole plot: ground=2, non-ground split wood=0/leaf=1) for the viewer
+        n_source_points: how many points the source file held, when `points` is
+            a thinned copy of it. Defaults to len(points), which is the truth
+            for a caller that did not decimate.
         progress_callback: optional callable(stage: str, pct: int)
     """
     from pipeline import (
@@ -322,6 +326,12 @@ def process_points(
         )
     algorithms = dict(ALGORITHM_MAP)
     algorithms["wood_leaf"] = wood_leaf_backend
+    source_points = len(points) if n_source_points is None else int(n_source_points)
+    if source_points < len(points):  # pragma: no cover - guards a coding error
+        raise ValueError(
+            f"n_source_points={source_points} is fewer than the {len(points)} "
+            "points handed over; a thinned cloud cannot exceed its source"
+        )
     return PipelineResult(
         metadata={
             "pipeline_version": PIPELINE_VERSION,
@@ -339,7 +349,16 @@ def process_points(
                 if wood_leaf_backend == "tlsep"
                 else "not_promoted"
             ),
+            # Points measured, which is what every consumer has always read
+            # this as. Its value is unchanged for any run that was not thinned.
             "n_input_points": len(points),
+            #: Points in the source file, and the share of them that reached
+            #: the measurement. load_point_cloud thins anything over 200,000 by
+            #: uniform random choice, and until these two fields existed the
+            #: result said 200,000 for a five-million-point scan with nothing
+            #: recording that 96% of it had been dropped.
+            "n_source_points": int(source_points),
+            "analysed_point_fraction": round(len(points) / max(source_points, 1), 4),
             "status": "ok",
         },
         summary={
@@ -384,15 +403,18 @@ def process_point_cloud(
     if progress_callback:
         progress_callback("loading", 0)
 
-    from pipeline.field_eval import load_point_cloud
+    from pipeline.field_eval import load_point_cloud_with_source_count
 
-    points = load_point_cloud(input_path, max_points=max_points)
+    points, source_points = load_point_cloud_with_source_count(
+        input_path, max_points=max_points
+    )
     result = process_points(
         points,
         wood_leaf_backend=wood_leaf_backend,
         model_path=model_path,
         default_species=default_species,
         segmented_ply_out=segmented_ply_out,
+        n_source_points=source_points,
         progress_callback=progress_callback,
     )
     result.metadata["input_file"] = str(input_path)
