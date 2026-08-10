@@ -24,9 +24,9 @@ dependencies = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.30.0",
     "python-multipart>=0.0.9",
-    "websockets>=12.0",
 
-    # Data validation
+    # Data validation. email-validator is what pydantic's EmailStr needs at
+    # runtime, so it is a real dependency even though nothing imports it here.
     "pydantic>=2.7.0",
     "pydantic-settings>=2.3.0",
     "email-validator>=2.1.0",
@@ -36,24 +36,25 @@ dependencies = [
     "asyncpg>=0.29.0",
     "geoalchemy2>=0.15.0",
     "alembic>=1.13.0",
+    # alembic/env.py imports it directly. It arrived transitively through
+    # pydantic-settings, which is a dependency of a dependency deciding whether
+    # migrations run.
+    "python-dotenv>=1.0.0",
 
-    # Auth
-    "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
-
-    # External services
-    "supabase>=2.5.0",
+    # Auth is Supabase's, verified over HTTP in app/services/supabase.py.
+    # python-jose and passlib[bcrypt] were here for app/core/security.py, which
+    # implemented a second token system that nothing imported; both are gone
+    # with it. The supabase SDK was listed too and never imported — that module
+    # calls the REST API with httpx.
     "httpx>=0.27.0",
 
-    # Geospatial helpers
-    "shapely>=2.0.0",
+    # Removed as unused: shapely (no importer; geoalchemy2 covers the ORM's
+    # geometry column), reportlab (no PDF is generated), rich (nothing renders
+    # to a terminal), websockets (already an extra of uvicorn[standard], and no
+    # socket is served).
 
-    # PDF generation
-    "reportlab>=4.2.0",
-
-    # Logging
+    # Logging — see app/core/logging.py
     "structlog>=24.1.0",
-    "rich>=13.7.0",
 ]
 
 [project.optional-dependencies]
