@@ -125,7 +125,7 @@ D:\Project_Carbon\
 │   │   │   ├── main.py         entrypoint (lifespan, CORS)
 │   │   │   ├── api/v1/         router.py, health.py, auth.py, trees.py, upload.py, jobs.py
 │   │   │   ├── api/deps.py     DI (get_db, CurrentUser)
-│   │   │   ├── models/         user.py, tree.py (SQLAlchemy ORM)
+│   │   │   ├── models/         user.py (SQLAlchemy ORM; ไม่มีโค้ดอ่าน/เขียนตารางแล้ว)
 │   │   │   ├── schemas/        Pydantic: auth, tree, analyze
 │   │   │   ├── services/       pipeline_runner.py, upload_validation.py,
 │   │   │   │                   segmented_cloud_store.py, species_catalogue.py, supabase.py
@@ -268,7 +268,10 @@ CO₂eq   = Carbon × 44/12
 - `GET /api/v1/upload/segmented/{id}` — segmented PLY ของผลนั้น
 - `GET /api/v1/upload/species` — ชนิดพันธุ์ที่ deployment นี้คิดค่าได้
 - `GET /api/v1/health`, `/api/v1/health/pipeline` — liveness / readiness
-- `/api/v1/auth/*`, `/api/v1/trees/*` — `/me` ใช้งานได้ ที่เหลือเป็น 501 stub
+- `/api/v1/auth/*` — `/me` ใช้งานได้; `/signup` `/login` ตอบ 501 เพราะเว็บคุยกับ Supabase ตรง
+- `/api/v1/trees/*` ถูกถอดออก (migration `0004`) — `Tree.location` เป็น `POINT srid=4326` NOT NULL
+  แต่ pipeline ไม่เคยผลิตพิกัดภูมิศาสตร์: `load_point_cloud` ทิ้ง CRS ของ LAS และ
+  `TreeResult.location` เป็น `{x, y}` ในระบบพิกัดของก้อน point cloud เอง จึงไม่มีอะไรจะใส่
 
 **ชิ้นส่วนสำคัญ:**
 - `services/pipeline_runner.py` — เรียก ML CLI แบบ subprocess

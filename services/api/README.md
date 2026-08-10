@@ -1,11 +1,20 @@
 # 🔧 API Service (FastAPI)
 
 > [!CAUTION]
-> **Mixed current/target service notes.** Source code and tests are authoritative.
-> Implemented: health, synchronous analyze, async jobs/list/detail, persistent job state and worker.
-> Current progress transport is GET polling with local/shared filesystem handoff.
-> Tree/spatial/marketplace endpoints and direct LAS/photo storage return 501 or remain Planned;
-> WebSocket and production RunPod dispatch are not current capabilities.
+> **Mixed current/target service notes.** Source code and tests are authoritative;
+> much of the example code below describes a shape this service does not have.
+>
+> Implemented: `/health`, `/health/pipeline`, synchronous `POST /upload/analyze`,
+> `GET /upload/segmented/{id}`, `GET /upload/species`, and `GET /auth/me`.
+> Analysis returns the whole result in one response.
+>
+> Removed rather than planned: the async job queue and worker (nothing called
+> them and no deployment started the worker), and the tree/spatial/marketplace
+> endpoints — `Tree.location` required WGS84 coordinates and nothing in this
+> system produces one, so they could not be implemented as specified. See
+> `alembic/versions/0003_drop_jobs.py` and `0004_drop_trees.py`.
+>
+> Still Planned: direct LAS/photo storage, WebSocket progress, GPU dispatch.
 
 > **Owner:** User
 > **Tech:** Python 3.11 + FastAPI + PostgreSQL/PostGIS + Supabase

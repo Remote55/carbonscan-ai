@@ -57,15 +57,11 @@ async def verify_supabase_token(jwt_token: str) -> dict[str, Any] | None:
     return response.json()
 
 
-async def sync_user_to_db(supabase_user: dict[str, Any]) -> None:
-    """Upsert Supabase auth user into our public.users table.
-
-    Called after successful login/signup so our application tables can
-    reference user IDs (Supabase auth lives in auth.users schema).
-
-    TODO Phase 1: Replace with proper repository pattern.
-    """
-    # NOTE: user upsert now happens in DbJobStore.create (INSERT ... ON CONFLICT).
-    # This standalone helper is kept as a documented no-op until a dedicated
-    # /me sync flow needs it; wire it from a DbSession dependency then.
-    return None
+# sync_user_to_db was here: a function whose body was `return None`, with a
+# docstring describing an upsert it did not perform and a comment pointing at
+# DbJobStore.create, which was deleted with the async queue. Nothing called it.
+# A no-op that documents behaviour it does not have is worse than nothing,
+# because it reads like the feature exists.
+#
+# If a /me sync is wanted later, the public.users table it would write to has
+# no reader either — see the note in alembic/versions/0004_drop_trees.py.

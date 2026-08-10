@@ -2,9 +2,15 @@
 
 > [!CAUTION]
 > **Target API reference.** เอกสารนี้รวม endpoint ที่วางแผนไว้ด้วย ไม่ใช่ทุก endpoint ที่ implement แล้ว.
-> ปัจจุบันเส้นทางที่ตรวจสอบแล้วคือ health, synchronous `/upload/analyze`
-> และการอ่านรายการ/สถานะ jobs ด้วย polling; direct storage uploads, tree/spatial/marketplace endpoints
-> และ WebSocket ยังเป็น Stub/Planned. ดู `docs/PROJECT_SPEC.md` และ `docs/CAPABILITY_MATRIX.md`.
+>
+> ที่มีจริงตอนนี้: `/health`, `/health/pipeline`, `POST /upload/analyze` (synchronous),
+> `GET /upload/segmented/{id}`, `GET /upload/species`, `GET /auth/me`
+>
+> **ถูกถอดออกแล้ว ไม่ใช่ Planned:** async jobs (`/jobs/*`) — ไม่มีผู้เรียกและไม่มี deployment ใดสตาร์ท worker
+> และ tree/spatial/marketplace (`/trees/*`) — `Tree.location` ต้องการพิกัด WGS84 ซึ่งระบบนี้ไม่เคยผลิต
+> ส่วนที่อธิบายไว้ข้างล่างจึงเป็นการออกแบบในอดีต ไม่ใช่สิ่งที่เรียกได้
+>
+> ยัง Planned: direct storage uploads, WebSocket. ดู `docs/PROJECT_SPEC.md` และ `docs/CAPABILITY_MATRIX.md`.
 
 > Backend REST API + WebSocket endpoints
 >
