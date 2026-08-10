@@ -1,10 +1,9 @@
 # The database this service no longer has
 
 > [!IMPORTANT]
-> The API code that talked to Postgres is gone. **The tables in Supabase are
-> not.** Nothing in this repository can drop them any more — alembic was removed
-> with the rest — so the SQL below is the record of what is there and how to
-> clean it up. Run it yourself when you are ready; it is not run by anything.
+> **Done, apart from one table.** On 2026-08-10 the six unused tables were
+> dropped from the `Carbon_project` Supabase project. `public.users` was left
+> standing on purpose — see [What is still there](#what-is-still-there).
 
 ## What happened
 
@@ -25,80 +24,91 @@ nothing between requests, apart from the segmented point cloud, which
 `app/services/segmented_cloud_store.py` keeps on local disk for 30 minutes so
 the viewer can fetch it.
 
-## What is still in Supabase
+## What was dropped
 
-Checked on 2026-08-10 against project `Carbon_project`:
-
-| table | rows |
-|---|---|
-| `public.users` | **2** |
-| `public.jobs` | 0 |
-| `public.trees` | 0 |
-| `public.transactions` | 0 |
-| `public.plots` | 0 |
-| `public.species_db` | 0 |
-| `public.alembic_version` | 0 |
-| `public.spatial_ref_sys` | PostGIS's own; leave it alone |
-
-`alembic_version` being empty means the schema was applied through the SQL
-editor rather than by `alembic upgrade head` — the guide in
-`docs/SUPABASE_SETUP.md` offers both paths and this project took the first.
-That is also why migrations `0003` and `0004`, which dropped `jobs` and
-`trees`, never ran anywhere.
-
-**`public.users` holds 2 rows.** Read them before dropping the table. Note that
-this is the application mirror, not the identities themselves: Supabase Auth
-keeps those in `auth.users`, which the SQL below does not touch, so dropping
-`public.users` does not delete anyone's login.
-
-## Teardown SQL
-
-Run in the Supabase SQL editor. Reverse dependency order, so the foreign keys
-go before the tables they point at.
+Applied 2026-08-10 to `Carbon_project` as the Supabase migration
+`drop_unused_application_tables`, in dependency order:
 
 ```sql
--- Check first. This should print zeros for everything except users.
-select 'users' as t, count(*) from public.users
-union all select 'jobs',         count(*) from public.jobs
-union all select 'trees',        count(*) from public.trees
-union all select 'transactions', count(*) from public.transactions
-union all select 'plots',        count(*) from public.plots
-union all select 'species_db',   count(*) from public.species_db;
+drop table if exists public.transactions;   -- 0 rows
+drop table if exists public.trees;          -- 0 rows
+drop table if exists public.jobs;           -- 0 rows
+drop table if exists public.plots;          -- 0 rows
+drop table if exists public.species_db;     -- 5 rows, duplicated in git
+drop table if exists public.alembic_version;-- 1 row, read '0001'
+```
+
+`species_db` held the five seed species, which are the same five in
+`services/ml/data/species_db.csv` — the copy the code actually reads. Nothing
+was lost that is not version-controlled.
+
+`alembic_version` read `0001`, so the initial schema **was** applied through
+`alembic upgrade head`; `0002` never ran, and neither did `0003` or `0004`.
+
+> An earlier revision of this file said `alembic_version` was empty and
+> concluded the schema had been applied through the SQL editor. That was wrong.
+> The row counts it quoted were wrong too — they came from `list_tables`, which
+> reports the query planner's `reltuples` estimate rather than a count. `users`
+> was given as 2 and is 5; `species_db` as 0 and was 5. Anything deciding
+> whether to delete data has to come from `count(*)`.
+
+<a id="what-is-still-there"></a>
+## What is still there
+
+| table | rows | why it stayed |
+|---|---|---|
+| `public.users` | **5** | real content, and not all of it the project owner's |
+| `public.spatial_ref_sys` | ~8,500 | PostGIS's own reference table |
+
+**`public.users` was not dropped.** It holds five rows, including addresses
+belonging to other people, and its `role` column (`auditor` / `community`)
+exists nowhere else — those assignments cannot be reconstructed from anything
+in the repository.
+
+Dropping it would not lock anyone out: Supabase Auth keeps the identities in
+`auth.users`, a different schema, which also holds five rows and is untouched.
+Only the roles would go. To drop it anyway:
+
+```sql
+select id, email, role, created_at from public.users order by created_at;  -- look first
+drop table public.users;
+```
+
+`spatial_ref_sys` belongs to the PostGIS extension. No table in this project
+uses a geometry column any more — the only geometry types left are PostGIS's
+own internal `geometry_dump` and `valid_detail` composites — so the extension
+can go with `drop extension postgis cascade`. It was left in place because
+georeferencing (below) is the one plausible reason to want a database here
+again, and that work would need it back.
+
+## Open security item
+
+Supabase's advisor reported, at **critical** level, three tables with Row Level
+Security disabled — anyone holding the anon key could read or modify every row.
+The teardown removed two of them (`alembic_version`, `species_db`). One is left:
+
+```
+public.spatial_ref_sys    RLS disabled
+```
+
+It is PostGIS's static table of coordinate-system definitions. Nothing secret
+is in it, and nothing in this project reads it, so the practical exposure today
+is that someone with the anon key could corrupt reference data no code uses.
+The advisory will keep appearing until it is dealt with, in one of two ways:
+
+```sql
+-- Remove it at the root, since no table uses a geometry column any more:
+drop extension postgis cascade;
 ```
 
 ```sql
-begin;
-
-drop table if exists public.transactions;
-drop table if exists public.trees;
-drop table if exists public.jobs;
-drop table if exists public.plots;
-drop table if exists public.species_db;
-drop table if exists public.users;
-drop table if exists public.alembic_version;
-
-commit;
+-- Or keep PostGIS and turn RLS on. Note that this table is owned by the
+-- extension, and enabling RLS with no policy blocks all access rather than
+-- restricting it — add a read policy if anything is ever going to read it.
+alter table public.spatial_ref_sys enable row level security;
 ```
 
-`spatial_ref_sys` belongs to the PostGIS extension, not to this application.
-Leave it, or drop the extension itself with `drop extension postgis cascade` if
-nothing else in the project uses it.
-
-## Open security item, unrelated to the teardown
-
-Supabase's advisor reports, at **critical** level, that three tables have Row
-Level Security disabled: `spatial_ref_sys`, `alembic_version` and `species_db`.
-Anyone holding the anon key can read or modify every row in them. Dropping
-`alembic_version` and `species_db` as above removes two of the three.
-
-Do not enable RLS without adding policies — that blocks all access rather than
-restricting it. The advisor's suggested statements are:
-
-```sql
-alter table public.spatial_ref_sys  enable row level security;
-alter table public.alembic_version  enable row level security;
-alter table public.species_db       enable row level security;
-```
+`public.users` has RLS enabled already.
 
 ## If a database is wanted again
 
