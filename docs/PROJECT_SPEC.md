@@ -124,14 +124,13 @@ D:\Project_Carbon\
 │   │   ├── app/
 │   │   │   ├── main.py         entrypoint (lifespan, CORS)
 │   │   │   ├── api/v1/         router.py, health.py, auth.py, trees.py, upload.py, jobs.py
-│   │   │   ├── api/deps.py     DI (get_job_store, CurrentUser)
-│   │   │   ├── models/         user.py, tree.py, job.py (SQLAlchemy ORM)
-│   │   │   ├── schemas/        Pydantic: auth, tree, analyze, job
-│   │   │   ├── services/       pipeline_runner.py, job_store.py, job_input.py,
-│   │   │   │                   upload_validation.py, supabase.py
-│   │   │   ├── worker.py       async job worker (python -m app.worker)
-│   │   │   └── core/           config.py, database.py, security.py, exceptions.py
-│   │   └── alembic/            migrations (0001_initial_schema, 0002_job_result_json)
+│   │   │   ├── api/deps.py     DI (get_db, CurrentUser)
+│   │   │   ├── models/         user.py, tree.py (SQLAlchemy ORM)
+│   │   │   ├── schemas/        Pydantic: auth, tree, analyze
+│   │   │   ├── services/       pipeline_runner.py, upload_validation.py,
+│   │   │   │                   segmented_cloud_store.py, species_catalogue.py, supabase.py
+│   │   │   └── core/           config.py, database.py, exceptions.py
+│   │   └── alembic/            migrations (0001_initial, 0002_job_result_json, 0003_drop_jobs)
 │   └── ml/                     PyTorch pipeline (heavy deps)
 │       ├── pipeline/           8-step pipeline (ดู §9) + main.py orchestrator + allometric.py
 │       ├── training/           woodleaf_dataset.py, realdata_dataset.py, train_woodleaf.py
@@ -153,18 +152,18 @@ D:\Project_Carbon\
 1. **Point-cloud upload — Implemented:** `.las/.laz/.ply` และ text formats ที่ loader รองรับ
 2. **Photogrammetry — Planned:** ถ่ายภาพมือถือ → COLMAP/OpenMVS → point cloud ยังไม่มี reviewed E2E path
 
-### Data Flow (async job — Phase 2, ทำเสร็จแล้ว)
+### Data Flow (synchronous)
 ```
-Web/Mobile → POST /api/v1/jobs/analyze (อัปโหลดไฟล์)
-          → API สร้าง job (status=queued) → 202 + job_id
-Worker (python -m app.worker) → หยิบ job (FOR UPDATE SKIP LOCKED)
-          → รัน ML pipeline (subprocess ผ่าน pipeline_runner)
-          → เขียนผล carbon ลง result_json → status=completed
-Web/Mobile → GET /api/v1/jobs/{id} (poll) → ได้ผลเมื่อ completed
+Web → POST /api/v1/upload/analyze (อัปโหลดไฟล์ + species ถ้ารู้)
+    → API เขียน temp file → รัน ML pipeline (subprocess ผ่าน pipeline_runner)
+    → คืน AnalyzeResponse เต็ม (metadata + summary + trees + diagnostics)
+      พร้อม segmented_cloud_id สำหรับ 3D viewer
 ```
-Job input ปัจจุบันเก็บบน local/shared filesystem ดังนั้น API กับ worker ต้องเห็น storage เดียวกัน
-ยังไม่มี WebSocket progress stream หรือ production object-storage handoff
-> มี **sync endpoint** `POST /api/v1/upload/analyze` ด้วย (รันทันที รอผล) — ใช้ตอน demo ผ่าน tunnel เพราะยังไม่มี worker ที่ deploy จริง
+งานสั้นพอที่จะจบในคำตอบเดียว: pipeline วัดแปลง 16 ต้น 447,089 จุดใน 10 วินาที
+และ API จำกัดการวิเคราะห์ไว้ที่ 200,000 จุด
+
+เคยมีคิว async (`POST /jobs/analyze` → worker → poll) แต่ถูกถอดออก: ไม่มีผู้เรียกใน
+web app เลย ไม่มี deployment ใดสตาร์ท worker และ endpoint ตอบ 202 queued ให้งานที่รันไม่ได้
 
 ---
 
@@ -262,25 +261,22 @@ CO₂eq   = Carbon × 44/12
 
 ---
 
-## 13. Backend (FastAPI) — async-job architecture (ทำเสร็จแล้ว)
+## 13. Backend (FastAPI) — synchronous analyze
 
 **Endpoints (`app/api/v1/`):**
-- `POST /api/v1/upload/analyze` — sync, รันทันที (ใช้ตอน demo tunnel)
-- `POST /api/v1/jobs/analyze` — async, 202 + job_id (owner auth ผ่าน Supabase)
-- `GET /api/v1/jobs/{id}` — poll สถานะ + ผล
-- `GET /api/v1/jobs` — list jobs ของ user
-- `GET /api/v1/health`, `/api/v1/auth/*`, `/api/v1/trees/*`
+- `POST /api/v1/upload/analyze` — รันทันที คืนผลเต็ม (ไม่ต้อง auth; จำกัดด้วย cap + rate limit)
+- `GET /api/v1/upload/segmented/{id}` — segmented PLY ของผลนั้น
+- `GET /api/v1/upload/species` — ชนิดพันธุ์ที่ deployment นี้คิดค่าได้
+- `GET /api/v1/health`, `/api/v1/health/pipeline` — liveness / readiness
+- `/api/v1/auth/*`, `/api/v1/trees/*` — `/me` ใช้งานได้ ที่เหลือเป็น 501 stub
 
 **ชิ้นส่วนสำคัญ:**
-- `models/job.py` — Job ORM + `JobStatus`(queued/processing/completed/failed/cancelled) + `JobType`
-- `services/job_store.py` — `JobStore` Protocol + `InMemoryJobStore`(tests) + `DbJobStore`(prod, `FOR UPDATE SKIP LOCKED`)
-- `services/job_input.py` — เซฟไฟล์ที่อัปโหลด
 - `services/pipeline_runner.py` — เรียก ML CLI แบบ subprocess
-- `services/upload_validation.py` — ตรวจนามสกุล (`ANALYZE_EXTENSIONS`)
-- `worker.py` — `process_one()` + `run_forever()` (รัน `python -m app.worker`)
-- Migration `0002` เพิ่ม `result_json` JSONB
-- Runbook: `services/api/docs/WORKER_RUNBOOK.md`
-- Spec เต็ม: `docs/superpowers/plans/2026-07-10-async-job-pipeline.md`
+- `services/upload_validation.py` — ตรวจนามสกุล (`ANALYZE_EXTENSIONS`) + vertex cap
+- `services/segmented_cloud_store.py` — เก็บ PLY ที่ผลนั้นวัดมา ให้ viewer ดึง
+- `services/species_catalogue.py` — อ่าน `services/ml/data/species_db.csv`
+- `core/demo_security.py` — token gate (demo mode) + rate limit บน upload
+- Migration `0003` ลบตาราง `jobs` พร้อมคิวที่ไม่มีผู้ใช้
 
 **⚠️ Windows gotcha (แก้แล้ว):** emoji ใน `print()` ของ lifespan ทำ uvicorn crash บน cp874 console → เอา emoji ออกหมด (commit `6ca8693`)
 
@@ -352,7 +348,7 @@ CO₂eq   = Carbon × 44/12
 - PointNet++ reviewed evidence: `FAIL_METRICS`; external Wood IoU point estimate ดีขึ้น แต่ CI คร่อมศูนย์
   และ DBH/height/volume/measurable-tree formal criteria ไม่ผ่าน จึงไม่ promote
 - Dataset: research + verify open wood/leaf dataset เพิ่มตามอาจารย์
-- Deploy API+worker จริง (RunPod/Railway) — ตอนนี้ยังใช้ tunnel
+- Deploy API จริง (Railway / HF Spaces) — ตอนนี้ยังใช้ tunnel
 - verify allometric coefficients กับ TGO Guideline 2017 ตัวจริง
 - Truth-aligned NSC DOCX copy — สร้างเป็นไฟล์ใหม่โดยห้ามทับต้นฉบับ
 
@@ -393,7 +389,7 @@ CO₂eq   = Carbon × 44/12
 2. เพิ่มและ verify open wood/leaf training data พร้อม checkpoint/training provenance ชุดใหม่;
    ผล Cohort A + Demol ปัจจุบันคงเป็น immutable historical evidence เท่านั้น
 3. verify `species_db.csv` กับ TGO 2017 ต้นฉบับ
-4. Deploy API+worker บน storage ที่ทั้งสอง process เข้าถึงได้ (เลิกพึ่ง tunnel)
+4. Deploy API บน host ถาวร (เลิกพึ่ง tunnel)
 5. ปิด reviewed mobile E2E และค่อยเทรน species classifier
 6. B2B marketplace / GIS / certification workflow หลัง core measurement evidence พร้อม
 
@@ -424,9 +420,7 @@ CO₂eq   = Carbon × 44/12
 - `docs/ml/ALLOMETRIC.md` — สมการ + species DB + references
 - `docs/ml/WOODLEAF_RESULTS.md` — ผลทดลอง wood-leaf ทุก variant
 - `docs/ml/DATASETS.md` · `docs/ml/FINETUNE_REALDATA.md` — ข้อมูล + วิธี fine-tune
-- `docs/superpowers/plans/2026-07-10-async-job-pipeline.md` — spec backend async
 - `services/ml/data/species_db.csv` — source of truth ค่า allometric
-- `services/api/docs/WORKER_RUNBOOK.md` — วิธีรัน worker
 - Memory: `C:\Users\Acer\.claude\projects\D--Project-Carbon\memory\` (MEMORY.md + ไฟล์ย่อย)
 
 ---

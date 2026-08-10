@@ -56,8 +56,7 @@ npx vercel --prod --archive=tgz --yes   # deploy → treeqcarbon.vercel.app
 python -m venv .venv && .venv/Scripts/activate     # Windows (หรือ source .venv/bin/activate)
 pip install -e .        # หรือ requirements
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-python -m app.worker    # async job worker (คนละ process)
-pytest                  # 34 tests (2 skip ถ้าไม่มี DATABASE_URL)
+pytest                  # 79 tests
 alembic upgrade head    # migrations
 ```
 
@@ -123,9 +122,9 @@ Mean IoU `0.613`, accuracy `0.831` และ held-out loader ถูกใช้�
 3. **Rebuild landing เป็น nature-template** Tailwind ไม่มี 3D (68f168b) — แก้บั๊ก styled-jsx ที่เรนเดอร์พังบน prod
 4. **Premium landing เดิม (3D canvas)** (bcbeb3a) — *ถูกแทนแล้ว* แต่เป็นที่มาของบทเรียน styled-jsx
 5. **แก้ emoji crash** uvicorn บน Windows (6ca8693)
-6. **Async-job backend** (Phase 2) — jobs table, JobStore, worker, endpoints POST/GET /jobs (34 tests)
+6. **Async-job backend** (Phase 2) — *ถูกถอดออกแล้ว* ไม่มีผู้เรียกและไม่มี deployment ใดสตาร์ท worker; `/jobs/analyze` ตอบ 202 queued ให้งานที่รันไม่ได้
 7. **Dataset pivot** — อาจารย์ให้ใช้ open dataset เทรน wood-leaf (เลิกเก็บไม้ไทยเอง)
-8. **Wire web viewer → job API** + Supabase token (dbcb6df)
+8. **Wire web viewer → analyze API** + Supabase token (dbcb6df)
 
 > เอกสารเชิงลึกเพิ่มเติม: `docs/ml/PIPELINE.md`, `docs/ml/ALLOMETRIC.md`, `docs/ml/WOODLEAF_RESULTS.md`,
 > `docs/superpowers/plans/2026-07-10-async-job-pipeline.md`

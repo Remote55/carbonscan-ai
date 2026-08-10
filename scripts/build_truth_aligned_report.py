@@ -361,10 +361,11 @@ def _replacements(manifest: dict[str, Any]) -> dict[str, str]:
             "ยังไม่ครบ จึงยังไม่โปรโมต PointNet++"
         ),
         ANCHORS[6]: (
-            "[Implemented] ระบบอัปโหลดและการประมวลผลแบบอะซิงโครนัสมี POST /jobs/analyze, "
-            "job state และ worker แยก process ผู้ใช้ติดตามด้วย GET polling โดย API กับ worker "
-            "ต้องเข้าถึง local/shared filesystem เดียวกัน [Planned] WebSocket progress, object "
-            "storage handoff และ production worker deployment ยังไม่เสร็จ"
+            "[Implemented] การอัปโหลดและประมวลผลทำงานแบบ synchronous ผ่าน POST /upload/analyze "
+            "คืนผลลัพธ์เต็มในคำตอบเดียว งานจริงสั้นพอ: pipeline วัดแปลง 16 ต้น 447,089 จุดใน 10 วินาที "
+            "และบริการจำกัดการวิเคราะห์ไว้ที่ 200,000 จุด [Planned] คิวแบบ asynchronous เคยมีโค้ดอยู่ "
+            "แต่ไม่มีผู้เรียกและไม่มี deployment ใดสตาร์ท worker จึงถูกถอดออก หากต้องการภายหลัง "
+            "ต้องแก้เรื่อง object storage handoff ก่อน เพราะไฟล์อัปโหลดเคยลงดิสก์ใน container"
         ),
         ANCHORS[7]: (
             "[Planned] ระบบแผนที่ภูมิสารสนเทศ (GIS Map) และ spatial query ยังไม่ผ่าน reviewed "
@@ -440,14 +441,14 @@ def _replacements(manifest: dict[str, Any]) -> dict[str, str]:
             f"ส่วน {candidate_name} [Experimental] ยังไม่ผ่าน evidence gate และไม่ใช่ production default"
         ),
         ANCHORS[21]: (
-            "[Implemented] ตารางงานเก็บสถานะและประวัติ async analysis jobs "
-            "[Planned] ตารางประวัติการซื้อขาย การผูกผู้ซื้อกับต้นไม้ และการอ้างอิงใบรับรอง "
+            "[Planned] ตาราง jobs ถูกถอดออกพร้อมคิว asynchronous ที่ไม่มีผู้เรียก "
+            "ตารางประวัติการซื้อขาย การผูกผู้ซื้อกับต้นไม้ และการอ้างอิงใบรับรอง "
             "ยังไม่ได้ implement"
         ),
         ANCHORS[22]: (
-            "[Implemented] ระบบ Asynchronous รับงานผ่าน POST /jobs/analyze คืน job ID และให้ผู้ใช้ติดตาม "
-            "สถานะด้วย GET polling ขณะที่ worker แยก process ประมวลผล [Planned] WebSocket, ETA, "
-            "email notification, automatic retry/resume และ production deployment ยังไม่ได้ implement"
+            "[Implemented] การวิเคราะห์เป็น synchronous: POST /upload/analyze คืนผลลัพธ์เต็มในคำตอบเดียว "
+            "[Planned] คิว asynchronous, WebSocket, ETA, email notification และ automatic retry "
+            "ยังไม่ได้ implement คิวเดิมถูกถอดออกเพราะตอบ 202 queued ให้งานที่รันไม่ได้"
         ),
         ANCHORS[23]: (
             "[Experimental] การเปรียบเทียบ PCA heuristic กับ PointNet++ ในส่วนนี้เป็น synthetic held-out "
@@ -572,8 +573,8 @@ def _replacements(manifest: dict[str, Any]) -> dict[str, str]:
             "ก่อนเคลมความแม่นยำตามชนิดพันธุ์"
         ),
         ANCHORS[48]: (
-            "[Implemented] REST endpoints ที่ตรวจสอบแล้วครอบคลุม health, synchronous /upload/analyze "
-            "และ async /jobs/analyze กับการอ่านรายการ/สถานะงาน; auth /me ตรวจ Supabase token "
+            "[Implemented] REST endpoints ที่ตรวจสอบแล้วครอบคลุม health, synchronous /upload/analyze, "
+            "การดาวน์โหลด segmented cloud และรายชื่อชนิดพันธุ์; auth /me ตรวจ Supabase token "
             "[Stub/Planned] direct LAS/photo storage endpoints, tree retrieval, spatial filter, "
             "marketplace และ purchase endpoints ยังไม่พร้อม"
         ),

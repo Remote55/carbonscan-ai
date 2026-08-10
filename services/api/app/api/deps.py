@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.exceptions import UnauthorizedError
-from app.services.job_store import JobStore
 from app.services.supabase import verify_supabase_token
 
 
@@ -44,16 +43,6 @@ async def get_current_user_id(
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
-
-
-async def get_job_store(db: DbSession) -> JobStore:
-    """Provide the production Postgres-backed job store."""
-    from app.services.job_store import DbJobStore  # lazy: DbJobStore added in Task 8
-
-    return DbJobStore(db)
-
-
-JobStoreDep = Annotated[JobStore, Depends(get_job_store)]
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:

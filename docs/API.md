@@ -2,7 +2,7 @@
 
 > [!CAUTION]
 > **Target API reference.** เอกสารนี้รวม endpoint ที่วางแผนไว้ด้วย ไม่ใช่ทุก endpoint ที่ implement แล้ว.
-> ปัจจุบันเส้นทางที่ตรวจสอบแล้วคือ health, synchronous `/upload/analyze`, async `/jobs/analyze`
+> ปัจจุบันเส้นทางที่ตรวจสอบแล้วคือ health, synchronous `/upload/analyze`
 > และการอ่านรายการ/สถานะ jobs ด้วย polling; direct storage uploads, tree/spatial/marketplace endpoints
 > และ WebSocket ยังเป็น Stub/Planned. ดู `docs/PROJECT_SPEC.md` และ `docs/CAPABILITY_MATRIX.md`.
 

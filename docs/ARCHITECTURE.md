@@ -3,7 +3,7 @@
 > [!CAUTION]
 > **Target architecture, not current deployment.** แผนภาพ/ข้อความด้านล่างอาจแสดง WebSocket,
 > RunPod Serverless, spatial/marketplace services และ object storage ซึ่งยังเป็น Planned.
-> เส้นทางที่ตรวจสอบแล้วใช้ FastAPI async jobs + GET polling + local/shared filesystem และ local worker.
+> เส้นทางที่ตรวจสอบแล้วคือ FastAPI `/upload/analyze` แบบ synchronous บน local backend
 > สถานะปัจจุบันให้ยึด `docs/evidence/core_demo_manifest.json`, `docs/PROJECT_SPEC.md` และ
 > `docs/CAPABILITY_MATRIX.md`.
 

@@ -52,10 +52,10 @@ flowchart LR
 | PointNet++ | Experimental | มีผลวิจัย แต่ยังไม่ผ่าน independent final-test และ downstream non-regression gate |
 | Species classifier | Stub | ยังไม่มี ResNet ที่เทรนและ integrate จริง |
 | Allometric calculation | Implemented | ใช้ `services/ml/data/species_db.csv` และ Chave fallback; ยังต้อง verify coefficients กับ TGO 2017 |
-| FastAPI sync + async jobs | Implemented | async worker ใช้ polling และ shared filesystem ใน deployment เดียวกัน |
+| FastAPI `/upload/analyze` | Implemented | synchronous — คืนผลเต็มในคำตอบเดียว คิว async ถูกถอดออกเพราะไม่มีผู้เรียกและไม่มี deployment ใดสตาร์ท worker |
 | Web 3D viewer | Implemented | แสดง segmented PLY และ run provenance |
 | Mobile capture flow | Experimental | มี Flutter screens แต่ Supabase init และ reviewed E2E ยังไม่ครบ |
-| Production API/worker | Planned | demo ปัจจุบันอาศัย local backend/tunnel |
+| Production API hosting | Planned | demo ปัจจุบันอาศัย local backend/tunnel |
 | GIS, anti-fraud, marketplace, payment, certificate | Planned | เป็น roadmap ไม่ใช่ prototype ที่เสร็จแล้ว |
 
 รายละเอียดทั้งหมดสร้างจาก reviewed manifest ที่
@@ -136,8 +136,6 @@ python -m venv .venv
 pip install -e .
 pytest
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-# เปิดอีก process เมื่อต้องใช้ async jobs
-python -m app.worker
 ```
 
 ### Web
@@ -156,7 +154,7 @@ npm run build
 ```text
 apps/web/        Next.js landing, dashboard และ 3D viewer
 apps/mobile/     Flutter capture/results prototype
-services/api/    FastAPI sync endpoint, async jobs และ worker
+services/api/    FastAPI synchronous analyze endpoint
 services/ml/     8-stage point-cloud pipeline, training และ evaluation
 docs/            master spec, ML evidence, capability matrix และ decisions
 proposal/        เอกสารข้อเสนอโครงงาน NSC

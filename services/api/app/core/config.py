@@ -79,19 +79,18 @@ class Settings(BaseSettings):
     ML_DIR: str = ""
     ML_PYTHON: str = ""
 
-    # --- Queue ---
-    # Jobs use the `jobs` table itself as the queue (claimed via
-    # SELECT ... FOR UPDATE SKIP LOCKED in DbJobStore). No Redis/PGMQ needed.
-    # See services/api/docs/WORKER_RUNBOOK.md.
+    # There was an async job queue here — a `jobs` table claimed with
+    # SELECT ... FOR UPDATE SKIP LOCKED, a worker process, and JOB_UPLOAD_DIR
+    # for handing uploads between them. Nothing in the web app ever called it,
+    # no deployment ever started the worker, and POST /jobs/analyze answered 202
+    # "queued" for work that could not run. Analysis is synchronous: the pipeline
+    # measured a 16-tree plot of 447,089 points in 10 seconds and this service
+    # caps an analysis at 200,000, so a request finishes well inside a request.
 
     # --- File Upload ---
     MAX_UPLOAD_SIZE_MB: int = 500
     ALLOWED_LAS_EXTENSIONS: str = ".las,.laz,.ply"
     ALLOWED_IMAGE_EXTENSIONS: str = ".jpg,.jpeg,.png"
-
-    # Where POST /jobs/analyze persists uploads for the worker to read.
-    # Empty = <system temp>/carbonscan-jobs. Must be shared between API + worker.
-    JOB_UPLOAD_DIR: str = ""
 
     @property
     def MAX_UPLOAD_SIZE_BYTES(self) -> int:
@@ -110,9 +109,23 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "json"
 
     # --- Rate limiting ---
-    RATE_LIMIT_AUTHENTICATED: int = 60
-    RATE_LIMIT_PUBLIC: int = 20
+    # RATE_LIMIT_AUTHENTICATED and RATE_LIMIT_PUBLIC used to sit here. Nothing
+    # read either one, so they described a tiering this service does not have.
     RATE_LIMIT_UPLOAD: int = 5
+
+    #: Analyses allowed to run at once in this process, across all callers.
+    #: The rate limit bounds how often ONE client may ask; this bounds how much
+    #: work is in flight, which is what decides whether the host survives.
+    #: See app/services/analysis_slots.py.
+    MAX_CONCURRENT_ANALYSES: int = 2
+
+    #: Trust X-Forwarded-For for the client address used by the rate limiter.
+    #: Off by default: with no proxy in front, that header is caller-controlled,
+    #: and honouring it would let anyone mint a fresh identity per request and
+    #: erase the limit. Turn it ON behind Railway / Fly / HF Spaces / Cloudflare,
+    #: where the socket peer is the proxy and every caller otherwise shares one
+    #: bucket — which throttles the whole world to RATE_LIMIT_UPLOAD together.
+    TRUST_PROXY_HEADERS: bool = False
 
 
 @lru_cache

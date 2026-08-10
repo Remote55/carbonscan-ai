@@ -1,4 +1,4 @@
-"""Shared validation for point-cloud uploads (used by /upload and /jobs)."""
+"""Shared validation for point-cloud uploads."""
 
 import os
 

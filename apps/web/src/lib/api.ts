@@ -358,57 +358,12 @@ export async function fetchSegmentedCloud(cloudId: string): Promise<ArrayBuffer>
   return response.arrayBuffer();
 }
 
-// --- Async jobs (POST /jobs/analyze -> poll GET /jobs/{id}) ---
-// Non-blocking path: submit returns a job id immediately, a worker processes it
-// in the background. Requires auth + a deployed API/worker.
-
-export interface JobCreated {
-  id: string;
-  status: string;
-  created_at: string;
-}
-
-export interface JobDetail {
-  id: string;
-  status: string; // queued | processing | completed | failed | cancelled
-  progress: number;
-  total_trees_detected: number | null;
-  total_carbon_kg: number | null;
-  result: AnalyzeResponse | null;
-  error_message: string | null;
-  created_at: string;
-  started_at: string | null;
-  completed_at: string | null;
-}
-
-const TERMINAL_JOB_STATUSES = new Set(['completed', 'failed', 'cancelled']);
-
-/** Submit a point cloud as an async job (requires auth). Returns immediately. */
-export function submitAnalyzeJob(file: File): Promise<JobCreated> {
-  const formData = new FormData();
-  formData.append('file', file);
-  return api.upload<JobCreated>('/jobs/analyze', formData);
-}
-
-/** Fetch one job's status + result (owner only). */
-export function getJob(id: string): Promise<JobDetail> {
-  return api.get<JobDetail>(`/jobs/${id}`);
-}
-
-/** Poll a job until it reaches a terminal status (completed/failed/cancelled). */
-export async function pollJobUntilDone(
-  id: string,
-  opts: { intervalMs?: number; timeoutMs?: number; onUpdate?: (job: JobDetail) => void } = {},
-): Promise<JobDetail> {
-  const { intervalMs = 2000, timeoutMs = 600_000, onUpdate } = opts;
-  const start = Date.now();
-  for (;;) {
-    const job = await getJob(id);
-    onUpdate?.(job);
-    if (TERMINAL_JOB_STATUSES.has(job.status)) return job;
-    if (Date.now() - start > timeoutMs) {
-      throw new Error('การวิเคราะห์ใช้เวลานานเกินไป (timeout)');
-    }
-    await new Promise((r) => setTimeout(r, intervalMs));
-  }
-}
+// submitAnalyzeJob / getJob / pollJobUntilDone lived here, wrapping an async
+// queue on the API. Nothing in this app ever imported them except their own
+// tests, and the endpoints they called could not complete: no deployment
+// started the worker meant to drain the queue, so POST /jobs/analyze answered
+// 202 "queued" forever. The queue has been removed on the API side too.
+//
+// analyzePointCloud below is the path that works. It is synchronous because the
+// work is short — the pipeline measured a 16-tree plot of 447,089 points in
+// 10 seconds, and the API caps an analysis at 200,000 points.

@@ -123,10 +123,10 @@ COPY --chown=app:app services/api/alembic.ini ./
 COPY --chown=app:app services/ml/pipeline/ ./services/ml/pipeline/
 COPY --chown=app:app services/ml/data/ ./services/ml/data/
 
-# Uploads land here. Named so it is obvious what to mount if the queue is ever
-# run with a worker in a second container.
-RUN mkdir -p /app/job-uploads && chown app:app /app/job-uploads
-ENV JOB_UPLOAD_DIR=/app/job-uploads
+# /app/job-uploads was created here for the async queue's handoff between the
+# API and a worker. The queue is gone: nothing called it and no deployment ever
+# started the worker. Analysis is synchronous and writes to the system temp
+# directory for the length of one request.
 
 USER app
 

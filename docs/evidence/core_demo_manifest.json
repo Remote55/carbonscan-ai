@@ -177,13 +177,6 @@
       "claim": "Reproducibility evidence for one core path, not an accuracy benchmark."
     },
     {
-      "name": "Async analysis jobs",
-      "status": "Implemented",
-      "implementation": "FastAPI jobs endpoints, persistent job state, and a separate worker process",
-      "evidence": "services/api/app/api/v1/jobs.py; services/api/app/worker.py",
-      "claim": "Implemented and covered by API tests; production hosting is separate."
-    },
-    {
       "name": "Web 3D result viewer",
       "status": "Implemented",
       "implementation": "Next.js dashboard viewer renders segmented PLY results and tree summaries",
