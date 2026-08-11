@@ -39,8 +39,24 @@ function buildContentSecurityPolicy() {
 
   // The demo handoff, whose hostname is not known until the launcher starts.
   connect.add('https://*.trycloudflare.com');
-  connect.add('http://127.0.0.1:8000');
-  connect.add('http://localhost:8000');
+
+  // Loopback, any port, both spellings — and this one is not about the backend.
+  //
+  // `'self'` matches an origin exactly, and 127.0.0.1 and localhost are
+  // different origins even though they are the same machine. Served from
+  // http://127.0.0.1:3100, this app's own middleware redirect comes back as
+  // http://localhost:3100/login?redirect=/dashboard, the router's fetch of it
+  // is refused by connect-src, Next falls back to a browser navigation, and
+  // /dashboard/viewer never reaches network idle. That is what turned six
+  // browser gates red for 30 s each.
+  //
+  // Production is unaffected: one canonical https origin, covered by 'self'.
+  // The cost of this entry is that a page could open a connection to the
+  // visitor's own loopback, which is worth stating — the alternative is a
+  // policy that breaks `next start`, the judge-demo launcher, and every
+  // browser gate, on all of which this project actually runs.
+  connect.add('http://localhost:*');
+  connect.add('http://127.0.0.1:*');
   // Supabase auth when the project URL is supplied at runtime rather than build
   // time, plus its realtime socket.
   connect.add('https://*.supabase.co');
@@ -68,7 +84,16 @@ function buildContentSecurityPolicy() {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'self'",
-    'upgrade-insecure-requests',
+    // `upgrade-insecure-requests` was here and contradicted the policy it was
+    // part of. connect-src deliberately allows http://127.0.0.1:8000 — that is
+    // how the judge demo reaches its backend — and upgrading every http URL to
+    // https breaks exactly that. It also rewrote the app's OWN same-origin
+    // redirect, `http://127.0.0.1:3100/login?redirect=...`, into an https URL
+    // the server does not speak, which failed with ERR_SSL_PROTOCOL_ERROR and
+    // left /dashboard/viewer hanging until Playwright's networkidle timed out.
+    //
+    // It bought nothing in return: on Vercel every URL is already https and
+    // this app loads no mixed content, so there was nothing to upgrade.
   ].join('; ');
 }
 

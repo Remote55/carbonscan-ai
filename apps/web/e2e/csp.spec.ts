@@ -14,8 +14,17 @@ import { expect, test } from '@playwright/test';
 
 const CSP_VIOLATION = /violates the following Content Security Policy/i;
 
-/** Pages a visitor can reach without a session. /dashboard/* redirects. */
-const PUBLIC_PAGES = ['/', '/demo', '/login', '/signup'];
+/**
+ * Every route a browser can land on, including the ones that redirect.
+ *
+ * The first version of this list stopped at the public pages, on the reasoning
+ * that /dashboard/* redirects to /login and so had nothing new to exercise.
+ * That reasoning is what let a broken policy through: `upgrade-insecure-requests`
+ * rewrote the redirect itself into an https URL the server does not speak, and
+ * the viewer hung. The redirect was the untested part, and so was the WebGL
+ * canvas behind it.
+ */
+const PAGES = ['/', '/demo', '/login', '/signup', '/dashboard', '/dashboard/viewer'];
 
 test.describe('Content-Security-Policy', () => {
   test('is served on every response', async ({ page }) => {
@@ -31,8 +40,8 @@ test.describe('Content-Security-Policy', () => {
     expect(csp).toContain('connect-src');
   });
 
-  for (const path of PUBLIC_PAGES) {
-    test(`${path} renders with no CSP violation`, async ({ page }) => {
+  for (const path of PAGES) {
+    test(`${path} settles with no CSP violation`, async ({ page }) => {
       const violations: string[] = [];
       page.on('console', (message) => {
         if (CSP_VIOLATION.test(message.text())) violations.push(message.text());
@@ -46,6 +55,33 @@ test.describe('Content-Security-Policy', () => {
       expect(violations, `CSP blocked something ${path} needs`).toEqual([]);
     });
   }
+
+  test('keeps http loopback usable, in both spellings', async ({ page }) => {
+    /**
+     * Two separate mistakes made the first version of this policy hang
+     * /dashboard/viewer for 30 s, and each hid the other.
+     *
+     * `upgrade-insecure-requests` rewrote every http URL to https, including
+     * the app's own redirect to /login, against a server with no TLS.
+     *
+     * Underneath it, `'self'` matches an origin exactly, and 127.0.0.1 is not
+     * localhost. Served from 127.0.0.1:3100, the middleware's redirect came
+     * back as localhost:3100 and connect-src refused the router's fetch of it.
+     *
+     * Both are asserted on the header, not by watching for the symptom: the
+     * symptom was a timeout, which is slow to observe and easy to misattribute
+     * — it took an A/B against a build with no CSP at all to pin it down.
+     */
+    const response = await page.goto('/');
+    const csp = response?.headers()['content-security-policy'] ?? '';
+
+    expect(csp, 'http URLs would be forced to https').not.toContain(
+      'upgrade-insecure-requests',
+    );
+    for (const loopback of ['http://localhost:*', 'http://127.0.0.1:*']) {
+      expect(csp, `${loopback} must stay reachable`).toContain(loopback);
+    }
+  });
 
   test('blocks a third-party script', async ({ page }) => {
     await page.goto('/');
