@@ -291,6 +291,27 @@ def test_ml_ci_lints_only_directories_that_exist():
             )
 
 
+def test_api_ci_runs_the_type_checker_it_configures():
+    """pyproject has said `strict = true` since the service was written.
+
+    Nothing ran it, so it described a standard the code was never held to —
+    the same shape as LOG_FORMAT="json" over a service that used print(). The
+    step must also be blocking: a type check that cannot fail the build is the
+    claim without the check.
+    """
+    workflow = Path(".github/workflows/ci-api.yml").read_text(encoding="utf-8")
+    pyproject = Path("services/api/pyproject.toml").read_text(encoding="utf-8")
+
+    assert "strict = true" in pyproject
+    mypy_step = re.search(r"(?ms)^\s+- name: mypy.*?(?=^\s+- name: |\Z)", workflow)
+    assert mypy_step is not None, "ci-api.yml configures mypy but never runs it"
+
+    body = mypy_step.group()
+    assert re.search(r"(?m)^\s+run: mypy\s*$", body), "the mypy step does not run mypy"
+    for escape in ("|| true", "|| echo", "continue-on-error"):
+        assert escape not in body, f"the mypy step is non-blocking via {escape!r}"
+
+
 def test_every_dockerfile_copy_source_exists():
     """A COPY of a path that is not there fails the build, late and obscurely.
 

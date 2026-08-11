@@ -7,6 +7,7 @@ Production:
     uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 """
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
@@ -26,7 +27,7 @@ logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan — startup and shutdown hooks."""
     logger.info(
         "startup",
@@ -76,7 +77,7 @@ app.add_middleware(
 
 # --- Exception handlers ---
 @app.exception_handler(AppException)
-async def app_exception_handler(_request: Request, exc: AppException):
+async def app_exception_handler(_request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.error_code, "message": exc.message, "details": exc.details},
@@ -84,7 +85,7 @@ async def app_exception_handler(_request: Request, exc: AppException):
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Anything not an AppException.
 
     Without this the traceback went to whatever uvicorn's logger was doing and
@@ -112,7 +113,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 # --- Routes ---
 @app.get("/", tags=["root"])
-async def root():
+async def root() -> dict[str, str]:
     """Root endpoint — API information."""
     return {
         "name": settings.APP_NAME,
@@ -123,7 +124,7 @@ async def root():
 
 
 @app.get("/health", tags=["root"])
-async def health():
+async def health() -> dict[str, str]:
     """Liveness probe."""
     return {"status": "ok", "version": __version__}
 

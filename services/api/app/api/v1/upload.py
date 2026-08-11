@@ -18,6 +18,7 @@ TODO:
 import logging
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
@@ -32,7 +33,9 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _run_pipeline_on_bytes(data: bytes, ext: str, species: str | None = None) -> dict:
+def _run_pipeline_on_bytes(
+    data: bytes, ext: str, species: str | None = None
+) -> dict[str, Any]:
     """Persist bytes to a temp file, run the pipeline, clean up. Blocking — run
     in a threadpool from async endpoints.
 

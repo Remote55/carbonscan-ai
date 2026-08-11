@@ -41,7 +41,8 @@ async def get_current_user_id(
     user: Annotated[dict[str, Any], Depends(get_current_user)],
 ) -> str:
     """Convenience: extract just the user ID."""
-    return user["id"]
+    user_id: str = user["id"]
+    return user_id
 
 
 CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]

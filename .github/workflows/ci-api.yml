@@ -70,6 +70,14 @@ jobs:
         # `ruff format .` locally and committing normalized files.
         run: ruff format --check --diff . || echo "::warning::Ruff format drift"
 
+      # pyproject has carried `strict = true` since the service was written and
+      # nothing ever ran it, so it described a standard the code was not held
+      # to. Blocking, not advisory: a type check that cannot fail the build is
+      # the same claim-without-a-check it was before.
+      - name: mypy (strict)
+        working-directory: services/api
+        run: mypy
+
       - name: Run tests
         working-directory: services/api
         env:

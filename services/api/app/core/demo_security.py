@@ -7,10 +7,9 @@ import hmac
 import threading
 import time
 from collections import OrderedDict, deque
-from collections.abc import Awaitable, Callable
-from typing import Any
 
 from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.config import settings
 
@@ -67,7 +66,7 @@ def compute_readiness_hmac(token: str, nonce: str) -> str:
     return hmac.new(bytes.fromhex(token), nonce.encode("ascii"), hashlib.sha256).hexdigest()
 
 
-def client_key(scope: dict[str, Any]) -> str:
+def client_key(scope: Scope) -> str:
     """The address to rate-limit by.
 
     ``scope["client"]`` is the socket peer. Behind Railway, Fly, HF Spaces or
@@ -85,7 +84,7 @@ def client_key(scope: dict[str, Any]) -> str:
         return peer
     for key, value in scope.get("headers", []):
         if key.lower() == b"x-forwarded-for":
-            first = value.decode("latin-1").split(",")[0].strip()
+            first: str = value.decode("latin-1").split(",")[0].strip()
             if first:
                 return first
     return peer
@@ -106,7 +105,7 @@ class DemoGuardMiddleware:
     #: unbounded one is the worse answer.
     MAX_TRACKED_CLIENTS = 4096
 
-    def __init__(self, app: Callable[..., Awaitable[None]]) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
         self._upload_attempts: OrderedDict[str, deque[float]] = OrderedDict()
         self._rate_lock = threading.Lock()
@@ -140,12 +139,7 @@ class DemoGuardMiddleware:
             attempts.append(now)
             return True
 
-    async def __call__(
-        self,
-        scope: dict[str, Any],
-        receive: Callable[[], Awaitable[dict[str, Any]]],
-        send: Callable[[dict[str, Any]], Awaitable[None]],
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return

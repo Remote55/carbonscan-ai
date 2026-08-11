@@ -54,7 +54,8 @@ async def verify_supabase_token(jwt_token: str) -> dict[str, Any] | None:
     if response.status_code != 200:
         return None
 
-    return response.json()
+    user: dict[str, Any] = response.json()
+    return user
 
 
 # sync_user_to_db was here: a function whose body was `return None`, with a

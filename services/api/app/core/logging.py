@@ -19,11 +19,11 @@ from __future__ import annotations
 import logging
 import sys
 import uuid
-from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from typing import Any
 
 import structlog
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import settings
 
@@ -34,7 +34,7 @@ request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 REQUEST_ID_HEADER = "x-request-id"
 
 
-def current_request_id(scope: dict[str, Any] | None = None) -> str:
+def current_request_id(scope: Scope | None = None) -> str:
     """This request's id, from the scope if given and the ContextVar otherwise.
 
     The scope survives where the ContextVar does not: see the note in
@@ -47,7 +47,9 @@ def current_request_id(scope: dict[str, Any] | None = None) -> str:
     return request_id_var.get()
 
 
-def _add_request_id(_logger: Any, _name: str, event_dict: dict) -> dict:
+def _add_request_id(
+    _logger: Any, _name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
     request_id = request_id_var.get()
     if request_id:
         event_dict["request_id"] = request_id
@@ -113,15 +115,10 @@ class RequestContextMiddleware:
     response so a user reporting a failure can quote something findable.
     """
 
-    def __init__(self, app: Callable[..., Awaitable[None]]) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(
-        self,
-        scope: dict[str, Any],
-        receive: Callable[[], Awaitable[dict[str, Any]]],
-        send: Callable[[dict[str, Any]], Awaitable[None]],
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -141,7 +138,7 @@ class RequestContextMiddleware:
         # ContextVar reads empty exactly when something has gone wrong.
         scope.setdefault("state", {})["request_id"] = request_id
 
-        async def send_with_id(message: dict[str, Any]) -> None:
+        async def send_with_id(message: Message) -> None:
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
                 headers.append((REQUEST_ID_HEADER.encode(), request_id.encode()))

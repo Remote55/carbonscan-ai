@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from app.core.config import settings
 
@@ -102,7 +103,7 @@ def run_pipeline(
     species: str | None = None,
     segmented_ply_out: str | Path | None = None,
     timeout: int = 600,
-) -> dict:
+) -> dict[str, Any]:
     """Process a point-cloud file via the ML CLI; return the result JSON dict.
 
     Args:
@@ -144,7 +145,8 @@ def run_pipeline(
                 operator_detail=f"pipeline exited {proc.returncode}: {tail}"
             )
         try:
-            return json.loads(out_json.read_text(encoding="utf-8"))
+            parsed: dict[str, Any] = json.loads(out_json.read_text(encoding="utf-8"))
+            return parsed
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise PipelineError(operator_detail=f"pipeline output was invalid: {exc}") from exc
     finally:

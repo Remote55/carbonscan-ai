@@ -62,7 +62,10 @@ dev = [
     # no code change. Keep this frozen through the competition; bump deliberately.
     "ruff==0.16.0",
     "black>=24.4.0",
-    "mypy>=1.10.0",
+    # Pinned for the reason given above for ruff: mypy is a blocking CI gate
+    # now, and a new release adding checks would turn the build red with no
+    # code change. `>=1.10.0` would also have installed 2.x silently.
+    "mypy==2.3.0",
     "ipython>=8.24.0",
     "ipdb>=0.13.13",
     "factory-boy>=3.3.0",
@@ -115,8 +118,17 @@ line-length = 100
 target-version = ["py311"]
 
 # --- mypy ---
+# `strict = true` sat here for months with nothing running it, so it described a
+# standard the code was never held to. It is enforced in CI now, and passes
+# clean on the 24 modules under app/.
+#
+# `files` names the scope so `mypy` with no arguments checks exactly what CI
+# checks. tests/ is out: strict mode wants an annotation on every test function
+# and fixture, which is 146 errors of `-> None` for no defect it would catch.
+# Widening this later is a deliberate act, not a discovery.
 [tool.mypy]
 python_version = "3.11"
+files = ["app"]
 strict = true
 warn_unused_ignores = true
 warn_return_any = true
