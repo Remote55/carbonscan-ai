@@ -833,6 +833,29 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       a dense stem as hard as sparse foliage and leaves too few points on the
       breast-height circle, scoring 35 cm MAE at 20,000 points against random's
       0.86. Being silent about it was the defect, not the choice of method.
+    - allometric.py only, and no number moves: SpeciesParams gains
+      density_basis, density_source and density_verified, and the caveat on an
+      unverified density reaches uncertainty_basis. Every carbon figure this
+      file produces is byte-identical, which tests/test_density_provenance.py
+      pins for all five species.
+
+      What changed is what the figure admits. Density is the largest lever this
+      pipeline pulls — Chave is close to linear in it, and naming a species
+      moves CO2e by 45% across these five rows — and it had no source column and
+      no verified flag, while the allometric coefficients beside it had both and
+      were gated on them. The product was refusing the cited quantity and
+      trusting the uncited one.
+
+      It is also probably the wrong quantity. Chave takes ρ as basic specific
+      gravity, oven-dry over green volume; timber tables publish air-dry at 12%
+      moisture, which is larger. World Agroforestry gives Tectona grandis
+      "610-750 kg/m³ at 12% mc" and species_db carries 660, mid-range, where the
+      Global Wood Density Database gives 0.60 g/cm³ basic. The ±10% band around
+      660 is 594-726, so the reference value sits on its bottom edge.
+
+      No density was changed. Replacing five values on evidence for one is a
+      different guess, not a correction — the fix is basic densities for all
+      five out of GWDD, which this environment could not reach.
     """
     from pipeline import (
         allometric,
@@ -863,7 +886,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
             "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
         ),
         qsm: "9e3e1d025088be81c968a9ca5127de235e5a1c99ebd59319bc2e80272cbb5e9d",
-        allometric: "7764d3a8feced5da9d19911f8adb193ba62ebff6ee4e729611c04d2ac76d4201",
+        allometric: "6cc8d071c827fe486935d3cbba198fa2fbf5353cfe9e3f76670215b6f4b3b8c3",
         main: "8531dcb526dfa910d814dba3e5bd274fc5fe0aab80c14122e87742c11dcafd79",
     }
     for module, pinned in expected.items():

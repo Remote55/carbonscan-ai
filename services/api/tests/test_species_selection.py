@@ -68,8 +68,25 @@ class TestListingEndpoint:
             "name_th",
             "name_en",
             "wood_density_kg_m3",
+            # Both flags travel, because both are false and each means something
+            # different. density_verified was added after the density was found
+            # to have no cited source at all — and, for the one row with any
+            # evidence, to look like an air-dry figure where Chave wants a basic
+            # one. A picker that showed the density without it would present an
+            # unchecked number as the reason to choose a species.
             "coefficients_verified",
+            "density_verified",
         }
+
+    async def test_no_row_claims_a_checked_density(self, client):
+        response = await client.get("/api/v1/upload/species")
+
+        rows = response.json()["species"]
+        assert rows, "no species returned"
+        assert all(row["density_verified"] is False for row in rows), (
+            "a row claims a verified density; confirm the source is a basic "
+            "density before the picker presents it as one"
+        )
 
     async def test_says_what_happens_if_you_do_not_choose(self, client):
         response = await client.get("/api/v1/upload/species")

@@ -1,6 +1,6 @@
-name_sci,name_th,name_en,wood_density,agb_a,agb_b,agb_c,agb_source,root_to_shoot,carbon_fraction,coefficients_verified
-Tectona grandis,สัก,Teak,660,0.0509,2.150,0.700,Tsutsumi et al. 1983 (Thai monsoon forest),0.24,0.47,no
-Dipterocarpus alatus,ยางนา,Yang Na (Gurjun),720,0.0396,2.380,0.800,Ogawa et al. 1965 (Thai monsoon forest),0.24,0.47,no
-Bambusa spp.,ไผ่ (ไผ่ทั่วไป),Bamboo,650,0.131,2.280,0.590,Yiping et al. 2010 (Bamboo allometry),0.20,0.47,no
-Hevea brasiliensis,ยางพารา,Para Rubber,580,0.0464,2.330,0.720,Chiarucci et al. 2014 (Rubber plantation),0.24,0.47,no
-Afzelia xylocarpa,มะค่าโมง,Makha,850,0.0612,2.420,0.660,Generic Thai dense hardwood (Chave 2014 adjusted),0.24,0.47,no
+name_sci,name_th,name_en,wood_density,density_basis,density_source,density_verified,agb_a,agb_b,agb_c,agb_source,root_to_shoot,carbon_fraction,coefficients_verified
+Tectona grandis,สัก,Teak,660,air_dry_12pct_suspected,"unsourced; World Agroforestry gives 610-750 kg/m3 at 12% mc and GWDD gives 0.60 g/cm3 basic",no,0.0509,2.150,0.700,Tsutsumi et al. 1983 (Thai monsoon forest),0.24,0.47,no
+Dipterocarpus alatus,ยางนา,Yang Na (Gurjun),720,unknown,unsourced,no,0.0396,2.380,0.800,Ogawa et al. 1965 (Thai monsoon forest),0.24,0.47,no
+Bambusa spp.,ไผ่ (ไผ่ทั่วไป),Bamboo,650,unknown,unsourced,no,0.131,2.280,0.590,Yiping et al. 2010 (Bamboo allometry),0.20,0.47,no
+Hevea brasiliensis,ยางพารา,Para Rubber,580,unknown,unsourced,no,0.0464,2.330,0.720,Chiarucci et al. 2014 (Rubber plantation),0.24,0.47,no
+Afzelia xylocarpa,มะค่าโมง,Makha,850,unknown,unsourced,no,0.0612,2.420,0.660,Generic Thai dense hardwood (Chave 2014 adjusted),0.24,0.47,no

@@ -161,11 +161,24 @@ async def upload_las() -> dict[str, str]:
 async def list_species() -> dict[str, object]:
     """The species this deployment can cost, for a picker.
 
-    Naming one replaces an assumed wood density with a measured one, which is
-    the largest accuracy gain available at the cost of a single form field.
-    `coefficients_verified` is false on every row today: naming a species buys
-    its density, not its allometric equation, because none of those equations
-    has been checked against the paper it cites.
+    Naming one replaces the assumed 600 kg/m³ with the table's value for that
+    species, and because Chave is close to linear in density that is the single
+    largest lever on the carbon figure — across these five rows it moves CO2e by
+    45% for the same tree.
+
+    Both verification flags are false on every row today, and callers should
+    read them that way:
+
+    - `coefficients_verified` — no species equation has been checked against the
+      paper it cites, so every tree is costed with Chave 2014 regardless.
+    - `density_verified` — the density itself has no cited source. Chave takes
+      basic density (oven-dry mass / green volume); the one row with evidence,
+      teak, matches the published air-dry figure at 12% moisture instead, which
+      is the larger number. So naming a species changes the answer, but not yet
+      on the strength of anything checked.
+
+    This docstring previously said naming a species "replaces an assumed wood
+    density with a measured one". Nothing here is measured.
     """
     catalogue = species_catalogue.load_species()
     return {
@@ -176,6 +189,7 @@ async def list_species() -> dict[str, object]:
                 "name_en": item.name_en,
                 "wood_density_kg_m3": item.wood_density,
                 "coefficients_verified": item.coefficients_verified,
+                "density_verified": item.density_verified,
             }
             for item in sorted(catalogue.values(), key=lambda s: s.name_sci)
         ],

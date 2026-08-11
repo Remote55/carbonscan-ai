@@ -36,10 +36,19 @@ class Species:
     name_en: str
     wood_density: float
     #: Whether the species-specific allometric equation has been checked against
-    #: its cited paper. False everywhere today, which is why naming a species
-    #: buys its wood density rather than its equation - see
-    #: pipeline/allometric.py.
+    #: its cited paper. False everywhere today - see pipeline/allometric.py.
     coefficients_verified: bool
+    #: Whether wood_density is a BASIC density (oven-dry mass / green volume,
+    #: which is what Chave 2014 takes) with a citation behind it.
+    #:
+    #: Also false everywhere. This field exists because the comment above used
+    #: to end "which is why naming a species buys its wood density rather than
+    #: its equation", and that was the wrong way round: the equation at least
+    #: carries a citation and is gated on it, while the density carried neither
+    #: a source nor a stated basis and was used unconditionally. The one row
+    #: with any evidence, teak, looks like an air-dry figure - the larger
+    #: quantity - where the model wants a basic one.
+    density_verified: bool
 
 
 def _species_csv() -> Path:
@@ -77,6 +86,10 @@ def load_species() -> dict[str, Species]:
                     name_en=(row.get("name_en") or "").strip(),
                     wood_density=density,
                     coefficients_verified=(row.get("coefficients_verified") or "")
+                    .strip()
+                    .lower()
+                    in {"yes", "true", "1"},
+                    density_verified=(row.get("density_verified") or "")
                     .strip()
                     .lower()
                     in {"yes", "true", "1"},

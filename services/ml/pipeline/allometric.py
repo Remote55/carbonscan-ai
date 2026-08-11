@@ -92,10 +92,37 @@ class SpeciesParams:
     name_th: str
     name_en: str
     wood_density: float  # kg/m³
-    agb_a: float | None  # species-specific allometric coefficients
-    agb_b: float | None  # AGB = a × DBH^b × H^c
-    agb_c: float | None
-    agb_source: str
+    #: Which density this is, and where it came from.
+    #:
+    #: Chave 2014 takes ρ as BASIC specific gravity — oven-dry mass over green
+    #: volume. Timber tables overwhelmingly publish air-dry density at 12%
+    #: moisture content, which is the larger number, and the two are not
+    #: interchangeable: feeding air-dry into Chave overstates biomass roughly in
+    #: proportion, and ρ enters almost linearly (exponent 0.976).
+    #:
+    #: Every row is currently unverified, and the one row with evidence points
+    #: the wrong way. World Agroforestry's Tectona grandis profile states
+    #: "Density of the wood is (min. 480) 610-750 (max. 850) kg/m³ at 12% mc";
+    #: species_db carries 660, the middle of that air-dry range. The Global Wood
+    #: Density Database (Zanne et al.) gives teak 0.60 g/cm³ basic — 600, ten
+    #: percent lower. Four of five rows have no source at all, so their basis is
+    #: unknown rather than merely unconfirmed.
+    #:
+    #: The numbers have NOT been changed to match. Replacing five values on the
+    #: strength of one species would be a different guess, not a correction; the
+    #: fix is to read basic densities out of GWDD for all five and record the
+    #: source here. Until then this field is what stops the figure from reading
+    #: as sourced when it is not.
+    density_basis: str = "unknown"
+    density_source: str = "unsourced"
+    #: True only once wood_density is a basic density with a citation in
+    #: density_source. Same bar as coefficients_verified, and for the same
+    #: reason: a row nobody has annotated is a row nobody has checked.
+    density_verified: bool = False
+    agb_a: float | None = None  # species-specific allometric coefficients
+    agb_b: float | None = None  # AGB = a × DBH^b × H^c
+    agb_c: float | None = None
+    agb_source: str = ""
     root_to_shoot: float = DEFAULT_ROOT_TO_SHOOT_TROPICAL
     carbon_fraction: float = DEFAULT_CARBON_FRACTION
     #: Has someone checked a, b and c against the cited primary source?
@@ -157,8 +184,9 @@ def load_species_db(csv_path: str | Path | None = None) -> dict[str, SpeciesPara
     """Load species parameters from CSV.
 
     CSV columns (matches data/species_db.csv):
-        name_sci, name_th, name_en, wood_density, agb_a, agb_b, agb_c,
-        agb_source, root_to_shoot, carbon_fraction
+        name_sci, name_th, name_en, wood_density, density_basis, density_source,
+        density_verified, agb_a, agb_b, agb_c, agb_source, root_to_shoot,
+        carbon_fraction, coefficients_verified
 
     Returns:
         Dict {name_sci: SpeciesParams}
@@ -179,6 +207,12 @@ def load_species_db(csv_path: str | Path | None = None) -> dict[str, SpeciesPara
                 name_th=row["name_th"],
                 name_en=row.get("name_en", ""),
                 wood_density=float(row["wood_density"]),
+                density_basis=(row.get("density_basis") or "unknown").strip(),
+                density_source=(row.get("density_source") or "unsourced").strip(),
+                # Same reading as coefficients_verified below: absent column,
+                # empty cell or anything that is not an explicit yes means no.
+                density_verified=(row.get("density_verified") or "").strip().lower()
+                in {"yes", "true", "1"},
                 agb_a=float(row["agb_a"]) if row.get("agb_a") else None,
                 agb_b=float(row["agb_b"]) if row.get("agb_b") else None,
                 agb_c=float(row["agb_c"]) if row.get("agb_c") else None,
@@ -277,7 +311,15 @@ def calculate_carbon(
     # not a scale offset. Four of five wrong in the same direction is the shape
     # of a unit error, not of independent published equations. Until someone
     # reads the papers, costing a tree with them produces a number we cannot
-    # defend, and the density is the one parameter here we do have grounds for.
+    # defend.
+    #
+    # This comment used to end "...and the density is the one parameter here we
+    # do have grounds for." That was wrong, and in the more embarrassing
+    # direction: the coefficients at least carry a citation and are gated on it,
+    # while the densities beside them carried neither a source nor a stated
+    # basis and were used unconditionally. See SpeciesParams.density_basis —
+    # the one row with any evidence, teak, looks like an air-dry figure where
+    # Chave wants a basic one.
     usable_species_equation = (
         species is not None
         and species.agb_a is not None
@@ -326,9 +368,21 @@ def calculate_carbon(
             spread = WOOD_DENSITY_SPREAD_KNOWN_SPECIES
             rho_low = wood_density * (1.0 - spread)
             rho_high = wood_density * (1.0 + spread)
+            # The ±10% is within-species variation, so it is centred on the
+            # table value and says nothing about whether that value is the right
+            # quantity. When the row is unverified, the centre itself is in
+            # question and the reader has to be told — for teak the reference
+            # basic density, 600, sits at the very bottom edge of 594-726.
+            density_caveat = (
+                ""
+                if species.density_verified
+                else " — ค่าความหนาแน่นนี้ยังไม่มีแหล่งอ้างอิงที่ตรวจสอบแล้ว "
+                "และอาจเป็นค่า air-dry ซึ่งสูงกว่าค่า basic ที่สมการต้องการ"
+            )
             basis = (
                 f"ความหนาแน่นไม้ {rho_low:.0f}-{rho_high:.0f} kg/m³ "
-                f"(±{spread:.0%} รอบค่าของ {species.name_th}); {CARBON_VALIDATION_NOTE}"
+                f"(±{spread:.0%} รอบค่าของ {species.name_th}){density_caveat}; "
+                f"{CARBON_VALIDATION_NOTE}"
             )
         else:
             rho_low, rho_high = DEFAULT_WOOD_DENSITY_RANGE
