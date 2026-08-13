@@ -22,6 +22,7 @@ Formulas:
 from __future__ import annotations
 
 import csv
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -231,6 +232,72 @@ def load_species_db(csv_path: str | Path | None = None) -> dict[str, SpeciesPara
 # --- Calculations ---
 
 
+#: How far above volume × density a predicted AGB may sit before it is refused.
+#:
+#: A tree cannot weigh more than its own volume times the density of its wood.
+#: Taking the whole-tree form factor measured on the 65 felled Demol trees
+#: (qsm.TOTAL_TREE_FORM_FACTOR = 0.587), the ceiling for a tree is
+#:
+#:     (π/4) · D² · H · 0.587 · ρ
+#:
+#: and a real above-ground biomass should sit at or below it, since that volume
+#: is the whole above-ground tree and AGB excludes roots.
+#:
+#: The allowance is for the slack in that bound rather than for the equation:
+#: the form factor is a cohort mean that runs 0.573-0.601 between sites, ρ here
+#: is a table value of uncertain basis (see SpeciesParams.density_basis), and
+#: Chave itself lands about 1.16x the ceiling on these species. 1.5 sits well
+#: clear of all of that and well below what the broken rows do.
+MAX_AGB_OVER_PHYSICAL_CEILING = 1.5
+
+
+def physical_mass_ceiling_kg(dbh_cm: float, height_m: float, wood_density: float) -> float:
+    """The most an above-ground tree of this size can weigh, oven-dry."""
+    if dbh_cm <= 0 or height_m <= 0:
+        return 0.0
+    from pipeline.qsm import TOTAL_TREE_FORM_FACTOR
+
+    volume_m3 = math.pi / 4.0 * (dbh_cm / 100.0) ** 2 * height_m * TOTAL_TREE_FORM_FACTOR
+    return volume_m3 * wood_density
+
+
+def species_equation_is_physically_possible(
+    species: SpeciesParams,
+    *,
+    sizes: tuple[tuple[float, float], ...] = ((30.0, 20.0), (50.0, 32.0), (80.0, 50.0)),
+) -> bool:
+    """Does this row's a·D^b·H^c predict a mass a tree could actually have?
+
+    Four of the five rows in species_db do not, by 2.3x to 3.3x — they predict
+    more mass than the tree's entire volume times the density of its own wood.
+    That is not a fitting disagreement, it is an impossibility, and it holds
+    across the whole diameter range rather than at one end.
+
+    The mechanism is not established. It is not a unit error: grams for
+    kilograms would be a factor of 1000, and teak, which uses the same column
+    layout, lands at 1.07. What fits the numbers is green mass — dividing each
+    ratio into an implied moisture content gives 58%, 60%, 62% and 68%, all
+    inside the range for fresh wood, with bamboo highest, which is what a culm
+    should be. That is a hypothesis fitted to five points after the fact, and
+    confirming it means reading the four papers.
+
+    Checked at three sizes because a wrong exponent shows up as divergence: the
+    ratios climb from about 1.5 at DBH 10 cm to 2.7 at 80 cm on three of the
+    rows, so a single-size check could be passed by an equation that is badly
+    wrong on large trees, which are the ones that carry the carbon.
+    """
+    if species.agb_a is None or species.agb_b is None or species.agb_c is None:
+        return False
+    for dbh_cm, height_m in sizes:
+        ceiling = physical_mass_ceiling_kg(dbh_cm, height_m, species.wood_density)
+        if ceiling <= 0:
+            continue
+        predicted = calculate_agb_species_specific(dbh_cm, height_m, species)
+        if predicted > ceiling * MAX_AGB_OVER_PHYSICAL_CEILING:
+            return False
+    return True
+
+
 def calculate_agb_species_specific(
     dbh_cm: float,
     height_m: float,
@@ -304,14 +371,22 @@ def calculate_carbon(
         raise ValueError(f"No species-specific data for {species_sci}")
 
     # A species equation is used only once its coefficients have been checked
-    # against the cited source. Four of the five in species_db return 1.4x-3.5x
-    # what Chave 2014 returns for the same tree at the same density, with the
-    # ratio climbing across the diameter range - their exponents (2.15-2.42)
-    # disagree with Chave's effective 1.952, so the disagreement is structural,
-    # not a scale offset. Four of five wrong in the same direction is the shape
-    # of a unit error, not of independent published equations. Until someone
-    # reads the papers, costing a tree with them produces a number we cannot
-    # defend.
+    # against the cited source AND the equation predicts a mass a tree could
+    # actually have.
+    #
+    # This comment used to say the four disagreeing rows had "the shape of a
+    # unit error". Measuring it says otherwise, in two ways. A unit error is a
+    # factor of 1000, and these are 2.3x-3.3x. And it is not four of five in the
+    # same direction: teak lands at 1.07 of the physical ceiling and tracks
+    # Chave to within 8% across the whole diameter range, so whatever is wrong
+    # with the other four did not happen to it.
+    #
+    # What IS established is harder than a disagreement: Afzelia, Bambusa,
+    # Dipterocarpus and Hevea each predict more mass than the tree's whole
+    # volume times the density of its own wood - see
+    # species_equation_is_physically_possible. The ceiling used there is if
+    # anything too generous, since it is computed from densities that look
+    # air-dry, so the violation is understated.
     #
     # This comment used to end "...and the density is the one parameter here we
     # do have grounds for." That was wrong, and in the more embarrassing
@@ -320,10 +395,16 @@ def calculate_carbon(
     # basis and were used unconditionally. See SpeciesParams.density_basis —
     # the one row with any evidence, teak, looks like an air-dry figure where
     # Chave wants a basic one.
+    # The physical check is deliberately not conditional on the flag. species_db
+    # is data: it ships inside the Docker image and an operator can edit a row
+    # to `yes` without touching code, so it never passes through CI. The flag
+    # records that a human read the paper; the ceiling is what catches them
+    # being wrong about it.
     usable_species_equation = (
         species is not None
         and species.agb_a is not None
         and species.coefficients_verified
+        and species_equation_is_physically_possible(species)
     )
 
     if usable_species_equation and prefer_method != "chave_pantropical":

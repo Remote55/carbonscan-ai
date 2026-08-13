@@ -856,6 +856,29 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       No density was changed. Replacing five values on evidence for one is a
       different guess, not a correction — the fix is basic densities for all
       five out of GWDD, which this environment could not reach.
+    - allometric.py only, and again no number moves: a species equation must now
+      also predict a mass a tree could physically have before it is used.
+
+      A tree cannot weigh more than its own volume times the density of its
+      wood. Using qsm.TOTAL_TREE_FORM_FACTOR — measured on the same 65 felled
+      trees — the ceiling is (π/4)·D²·H·0.587·ρ, and above-ground biomass
+      belongs at or below it. Afzelia, Bambusa, Dipterocarpus and Hevea each
+      exceed it by 2.3x to 3.3x across the whole diameter range. Teak sits at
+      1.07 and tracks Chave to within 8%.
+
+      That correction matters more than the guard. This file previously stated
+      the four had "the shape of a unit error"; measuring it says otherwise. A
+      unit error is a factor of 1000, and it is not four of five in the same
+      direction — teak, sharing the same column layout, is fine. What fits is
+      green rather than oven-dry mass: the implied moisture contents are 58%,
+      60%, 62% and 68%, all plausible for fresh wood and highest for bamboo,
+      which is what a culm should be. That is a hypothesis fitted to five points
+      after the fact and needs the four papers to confirm.
+
+      The check does not depend on coefficients_verified, because species_db.csv
+      ships inside the image and an operator can flip a row without passing
+      through CI. Nothing costed changes today: every row is unverified, so
+      every tree was already going to Chave.
     """
     from pipeline import (
         allometric,
@@ -886,7 +909,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
             "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
         ),
         qsm: "9e3e1d025088be81c968a9ca5127de235e5a1c99ebd59319bc2e80272cbb5e9d",
-        allometric: "6cc8d071c827fe486935d3cbba198fa2fbf5353cfe9e3f76670215b6f4b3b8c3",
+        allometric: "b39fb724469bb05711ddb16153633c98ef5a5fc9ddd4b993236f64922d1bbdc0",
         main: "8531dcb526dfa910d814dba3e5bd274fc5fe0aab80c14122e87742c11dcafd79",
     }
     for module, pinned in expected.items():
