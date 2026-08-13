@@ -1,10 +1,10 @@
 # What a green CI tick does not mean
 
-At `d6313e5`, `CI ML` reports **649 passed, 44 skipped**. The same suite on a
-machine with the data reports **692 passed, 1 skipped**, and the one skip there
+At `cf00f98`, `CI ML` reports **658 passed, 47 skipped**. The same suite on a
+machine with the data reports **704 passed, 1 skipped**, and the one skip there
 is a Windows symlink privilege, not a missing dataset.
 
-The 44 are not marginal. They are the tests that compare this pipeline's output
+The 47 are not marginal. They are the tests that compare this pipeline's output
 against trees that were cut down and weighed:
 
 | file | what it checks against ground truth |
@@ -17,6 +17,7 @@ against trees that were cut down and weighed:
 | `test_carbon_uncertainty.py` | the density range vs measured per-tree density |
 | `test_backend_promotion_gate.py` | whether PointNet++ measures better than tlsep |
 | `test_published_evidence_is_current.py` | whether the accuracy figures in the proposal and on the dashboard are still what the pipeline produces — see [DEMOL_EVIDENCE_CHAIN.md](DEMOL_EVIDENCE_CHAIN.md) |
+| `test_dbh_bias_by_species.py` (part) | the control for the bark finding: whether an independent QSM under-reads the same trees — see [DBH_BIAS_AND_BARK.md](DBH_BIAS_AND_BARK.md) |
 
 They skip because `services/ml/data/raw/zenodo_belgium/` and
 `services/ml/woodleaf_pn2.pt` are not in git — point clouds for 65 trees and a
@@ -29,10 +30,25 @@ line among nearly 700 lines and a count in the summary; nobody reads that as
 every skip with its reason in the summary block, so the next person sees what
 did not happen.
 
-The counts above are worth re-reading rather than trusting: they were **35 and
+The counts above are worth re-reading rather than trusting. They were **35 and
 683** when this file was written and were already stale by four before anyone
-noticed, for the same reason the accuracy figures were — a number written into
-a document once and never re-derived.
+noticed, for the same reason the accuracy figures were: a number written into a
+document once and never re-derived. They move whenever a test is added, so what
+matters is the gap between the two columns, not either number.
+
+## Some ground truth does now reach CI
+
+`docs/evidence/demol_65/result.json` is committed, 18 KB, and carries the
+per-tree predictions beside the per-tree taped measurements for all 65 trees.
+Nine assertions in `test_dbh_bias_by_species.py` read it and run on CI —
+the species structure of the DBH under-read, and the caveat reaching
+`uncertainty_basis` on every route through `calculate_carbon`.
+
+That is a narrow but real change to the sentence at the top of this file.
+Conclusions drawn from felled trees can be pinned in a form CI can check; what
+cannot cross the gap is anything that has to re-run the pipeline over the point
+clouds. The three assertions in that file which need the cohort itself still
+skip, and they are listed in the table above.
 
 ## What this means in practice
 
