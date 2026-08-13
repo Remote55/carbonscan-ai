@@ -1,9 +1,10 @@
 # What a green CI tick does not mean
 
-`CI ML` reports **649 passed, 35 skipped**. The same suite on a machine with the
-data reports **683 passed, 1 skipped**.
+At `d6313e5`, `CI ML` reports **649 passed, 44 skipped**. The same suite on a
+machine with the data reports **692 passed, 1 skipped**, and the one skip there
+is a Windows symlink privilege, not a missing dataset.
 
-The 35 are not marginal. They are the tests that compare this pipeline's output
+The 44 are not marginal. They are the tests that compare this pipeline's output
 against trees that were cut down and weighed:
 
 | file | what it checks against ground truth |
@@ -23,10 +24,15 @@ model checkpoint, far past what belongs in a repository. The skips are correct
 behaviour, not a bug.
 
 What was wrong is that they were **invisible**. `pytest -v` prints `SKIPPED` per
-line among 688 lines and a count in the summary; nobody reads that as "the
-accuracy evidence did not run". The CI step now passes `-rs`, which lists every
-skip with its reason in the summary block, so the next person sees what did not
-happen.
+line among nearly 700 lines and a count in the summary; nobody reads that as
+"the accuracy evidence did not run". The CI step now passes `-rs`, which lists
+every skip with its reason in the summary block, so the next person sees what
+did not happen.
+
+The counts above are worth re-reading rather than trusting: they were **35 and
+683** when this file was written and were already stale by four before anyone
+noticed, for the same reason the accuracy figures were — a number written into
+a document once and never re-derived.
 
 ## What this means in practice
 

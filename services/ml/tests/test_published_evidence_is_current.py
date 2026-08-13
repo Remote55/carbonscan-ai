@@ -28,7 +28,8 @@ how the cause was pinned down: it is not the fit-quality gate, which
 `compute_qsm` does not read.
 
 LOCAL ONLY. The Demol cohort is 691 MB and not in git, so this skips on CI
-along with 34 other tests -- see `docs/ml/WHAT_CI_DOES_NOT_CHECK.md`. It takes
+along with every other ground-truth test -- see
+`docs/ml/WHAT_CI_DOES_NOT_CHECK.md`, which carries the current counts. It takes
 about four minutes. Run it before trusting any accuracy figure in the report.
 """
 

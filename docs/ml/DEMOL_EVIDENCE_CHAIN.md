@@ -83,8 +83,8 @@ Three checks hold it together, and they fail in different ways on purpose:
 | `derive_demol_evidence.py --check` | locally, on demand | the pipeline no longer reproducing the artefact; loss of determinism |
 | `tests/test_published_evidence_is_current.py` | locally, in the suite | the same, as part of a normal test run |
 
-The second and third need the cohort, so they skip on CI along with 34 other
-ground-truth tests — see [WHAT_CI_DOES_NOT_CHECK.md](WHAT_CI_DOES_NOT_CHECK.md).
+The second and third need the cohort, so they skip on CI along with every other
+ground-truth test — see [WHAT_CI_DOES_NOT_CHECK.md](WHAT_CI_DOES_NOT_CHECK.md).
 CI can prove the published numbers match their artefact. Only a machine with the
 data can prove the artefact matches reality.
 
