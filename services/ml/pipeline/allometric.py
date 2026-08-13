@@ -84,6 +84,30 @@ CARBON_VALIDATION_NOTE = (
     "บนชุด Demol (เขตอบอุ่น) โมเดลให้ค่าสูงกว่าจริง 41%"
 )
 
+# The DBH fed to every equation above reads low, and reads low one-sidedly.
+#
+# Across the 65 Demol trees the pipeline measures 0.80 cm under the tape, with
+# 50 of 65 reading low, and the size of it is set by how fissured the bark is:
+# -0.67% on smooth-barked beech, -4.06% on Scots pine. The cohort authors' own
+# published QSM shows the same ordering slightly larger, and the two
+# implementations' per-tree errors correlate at +0.78, so this is TLS against a
+# tape rather than a fault in the fit - docs/ml/DBH_BIAS_AND_BARK.md.
+#
+# It is stated and not corrected. Chave goes as D^1.952, so -0.7% to -4% on
+# diameter is -1.3% to -7.8% on biomass, always downward; but the coefficients
+# are for four temperate species and the target list runs from teak to bamboo.
+# A Scots-pine correction applied to a teak stem would be another unsourced
+# constant, which is the thing this file has been spending its comments
+# removing.
+#
+# The consequence for a reader is that the interval reported here is not
+# centred: the density range is symmetric, and this is not.
+DBH_BIAS_NOTE = (
+    "การวัดเส้นผ่านศูนย์กลางด้วย LiDAR อ่านต่ำกว่าการวัดด้วยเทป "
+    "ตามความหยาบของเปลือกไม้ (บนชุด Demol: 0.7-4% ซึ่งคิดเป็นชีวมวล 1-8% "
+    "ในทิศทางต่ำกว่าจริงเสมอ) และยังไม่มีค่าชดเชยสำหรับไม้เขตร้อน"
+)
+
 
 @dataclass(frozen=True)
 class SpeciesParams:
@@ -443,7 +467,10 @@ def calculate_carbon(
         # The equation's own uncertainty is unknown to us, and reporting ±0
         # would read as precision, so the bounds collapse and say why.
         co2eq_low = co2eq_high = co2eq
-        basis = f"สมการเฉพาะชนิด ({source}) ไม่มีช่วงความไม่แน่นอนที่ตรวจสอบแล้ว"
+        basis = (
+            f"สมการเฉพาะชนิด ({source}) ไม่มีช่วงความไม่แน่นอนที่ตรวจสอบแล้ว; "
+            f"{DBH_BIAS_NOTE}"
+        )
     else:
         if species is not None:
             spread = WOOD_DENSITY_SPREAD_KNOWN_SPECIES
@@ -463,13 +490,13 @@ def calculate_carbon(
             basis = (
                 f"ความหนาแน่นไม้ {rho_low:.0f}-{rho_high:.0f} kg/m³ "
                 f"(±{spread:.0%} รอบค่าของ {species.name_th}){density_caveat}; "
-                f"{CARBON_VALIDATION_NOTE}"
+                f"{CARBON_VALIDATION_NOTE}; {DBH_BIAS_NOTE}"
             )
         else:
             rho_low, rho_high = DEFAULT_WOOD_DENSITY_RANGE
             basis = (
                 f"ไม่ทราบชนิดไม้ — ความหนาแน่นสมมติช่วง {rho_low:.0f}-{rho_high:.0f} kg/m³; "
-                f"{CARBON_VALIDATION_NOTE}"
+                f"{CARBON_VALIDATION_NOTE}; {DBH_BIAS_NOTE}"
             )
         co2eq_low = _to_co2eq(calculate_agb_chave_pantropical(dbh_cm, height_m, rho_low))
         co2eq_high = _to_co2eq(calculate_agb_chave_pantropical(dbh_cm, height_m, rho_high))

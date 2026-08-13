@@ -127,15 +127,46 @@ volume-constant work — `baa1128`, `6eab139` — not a threshold.
 ### The figure that got worse
 
 DBH bias moved from −0.52 cm to −0.80 cm. The pipeline systematically
-under-reads stem diameter, and it under-reads it more than the project had been
-claiming. The direction is expected — a circle fit through a partial scan of a
-stem tends to sit inside the bark — but the size of it is not something the
-above improvement excuses, and no measurement here explains why the newer stem
-code reads smaller.
+under-reads stem diameter, and by more than the project had been claiming.
+
+That was chased down and it is not a defect in this code:
+[DBH_BIAS_AND_BARK.md](DBH_BIAS_AND_BARK.md). It is not point density and it is
+not tree size — it is bark, ordered exactly by how deeply fissured each species
+is, from −0.67% on smooth-barked beech to −4.06% on Scots pine. The cohort
+authors' own published QSM shows the same under-read in the same order and
+slightly larger, and the two implementations' per-tree errors correlate at
++0.78. A tape rides on the bark ridges; a circle fitted to a laser scan settles
+between ridge and furrow.
+
+The old −0.52 cm was not a better pipeline. It was the same effect measured
+through a table rounded to two decimals.
 
 Carbon scales with DBH squared. A 0.8 cm under-read on a 30 cm stem is 5% of
 basal area, which flows straight into the Chave estimate. That belongs in the
 uncertainty discussion, not in a footnote.
+
+## What this evidence still does not cover
+
+**It measures a pipeline running at one tenth the product's point budget.** The
+protocol freezes `max_points` at 20,000. `field_eval.load_point_cloud` and
+`pipeline.main` both default to 200,000, the CLI flag defaults to 200,000, and
+the API never overrides it, so every real analysis runs at ten times the density
+the published figures describe.
+
+For DBH this is measured and immaterial — over the same 21 trees the bias is
+−0.780 cm at 20,000, −0.885 at 60,000 and −0.809 at 200,000, and
+[DBH_BIAS_AND_BARK.md](DBH_BIAS_AND_BARK.md) has the working. **For height and
+volume it is not measured.** Volume comes from a taper fit over slices, and a
+slice thinned to a tenth is a different fit from a slice that is not; there is
+no reason to assume the DBH result carries over, and no measurement here says
+it does.
+
+The 20,000 cap was a reasonable choice for its original purpose — comparing two
+wood/leaf backends, where both sides pay it equally — and it became the
+published accuracy figure by inheritance rather than by decision. Closing this
+means deriving a second artefact at the shipped budget and publishing that as
+the product's accuracy, keeping the 20,000 run as the backend comparison it was
+built for.
 
 ## Refreshing the figures
 

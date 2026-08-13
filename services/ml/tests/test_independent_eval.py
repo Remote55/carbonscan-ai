@@ -879,6 +879,35 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       ships inside the image and an operator can flip a row without passing
       through CI. Nothing costed changes today: every row is unverified, so
       every tree was already going to Chave.
+    - allometric.py only, and no number moves for a third time: DBH_BIAS_NOTE
+      reaches uncertainty_basis on all three routes through calculate_carbon.
+
+      The diameter every equation in this file consumes reads low, and reads low
+      one-sidedly. Over the 65 Demol trees the pipeline measures 0.80 cm under
+      the tape with 50 of 65 low, and the size of it is set by bark: -0.67% on
+      smooth-barked Fagus sylvatica, -4.06% on deeply fissured Pinus sylvestris,
+      with Larix and Fraxinus in between in exactly the order of how fissured
+      they are.
+
+      It is not the fit. Ten times the points moves it by 0.03 cm (over one
+      set of 21 trees: -0.780 cm at 20,000, -0.885 at 60,000, -0.809 at
+      200,000), and it is not size — within a species the correlation with diameter has no
+      consistent sign, and over the same 25-38 cm band beech reads -0.72% where
+      pine reads -4.74%. The cohort authors' own published QSM (`qsm_DBHqsm`)
+      under-reads in the same species order and slightly harder, and the two
+      implementations' per-tree errors correlate at +0.78 while their
+      predictions correlate at +0.994. Two independent programs wrong on the
+      same trees in the same direction is a property of the data. A tape rides
+      on the bark ridges; a circle fitted to a laser scan settles between ridge
+      and furrow.
+
+      No correction is applied and none should be from this evidence: the
+      coefficients are for four temperate species and the target list runs from
+      teak to bamboo. What changes is that the caller is told, because Chave
+      goes as D^1.952 and so carries -1.3% to -7.8% into biomass, always
+      downward, against a density band that is symmetric.
+
+      docs/ml/DBH_BIAS_AND_BARK.md and tests/test_dbh_bias_by_species.py.
     """
     from pipeline import (
         allometric,
@@ -909,7 +938,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
             "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
         ),
         qsm: "9e3e1d025088be81c968a9ca5127de235e5a1c99ebd59319bc2e80272cbb5e9d",
-        allometric: "b39fb724469bb05711ddb16153633c98ef5a5fc9ddd4b993236f64922d1bbdc0",
+        allometric: "8518ac7d4cd68fc6f16235b865971ba93e79cab63b5791f5e0a0f18543ee69bd",
         main: "8531dcb526dfa910d814dba3e5bd274fc5fe0aab80c14122e87742c11dcafd79",
     }
     for module, pinned in expected.items():
