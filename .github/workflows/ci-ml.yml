@@ -123,7 +123,14 @@ jobs:
 
       - name: Run all tests
         working-directory: services/ml
-        run: pytest tests/ -v --tb=short
+        # -rs lists every skip WITH ITS REASON in the summary. Without it this
+        # job reports "649 passed, 35 skipped" and the 35 are invisible — they
+        # are the tests that check DBH, height and volume against destructively
+        # harvested trees, and they skip here because the Demol cohort and the
+        # PointNet++ checkpoint are too large for git. A green tick on this job
+        # does not mean the measurement was checked; see
+        # docs/ml/WHAT_CI_DOES_NOT_CHECK.md.
+        run: pytest tests/ -v --tb=short -rs
 
       - name: Run repository truth and report contract tests
         run: python -m pytest scripts/tests/ -v --no-cov
