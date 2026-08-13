@@ -209,7 +209,36 @@ data/
 | NEON | Public Domain | Free use, attribution appreciated |
 | Pl@ntNet | CC BY-NC 4.0 | Non-commercial OK |
 | TLSeparation | Apache 2.0 | Free use |
+| Wan et al. wood/leaf (Zenodo 6831378) | CC BY 4.0 | Recorded in `training/evidence_protocol.py` |
+| **Demol et al. destructive (Zenodo 4557401)** | **not recorded** | **see below** |
 | Our own data | MIT | We choose |
+
+### The Demol cohort has no recorded licence
+
+`data/raw/zenodo_belgium/` holds 65 destructively harvested trees with taped
+DBH, felled height and harvested volume. Every accuracy figure this project
+publishes comes from it — see
+[DEMOL_EVIDENCE_CHAIN.md](DEMOL_EVIDENCE_CHAIN.md).
+
+Its protocol block in `training/evidence_protocol.py` records
+`record_id: 4557401` and nothing else. The 10-tree external cohort beside it,
+used only for a candidate that was rejected, carries a provider, a DOI and
+`license: CC-BY-4.0`. The dataset the whole accuracy claim rests on is the less
+documented of the two.
+
+What is known: Zenodo record 4557401, so DOI 10.5281/zenodo.4557401. The record
+page returned 403 from this network when checked on 2026-08-13, so the licence
+was not read, and no copy of it exists anywhere in this repository.
+
+This does not affect whether the figures are correct — the cohort is on disk and
+the derivation reproduces. It affects whether the data may be redistributed or
+used in a submitted work, which is a question for a person, not for CI:
+
+- [ ] (User) Open <https://doi.org/10.5281/zenodo.4557401>, read the licence,
+      and add it to the table above and to the `demol` block in
+      `training/evidence_protocol.py` alongside a `doi` field.
+- [ ] (User) If it is non-commercial or share-alike, check that against how the
+      figures are used in the NSC submission.
 
 ---
 

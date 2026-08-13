@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import { CORE_DEMO_EVIDENCE } from '../generated/core-demo-evidence';
 import HomePage from './page';
 
 function getAnchorHrefByLabel(markup: string, label: string) {
@@ -61,9 +62,17 @@ describe('Landing evidence contract', () => {
 
     // A tree-diameter error quoted to eleven significant figures claims
     // precision to picometres. Two decimals is what the measurement supports.
-    expect(markup).toContain('1.17');
+    //
+    // Asserted against the generated evidence rather than a literal. This read
+    // `toContain('1.17')`, which was a fourth copy of a figure that turned out
+    // never to have been derived — see docs/ml/DEMOL_EVIDENCE_CHAIN.md. When the
+    // real number was worked out, this test failed for quoting the old one,
+    // which is the wrong reason for a rounding test to fail.
+    const dbhMaeCm = CORE_DEMO_EVIDENCE.validation.demol65.dbhMaeCm;
+
+    expect(markup).toContain(dbhMaeCm.toFixed(2));
     expect(markup).toContain('ซม.');
-    expect(markup).not.toContain('1.1673846154');
+    expect(markup).not.toContain(String(dbhMaeCm));
 
     expect(markup).toContain('ค่าคลาดเคลื่อนการวัดขนาดลำต้น');
 
