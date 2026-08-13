@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,89 @@ def _require_sha256(value: Any, label: str) -> None:
         int(value, 16)
     except ValueError as exc:
         raise ValueError(f"{label} must be hexadecimal") from exc
+
+
+#: The Demol figures this manifest publishes, and which
+#: services/ml/scripts/derive_demol_evidence.py derives.
+DEMOL_PUBLISHED_FIELDS = (
+    "trees",
+    "dbh_mae_cm",
+    "dbh_rmse_cm",
+    "dbh_bias_cm",
+    "dbh_mape_pct",
+    "dbh_within_10_pct",
+    "dbh_worst_pct",
+    "dbh_worst_abs_cm",
+    "height_mae_m",
+    "height_rmse_m",
+    "height_bias_m",
+    "height_mape_pct",
+    "height_within_10_pct",
+    "volume_mae_m3",
+    "volume_mape_pct",
+    "volume_bias_m3",
+    "volume_within_10_pct",
+    "volume_worst_pct",
+)
+
+DEMOL_RESULT_PATH = "docs/evidence/demol_65/result.json"
+
+
+def validate_demol(block: Any, *, repo_root: str | Path | None) -> None:
+    """Check the published Demol figures against the artefact that derived them.
+
+    This used to read ``if block.get("dbh_mae_cm") != 1.1673846154: raise``. A
+    literal in this file, compared against a copy of itself in the manifest --
+    it could only catch someone editing one of the two, and it certified as
+    correct a number that no evaluation had ever produced. The block was
+    averaged from a per-tree table already rounded for display, which is visible
+    in the arithmetic: 1.1673846154 x 65 is exactly 75.88.
+
+    Now the manifest has to agree, field for field, with a committed artefact
+    that `derive_demol_evidence.py --check` can re-derive from the cohort. The
+    number is still guarded against a stray edit, and it is now also guarded
+    against being wrong.
+    """
+    if not isinstance(block, dict):
+        raise ValueError("validation.demol_65 must be an object")
+    _require_keys(
+        block,
+        {"result_path", "result_sha256", *DEMOL_PUBLISHED_FIELDS},
+        "validation.demol_65",
+    )
+    if block["result_path"] != DEMOL_RESULT_PATH:
+        raise ValueError(f"validation.demol_65 result_path must be {DEMOL_RESULT_PATH}")
+    _require_sha256(block["result_sha256"], "validation.demol_65 result_sha256")
+
+    if repo_root is None:
+        # Structure is checked above without touching the filesystem. sync()
+        # always supplies repo_root, so the comparison below runs on every
+        # `sync_truth.py --check`, which is what CI runs.
+        return
+
+    result_file = Path(repo_root) / DEMOL_RESULT_PATH
+    if not result_file.is_file():
+        raise ValueError(f"{DEMOL_RESULT_PATH} is missing; the published figures have no source")
+    raw = result_file.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != block["result_sha256"]:
+        raise ValueError(
+            f"{DEMOL_RESULT_PATH} has changed since it was reviewed "
+            f"(recorded {block['result_sha256']}, found {digest})"
+        )
+
+    metrics = json.loads(raw.decode("utf-8")).get("metrics")
+    if not isinstance(metrics, dict):
+        raise ValueError(f"{DEMOL_RESULT_PATH} has no metrics block")
+    disagreeing = sorted(
+        field for field in DEMOL_PUBLISHED_FIELDS if block[field] != metrics.get(field)
+    )
+    if disagreeing:
+        raise ValueError(
+            "validation.demol_65 disagrees with the derived result for "
+            f"{disagreeing}; re-run derive_demol_evidence.py rather than editing "
+            "the manifest"
+        )
 
 
 def load_manifest(
@@ -109,8 +193,7 @@ def load_manifest(
     for name, expected in EXPECTED_WAN.items():
         if wan.get(name) != expected:
             raise ValueError(f"Wan held-out {name} must equal {expected}")
-    if validation["demol_65"].get("dbh_mae_cm") != 1.1673846154:
-        raise ValueError("Demol DBH MAE must equal 1.1673846154 cm")
+    validate_demol(validation["demol_65"], repo_root=repo_root)
     independent = validation.get("pointnet_independent")
     if independent is not None:
         if repo_root is None:

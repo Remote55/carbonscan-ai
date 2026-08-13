@@ -2,18 +2,29 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
 
 import pytest
 from scripts.sync_truth import (
+    DEMOL_PUBLISHED_FIELDS,
+    DEMOL_RESULT_PATH,
     PROMOTION_POLICY,
     load_manifest,
     render_capability_matrix,
     render_typescript,
     replace_truth_block,
 )
+
+#: A plausible derived block. The values are not the real ones -- what these
+#: tests check is that the manifest and the artefact are held to each other, not
+#: what either says.
+DEMOL_METRICS: dict[str, object] = {
+    field: f"{index}/65" if field.endswith("_within_10_pct") else round(index * 0.7, 6)
+    for index, field in enumerate(DEMOL_PUBLISHED_FIELDS, start=1)
+} | {"trees": 65}
 
 CURRENT_CLAIM_DOCS = (
     Path("README.md"),
@@ -140,8 +151,9 @@ def _manifest(tmp_path: Path) -> Path:
                         "accuracy": 0.831,
                     },
                     "demol_65": {
-                        "dbh_mae_cm": 1.1673846154,
-                        "volume_mape_pct": 18.7650916186,
+                        "result_path": DEMOL_RESULT_PATH,
+                        "result_sha256": "4" * 64,
+                        **DEMOL_METRICS,
                     },
                 },
                 "capabilities": [
@@ -170,6 +182,103 @@ def _manifest(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+class TestThePublishedDemolFiguresHaveASource:
+    """The block used to be guarded by `if block["dbh_mae_cm"] != 1.1673846154`.
+
+    A literal in sync_truth.py compared against a copy of itself in the
+    manifest. It could catch someone editing one of the two and nothing else,
+    and the number it certified had never been produced by an evaluation --
+    every linear statistic in the block was an exact multiple of 1/65 of a
+    two-decimal sum, because it was averaged from a table already rounded for
+    display. The manifest now has to agree with a committed artefact that
+    `services/ml/scripts/derive_demol_evidence.py --check` re-derives from the
+    cohort, and these are the ways that can fail.
+    """
+
+    @staticmethod
+    def _with_artefact(tmp_path: Path, metrics: dict[str, object] | None = None) -> Path:
+        """A manifest beside a derivation artefact it correctly cites."""
+        path = _manifest(tmp_path)
+        artefact = tmp_path / DEMOL_RESULT_PATH
+        artefact.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps({"metrics": metrics or DEMOL_METRICS}).encode("utf-8")
+        artefact.write_bytes(payload)
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["validation"]["demol_65"]["result_sha256"] = hashlib.sha256(payload).hexdigest()
+        path.write_text(json.dumps(data), encoding="utf-8")
+        return path
+
+    def test_a_manifest_matching_its_artefact_loads(self, tmp_path: Path):
+        path = self._with_artefact(tmp_path)
+
+        assert load_manifest(path, repo_root=tmp_path)["validation"]["demol_65"]
+
+    def test_a_figure_with_no_artefact_behind_it_is_refused(self, tmp_path: Path):
+        path = _manifest(tmp_path)
+
+        with pytest.raises(ValueError, match="have no source"):
+            load_manifest(path, repo_root=tmp_path)
+
+    def test_a_block_that_cites_nothing_is_refused(self, tmp_path: Path):
+        path = _manifest(tmp_path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        del data["validation"]["demol_65"]["result_path"]
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="missing required keys"):
+            load_manifest(path)
+
+    def test_a_block_citing_some_other_file_is_refused(self, tmp_path: Path):
+        """The path is pinned, not merely required to exist. Otherwise the
+        block could cite any file whose hash happened to be recorded."""
+        path = self._with_artefact(tmp_path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["validation"]["demol_65"]["result_path"] = "docs/evidence/elsewhere.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="result_path must be"):
+            load_manifest(path, repo_root=tmp_path)
+
+    def test_a_hand_edited_figure_is_refused(self, tmp_path: Path):
+        """The failure the old literal was reaching for, done properly."""
+        path = self._with_artefact(tmp_path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["validation"]["demol_65"]["dbh_mae_cm"] = 0.1
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        with pytest.raises(ValueError, match=r"disagrees with the derived result.*dbh_mae_cm"):
+            load_manifest(path, repo_root=tmp_path)
+
+    def test_a_rewritten_artefact_is_refused(self, tmp_path: Path):
+        """Editing the artefact to match a hand-edited manifest is the obvious
+        way around the check above. The pinned sha256 closes it."""
+        path = self._with_artefact(tmp_path)
+        artefact = tmp_path / DEMOL_RESULT_PATH
+        artefact.write_bytes(
+            json.dumps({"metrics": {**DEMOL_METRICS, "dbh_mae_cm": 0.1}}).encode("utf-8")
+        )
+
+        with pytest.raises(ValueError, match="has changed since it was reviewed"):
+            load_manifest(path, repo_root=tmp_path)
+
+    def test_every_published_field_is_compared_not_just_the_quoted_ones(
+        self, tmp_path: Path
+    ):
+        """Three of the eighteen reach the documents. The old guard checked one.
+        A block is only as sourced as its least-checked number."""
+        for field in DEMOL_PUBLISHED_FIELDS:
+            root = tmp_path / field
+            root.mkdir()
+            path = self._with_artefact(root)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["validation"]["demol_65"][field] = "tampered"
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+            with pytest.raises(ValueError, match=rf"disagrees with the derived result.*{field}"):
+                load_manifest(path, repo_root=root)
 
 
 def test_manifest_rejects_promoted_pointnet_without_gate(tmp_path: Path):
@@ -226,7 +335,7 @@ def test_generated_outputs_contain_exact_truth(tmp_path: Path):
     matrix = render_capability_matrix(data)
     assert "woodIoU: 0.418" in typescript
     assert "leafIoU: 0.808" in typescript
-    assert "dbhMaeCm: 1.1673846154" in typescript
+    assert f"dbhMaeCm: {DEMOL_METRICS['dbh_mae_cm']}" in typescript
     assert "PointNet++" in matrix
     assert "Experimental" in matrix
     assert "Species classification" in matrix

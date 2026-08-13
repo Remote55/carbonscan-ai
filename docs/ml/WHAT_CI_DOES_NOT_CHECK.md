@@ -15,6 +15,7 @@ against trees that were cut down and weighed:
 | `test_plot_pipeline_real_trees.py` | the whole chain on real scans placed in a synthetic plot |
 | `test_carbon_uncertainty.py` | the density range vs measured per-tree density |
 | `test_backend_promotion_gate.py` | whether PointNet++ measures better than tlsep |
+| `test_published_evidence_is_current.py` | whether the accuracy figures in the proposal and on the dashboard are still what the pipeline produces — see [DEMOL_EVIDENCE_CHAIN.md](DEMOL_EVIDENCE_CHAIN.md) |
 
 They skip because `services/ml/data/raw/zenodo_belgium/` and
 `services/ml/woodleaf_pn2.pt` are not in git — point clouds for 65 trees and a

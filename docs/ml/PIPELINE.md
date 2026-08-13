@@ -10,7 +10,7 @@
 - Baseline: `tlsep` — **Implemented**.
 - PointNet++: **Experimental**, not promoted; reviewed evidence never changes the default automatically.
 - Wan 2021 held-out: Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`, accuracy `0.831`. The held-out loader was also used for best-epoch selection.
-- Demol isolated-tree validation (65 trees): DBH MAE `1.1673846154 cm`; Volume MAPE `18.7650916186%`. This is not an eight-stage or carbon validation.
+- Demol isolated-tree validation (65 trees): DBH MAE `0.898318 cm`; Volume MAPE `11.520556%`. This is not an eight-stage or carbon validation.
 - Independent PointNet review: verdict `FAIL_METRICS`; candidate/baseline external macro Wood IoU `0.23728726507501768`/`0.1958779956856453`.
 - Independent downstream candidate/baseline: DBH MAE `1.1591405814498605`/`1.1339476465903928` cm; Height MAE `0.9508502244897976`/`0.5433234000000015` m; Volume MAPE `21.74924193798788`/`18.928262273343613`%; measurable trees `49`/`65`.
 - Deterministic core demo: `3` trees, `1320.39 kg C`, `4841.48 kg CO2e`; analyzed commit `b6fe198f3de5` with a clean worktree.

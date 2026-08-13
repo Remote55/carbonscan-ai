@@ -14,6 +14,8 @@ import pytest
 from scripts.review_pointnet_evidence import _load_json, _validate_result, import_reviewed_result
 from scripts.sync_truth import (
     CONTROLLED_DOCS,
+    DEMOL_PUBLISHED_FIELDS,
+    DEMOL_RESULT_PATH,
     PROMOTION_POLICY,
     TRUTH_END,
     TRUTH_START,
@@ -23,6 +25,16 @@ from scripts.sync_truth import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+
+#: The Demol block now has to agree with a committed derivation artefact, so a
+#: repo built for these tests needs one. The values are arbitrary; what is under
+#: test here is the PointNet import, not the Demol figures.
+DEMOL_METRICS: dict[str, object] = {
+    field: f"{index}/65" if field.endswith("_within_10_pct") else round(index * 0.7, 6)
+    for index, field in enumerate(DEMOL_PUBLISHED_FIELDS, start=1)
+} | {"trees": 65}
+DEMOL_ARTEFACT = json.dumps({"metrics": DEMOL_METRICS}, sort_keys=True).encode("utf-8")
+DEMOL_SHA256 = hashlib.sha256(DEMOL_ARTEFACT).hexdigest()
 EXTERNAL_IDS = tuple(f"tree-{index:02d}" for index in range(1, 11))
 review_pointnet_evidence = sys.modules[_validate_result.__module__]
 
@@ -93,7 +105,11 @@ def _manifest() -> dict[str, object]:
                 "mean_iou": 0.613,
                 "accuracy": 0.831,
             },
-            "demol_65": {"dbh_mae_cm": 1.1673846154, "volume_mape_pct": 18.7650916186},
+            "demol_65": {
+                "result_path": DEMOL_RESULT_PATH,
+                "result_sha256": DEMOL_SHA256,
+                **DEMOL_METRICS,
+            },
         },
         "capabilities": [
             {
@@ -351,6 +367,9 @@ def reviewed_repo(tmp_path: Path) -> tuple[Path, Path, Path]:
     )
     protocol_path = evidence / "protocol.json"
     _write(protocol_path, protocol)
+    demol_artefact = repo / DEMOL_RESULT_PATH
+    demol_artefact.parent.mkdir(parents=True, exist_ok=True)
+    demol_artefact.write_bytes(DEMOL_ARTEFACT)
     manifest_path = repo / "docs/evidence/core_demo_manifest.json"
     _write(manifest_path, _manifest())
     _git(repo, "add", ".")
@@ -999,7 +1018,7 @@ def test_sync_rechecks_result_bytes_and_renders_reviewed_metrics(
     assert (
         "FAIL_METRICS" in truth
         and "0.418" in truth
-        and "1.1673846154" in truth
+        and str(DEMOL_METRICS["dbh_mae_cm"]) in truth
         and "measurable trees" in truth
     )
     for relative in CONTROLLED_DOCS:

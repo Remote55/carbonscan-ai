@@ -20,8 +20,8 @@ export const CORE_DEMO_EVIDENCE = {
       accuracy: 0.831,
     },
     demol65: {
-      dbhMaeCm: 1.1673846154,
-      volumeMapePct: 18.7650916186,
+      dbhMaeCm: 0.898318,
+      volumeMapePct: 11.520556,
     },
     pointnetIndependent: {
       verdict: "FAIL_METRICS",
