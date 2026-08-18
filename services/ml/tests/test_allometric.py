@@ -10,6 +10,7 @@ from pipeline.allometric import (
     CO2_PER_CARBON,
     DEFAULT_CARBON_FRACTION,
     DEFAULT_ROOT_TO_SHOOT_TROPICAL,
+    DEFAULT_WOOD_DENSITY_TROPICAL,
     calculate_agb_chave_pantropical,
     calculate_agb_species_specific,
     calculate_carbon,
@@ -106,7 +107,7 @@ class TestFullCarbonCalc:
 
         assert result.species_sci == "Tectona grandis"
         assert result.method == "chave_pantropical"
-        assert result.wood_density == 660, "teak's own density must still be used"
+        assert result.wood_density == 525, "teak's own density must still be used"
         assert result.agb_kg > 0
         assert result.bgb_kg == pytest.approx(
             result.agb_kg * DEFAULT_ROOT_TO_SHOOT_TROPICAL,
@@ -127,7 +128,9 @@ class TestFullCarbonCalc:
     def test_none_species_uses_chave(self):
         result = calculate_carbon(dbh_cm=30, height_m=18, species_sci=None)
         assert result.method == "chave_pantropical"
-        assert result.wood_density == 600.0  # default tropical
+        # Reyes et al. 1992 tropical Asia mean, not the old uncited pantropical
+        # 600 — see the constant's comment in allometric.py.
+        assert result.wood_density == DEFAULT_WOOD_DENSITY_TROPICAL == 570.0
 
     def test_negative_dbh_raises(self):
         with pytest.raises(ValueError, match="DBH must be positive"):

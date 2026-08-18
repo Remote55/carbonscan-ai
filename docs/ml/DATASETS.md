@@ -210,35 +210,38 @@ data/
 | Pl@ntNet | CC BY-NC 4.0 | Non-commercial OK |
 | TLSeparation | Apache 2.0 | Free use |
 | Wan et al. wood/leaf (Zenodo 6831378) | CC BY 4.0 | Recorded in `training/evidence_protocol.py` |
-| **Demol et al. destructive (Zenodo 4557401)** | **not recorded** | **see below** |
+| **Demol et al. destructive (Zenodo 4557401)** | **CC BY 4.0** | Redistribution allowed with attribution |
+| Reyes et al. 1992 wood densities (USDA GTR SO-88) | Public domain | US Government work; copy in `services/ml/data/reference/` |
 | Our own data | MIT | We choose |
 
-### The Demol cohort has no recorded licence
+### The Demol cohort licence, resolved
 
 `data/raw/zenodo_belgium/` holds 65 destructively harvested trees with taped
 DBH, felled height and harvested volume. Every accuracy figure this project
-publishes comes from it — see
-[DEMOL_EVIDENCE_CHAIN.md](DEMOL_EVIDENCE_CHAIN.md).
+publishes comes from it — see [DEMOL_EVIDENCE_CHAIN.md](DEMOL_EVIDENCE_CHAIN.md).
 
-Its protocol block in `training/evidence_protocol.py` records
-`record_id: 4557401` and nothing else. The 10-tree external cohort beside it,
-used only for a candidate that was rejected, carries a provider, a DOI and
-`license: CC-BY-4.0`. The dataset the whole accuracy claim rests on is the less
-documented of the two.
+For a while nothing in this repository recorded its licence: the protocol block
+in `training/evidence_protocol.py` carried `record_id: 4557401` and nothing else,
+while the 10-tree external cohort beside it — used only for a candidate that was
+rejected — carried a provider, a DOI and CC-BY-4.0.
 
-What is known: Zenodo record 4557401, so DOI 10.5281/zenodo.4557401. The record
-page returned 403 from this network when checked on 2026-08-13, so the licence
-was not read, and no copy of it exists anywhere in this repository.
+Read from the Zenodo record on 2026-08-14: **Creative Commons Attribution 4.0
+International**, resource type Dataset, access Open. Redistribution is allowed
+with attribution, which is why the derived
+`docs/evidence/demol_65/result.json` can be committed.
 
-This does not affect whether the figures are correct — the cohort is on disk and
-the derivation reproduces. It affects whether the data may be redistributed or
-used in a submitted work, which is a question for a person, not for CI:
+    Demol, M., Gielen, B., & Verbeeck, H. (2021). QSMs, point cloud and harvest
+    data from a destructive forest biomass experiment in Belgium using
+    terrestrial laser scanning (Version 1.0) [Dataset]. Zenodo.
+    https://doi.org/10.5281/zenodo.4557401
 
-- [ ] (User) Open <https://doi.org/10.5281/zenodo.4557401>, read the licence,
-      and add it to the table above and to the `demol` block in
-      `training/evidence_protocol.py` alongside a `doi` field.
-- [ ] (User) If it is non-commercial or share-alike, check that against how the
-      figures are used in the NSC submission.
+The same record settles two other things this project had been hedging:
+
+- The QSMs shipped in the dataset were built with **TreeQSM v2.3**, the standard
+  implementation in this field. `DBH_BIAS_AND_BARK.md` compares against them.
+- The point clouds were **downsampled to 10 or 15 mm point spacing** before
+  release. That is why re-measuring at ten times the point budget changes
+  nothing: the limit is the spacing, not the count.
 
 ---
 

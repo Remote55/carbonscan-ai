@@ -908,6 +908,49 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       downward, against a density band that is symmetric.
 
       docs/ml/DBH_BIAS_AND_BARK.md and tests/test_dbh_bias_by_species.py.
+    - allometric.py, and this time every number moves: the wood densities were
+      air-dry figures fed to a model that takes basic specific gravity.
+
+      Chave wants oven-dry mass over green volume. Timber tables publish air-dry
+      at 12% moisture, which is larger, and all five species_db rows were the
+      latter. That was written down as a suspicion on 2026-08-11 on the strength
+      of one species, and the values were deliberately left alone.
+
+      Reyes, Brown, Chapman and Lugo 1992 (USDA GTR SO-88, public domain, copy
+      in data/reference/) settles it. Its tropical Asia section reports basic
+      density directly - "ovendry weight grams per cubic centimeter of green
+      volume" - and it carries the air-dry-to-basic regression its own authors
+      needed, from Chudnoff 1984, 379 trees, r2 = 0.988:
+
+          basic = 0.0134 + 0.800 x air_dry_at_12%
+
+      Both routes agree wherever both exist. Teak's shipped 660 converts to 541
+      against direct measurements of 0.50 and 0.55; Dipterocarpus' 720 converts
+      to 589 against a genus range of 0.52-0.62. Two routes, no shared
+      arithmetic, same answer, which is what moved this from suspicion to
+      finding.
+
+          Tectona grandis        660 -> 525   measured basic, verified
+          Dipterocarpus alatus   720 -> 610   measured basic (genus), verified
+          Hevea brasiliensis     580 -> 530   measured basic, verified
+          Afzelia xylocarpa      850 -> 693   converted; input still unsourced
+          Bambusa spp.           650 -> 533   converted; and bamboo is a grass
+
+      The unknown-species default moved 600 -> 570, the mean of SO-88's 428
+      tropical Asian species (SE 0.007). The old 600 had no citation; the same
+      table gives 0.60 for tropical America and 0.50 for Africa, so
+      "pantropical" spans 20% and 600 was the wrong end of it for Thailand.
+
+      Every carbon figure this file produces therefore falls. On a DBH 30 cm,
+      H 20 m tree, teak goes 1364 -> 1091 kg CO2e; the deterministic core demo
+      falls 20%. The pipeline was overstating biomass, and this is the
+      correction, not a regression.
+
+      Bamboo is costed with a caveat rather than refused: it is a grass with a
+      hollow culm, outside Chave's domain entirely, and uncertainty_basis now
+      says so on every bamboo tree.
+
+      docs/ml/WOOD_DENSITY_PROVENANCE.md; tests/test_density_provenance.py.
     """
     from pipeline import (
         allometric,
@@ -938,7 +981,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
             "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
         ),
         qsm: "9e3e1d025088be81c968a9ca5127de235e5a1c99ebd59319bc2e80272cbb5e9d",
-        allometric: "8518ac7d4cd68fc6f16235b865971ba93e79cab63b5791f5e0a0f18543ee69bd",
+        allometric: "fb4535acabc48928ac55b4f288d4e5539fb9bee4a3ec411a2b3b92ac70651a6b",
         main: "8531dcb526dfa910d814dba3e5bd274fc5fe0aab80c14122e87742c11dcafd79",
     }
     for module, pinned in expected.items():

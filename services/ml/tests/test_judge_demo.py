@@ -267,17 +267,27 @@ def test_judge_demo_uses_commit_snapshot_during_transient_data_edit(tmp_path, mo
     #   4672.70  RANSAC refits on its consensus set, so DBH shifts a little
     #   4748.95  ground candidate is a rank, not a percentile of a mixed cell
     #
+    #   3798.38  teak's wood density was air-dry, and Chave takes basic
+    #
     # 4729.06 until the allometric coefficient gate landed. run_judge_demo
     # passes default_species="Tectona grandis", and teak's equation has never
     # been checked against Tsutsumi 1983, so the tree is now costed with Chave
     # 2014 at teak's own wood density instead. Lower, and defensible.
+    #
+    # The last move is the largest and the most substantive. Chave takes rho as
+    # basic specific gravity, oven-dry mass over green volume; teak's row
+    # carried 660, an air-dry figure at 12% moisture. Reyes et al. 1992 (USDA
+    # GTR SO-88) measures Tectona grandis at 0.50 and 0.55 basic, and its
+    # published air-dry-to-basic regression turns 660 into 541 - between the
+    # two. The row now carries 525 and every teak costed by this pipeline fell
+    # 20%. See docs/ml/WOOD_DENSITY_PROVENANCE.md.
     #
     # The published artifacts under apps/web/public/demo still record 4729.06.
     # That is not wrong - it is what the pipeline produced at that commit, and
     # it still verifies against its own manifest - but it is no longer what this
     # code produces. Regenerating them is a deliberate act on hash-verified
     # evidence and is tracked separately.
-    assert candidate["result"]["total_co2eq_kg"] == 4748.95
+    assert candidate["result"]["total_co2eq_kg"] == 3798.38
     assert species_path.read_bytes() == original_species
     assert loaded_roots and loaded_roots[0] != ml_root
     assert not loaded_roots[0].exists()

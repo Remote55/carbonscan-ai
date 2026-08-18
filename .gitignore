@@ -146,3 +146,7 @@ apps/web/blob-report/
 # An npm lockfile here is 15k lines of noise that tells the next person the
 # wrong thing about how to install.
 package-lock.json
+
+# Reference documents fetched from their publisher rather than mirrored;
+# see services/ml/data/reference/README.md for why.
+services/ml/data/reference/TGO_*

@@ -142,6 +142,11 @@ EXPECTED_SECTIONS: dict[str, dict[str, Any]] = {
         "expected_trees": 10,
         "concatenation_order": ["wood", "leaf"],
     },
+    # NOTE: the licence and DOI deliberately do NOT live here. This dict is the
+    # frozen contract that protocol.json is validated against field for field,
+    # and protocol.json is hash-pinned by the sealed independent evaluation, so
+    # adding a key here invalidates that evidence. The Demol record is CC BY 4.0
+    # (10.5281/zenodo.4557401) and that is recorded in docs/ml/DATASETS.md.
     "demol": {
         "record_id": 4557401,
         "expected_trees": 65,

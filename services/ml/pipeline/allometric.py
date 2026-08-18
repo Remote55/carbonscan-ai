@@ -38,12 +38,26 @@ CHAVE_2014_EXPONENT = 0.976
 DEFAULT_CARBON_FRACTION = 0.47
 DEFAULT_ROOT_TO_SHOOT_TROPICAL = 0.24
 # Used only when the species is unknown, which on the production path is always:
-# nothing supplies a species to process_points. Roughly the pantropical mean in
-# the Global Wood Density Database; it is a stand-in for a measurement, and a
-# tree costed with it carries that in its `source`. Measured against the Demol
-# destructive cohort, whose true mean is 508, this default is the largest single
-# source of carbon error - see docs/superpowers/specs/2026-08-09-*.
-DEFAULT_WOOD_DENSITY_TROPICAL = 600.0
+# nothing supplies a species to process_points. It is a stand-in for a
+# measurement, and a tree costed with it carries that in its `source`.
+#
+# This was 600, described as roughly the pantropical mean of the Global Wood
+# Density Database, with no citation. 570 is the mean basic density of the 428
+# tropical Asian species in Reyes et al. 1992 (SE 0.007), which is a sourced
+# number and the right continent for a Thai product. The same table gives 0.60
+# for tropical America and 0.50 for tropical Africa, so "pantropical" spans a
+# 20% range and picking the middle of it was costing about 5% on every tree.
+#
+# It is a mean over species, not over a forest: it weights a rare ironwood the
+# same as a common softwood, and no plot here is a random draw from 428 species.
+# Against the Demol cohort, whose measured basic mean is 508, it still reads
+# 12% high, and those are temperate trees this figure does not claim to cover.
+DEFAULT_WOOD_DENSITY_TROPICAL = 570.0
+#: Reyes et al. 1992, table 2, tropical Asia. Kept beside the value so a reader
+#: can see the spread the single number is standing in for.
+TROPICAL_ASIA_DENSITY_MEAN = 570.0
+TROPICAL_ASIA_DENSITY_SE = 7.0
+TROPICAL_ASIA_DENSITY_N_SPECIES = 428
 
 # Wood density is never measured by this pipeline, and Chave is close to linear
 # in it, so it passes almost undiminished into the carbon figure. These bounds
@@ -53,9 +67,53 @@ DEFAULT_WOOD_DENSITY_TROPICAL = 600.0
 # - remarkably steady across all five, 3.4% to 6.7% - so two sigma is ±10%.
 # Unknown species: the spread is *between* species, not within one. 400-800
 # spans the observed density of every species we have data for (Demol 397-632,
-# species_db 580-850) around the 600 default.
+# species_db 525-693) and matches the 0.4-0.8 classes that hold most of the 428
+# tropical Asian species in Reyes et al. 1992.
 WOOD_DENSITY_SPREAD_KNOWN_SPECIES = 0.10
 DEFAULT_WOOD_DENSITY_RANGE = (400.0, 800.0)
+
+# Air-dry at 12% moisture -> basic (ovendry mass / green volume).
+#
+# Chave 2014 takes basic specific gravity. Timber tables almost universally
+# publish air-dry density at 12% moisture content, which is the larger number,
+# and every density this project shipped until 2026-08-14 was one of those:
+# teak at 660 against a measured 0.50-0.55, Dipterocarpus at 720 against a genus
+# range of 0.52-0.62, Hevea at 580 against a measured 0.53.
+#
+# Reyes et al. 1992 hit the same problem building a tropical density table -
+# "most of the data for these regions were in lb/ft3 volume at 12-percent
+# moisture" - and regressed one on the other using Chudnoff (1984), 379 trees,
+# r2 = 0.988. Their table marks converted values with an asterisk.
+#
+# Applied to the values this project shipped, it lands inside the independently
+# measured range every time it can be checked: teak 660 -> 541 against direct
+# measurements of 0.50 and 0.55, Dipterocarpus 720 -> 589 against a genus range
+# of 0.52-0.62. Two routes, same answer, which is why the air-dry diagnosis is
+# recorded here as established rather than suspected.
+REYES_1992_BASIC_INTERCEPT = 0.0134
+REYES_1992_BASIC_SLOPE = 0.800
+
+
+def basic_density_from_air_dry(air_dry_kg_m3: float) -> float:
+    """Convert air-dry density at 12% moisture to basic density, in kg/m3.
+
+    Reyes, Brown, Chapman and Lugo 1992, "Wood densities of tropical tree
+    species", USDA Forest Service General Technical Report SO-88, page 2.
+    Public domain; a copy is in data/reference/.
+
+    Args:
+        air_dry_kg_m3: density at 12% moisture content, kg/m3.
+
+    Returns:
+        Basic specific gravity expressed as kg/m3, the quantity Chave 2014
+        takes.
+
+    Raises:
+        ValueError: if the input is not a positive, finite density.
+    """
+    if not math.isfinite(air_dry_kg_m3) or air_dry_kg_m3 <= 0:
+        raise ValueError(f"air-dry density must be positive and finite, got {air_dry_kg_m3}")
+    return (REYES_1992_BASIC_INTERCEPT + REYES_1992_BASIC_SLOPE * air_dry_kg_m3 / 1000.0) * 1000.0
 
 # ⚠️ WHAT THIS RANGE IS NOT
 #
@@ -478,18 +536,33 @@ def calculate_carbon(
             rho_high = wood_density * (1.0 + spread)
             # The ±10% is within-species variation, so it is centred on the
             # table value and says nothing about whether that value is the right
-            # quantity. When the row is unverified, the centre itself is in
-            # question and the reader has to be told — for teak the reference
-            # basic density, 600, sits at the very bottom edge of 594-726.
+            # quantity. Three rows now carry a measured basic density out of
+            # Reyes et al. 1992 and are centred on something real. The other two
+            # were converted from an air-dry figure that itself has no source,
+            # so the basis is right and the centre is still a guess, and the
+            # reader has to be told which kind they are holding.
             density_caveat = (
                 ""
                 if species.density_verified
-                else " — ค่าความหนาแน่นนี้ยังไม่มีแหล่งอ้างอิงที่ตรวจสอบแล้ว "
-                "และอาจเป็นค่า air-dry ซึ่งสูงกว่าค่า basic ที่สมการต้องการ"
+                else " — ค่าความหนาแน่นนี้แปลงหน่วยถูกต้องแล้ว "
+                "แต่ค่าตั้งต้นยังไม่มีแหล่งอ้างอิงที่ตรวจสอบได้"
+            )
+            # Chave 2014 is a pantropical model for TREES. Bamboo is a grass: a
+            # hollow culm with no secondary growth, no taper like a bole and no
+            # entry in any of the wood density tables consulted here. The figure
+            # is produced because refusing one of five listed target species
+            # would be a larger change than this evidence asks for, but it is
+            # not a biomass estimate in the sense the other four are.
+            domain_caveat = (
+                " — ⚠️ ไผ่เป็นพืชตระกูลหญ้า ไม่ใช่ไม้ยืนต้น "
+                "สมการ Chave 2014 ไม่ครอบคลุม ตัวเลขนี้ใช้อ้างอิงคร่าว ๆ เท่านั้น"
+                if species.name_sci.startswith("Bambusa")
+                else ""
             )
             basis = (
                 f"ความหนาแน่นไม้ {rho_low:.0f}-{rho_high:.0f} kg/m³ "
-                f"(±{spread:.0%} รอบค่าของ {species.name_th}){density_caveat}; "
+                f"(±{spread:.0%} รอบค่าของ {species.name_th}){density_caveat}"
+                f"{domain_caveat}; "
                 f"{CARBON_VALIDATION_NOTE}; {DBH_BIAS_NOTE}"
             )
         else:

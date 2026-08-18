@@ -24,7 +24,10 @@ knowing on its own. Measuring the same 21 trees at each budget:
 | 200,000 | −0.809 cm | 1.026 cm |
 
 Ten times the points moves the bias by 0.03 cm. Whatever this is, resolution
-does not touch it.
+does not touch it — and the Zenodo record says why. The released clouds were
+"downsampled to a point spacing of 10 or 15 mm" before publication, so the limit
+is the spacing, not the count. Raising the budget draws more points from the
+same grid.
 
 A twenty-second tree, LXDC04, is left out of that table: at 20,000 points it
 returned 118 cm against a taped 23.6, and at 60,000 and 200,000 it returned
@@ -73,14 +76,15 @@ no fissures — shows almost no gap at all.
 ## The control that confirms it
 
 The cohort's authors published their own QSM-derived DBH for these trees in the
-same CSV (`qsm_DBHqsm`). It is an independent implementation, run by different
-people on the same point clouds and checked against the same tape. If the
-under-read were a flaw in this repository's circle fit, that column would not
-show it.
+same CSV (`qsm_DBHqsm`). The Zenodo record names what produced it: **TreeQSM
+v2.3** — not a bespoke script, but the reference implementation of quantitative
+structure modelling, run by different people on the same point clouds and
+checked against the same tape. If the under-read were a flaw in this
+repository's circle fit, that column would not show it.
 
 It shows it, in the same order, slightly larger:
 
-| species | Demol et al. QSM | TreeQ |
+| species | TreeQSM v2.3 | TreeQ |
 |---|---:|---:|
 | *Pinus sylvestris* | −4.40% | −4.06% |
 | *Larix decidua* | −4.17% | −2.33% |
@@ -99,18 +103,18 @@ Same 65 trees, same taped ground truth:
 
 | | MAE | bias | RMSE | worst |
 |---|---:|---:|---:|---:|
-| Demol et al. QSM | 1.095 cm | −0.961 cm | 1.593 | 8.17 cm |
+| TreeQSM v2.3 (Demol et al.) | 1.095 cm | −0.961 cm | 1.593 | 8.17 cm |
 | **TreeQ** | **0.898 cm** | **−0.798 cm** | **1.211** | **3.95 cm** |
 
 TreeQ is closer to the tape on 42 of the 65 trees and better on every summary
 statistic here.
 
-This is not a controlled A/B — their number comes from their own processing of
-these clouds, at whatever resolution and settings they used, and this repository
-cannot reproduce their run. It is a comparison against a published reference
-figure, which is a weaker claim than a matched experiment and still a meaningful
-one: the reference is what a reader would otherwise take as the accuracy
-attainable on this data.
+This is not a controlled A/B — their number comes from their own TreeQSM v2.3
+run at settings this repository cannot reproduce, and the dataset ships the
+optimal QSMs rather than the parameters that selected them. It is a comparison
+against a published reference figure, which is a weaker claim than a matched
+experiment and still a meaningful one: TreeQSM is what a reader would otherwise
+take as the accuracy attainable on this data.
 
 ## What follows for the product
 

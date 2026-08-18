@@ -89,7 +89,20 @@ class TestNumbers:
     def test_the_divergence_this_gate_exists_for_is_real(self) -> None:
         """Guards the premise rather than the fix: if someone corrects the
         coefficients and they stop disagreeing with Chave, this test fails and
-        whoever did the work is told to revisit the gate."""
+        whoever did the work is told to revisit the gate.
+
+        It used to assert four diverging rows with teak explicitly excluded,
+        because teak tracked Chave to within 8% and that looked like evidence
+        the teak row was fine. It was not. Teak's density was an air-dry 660,
+        which inflated its Chave value by about 20% -- just enough to meet a
+        mis-transcribed equation coming the other way. Correcting the density to
+        a measured basic 525 (docs/ml/WOOD_DENSITY_PROVENANCE.md) separates them
+        again and teak diverges like the rest.
+
+        Two wrong numbers agreeing is not agreement, and it is worth knowing
+        that this suite read one as a clean bill of health for a whole year of
+        commits.
+        """
         db = load_species_db()
         diverging = []
         for name, sp in db.items():
@@ -101,8 +114,12 @@ class TestNumbers:
             if max(ratios) > 1.15:
                 diverging.append(name)
 
-        assert len(diverging) == 4, f"expected four diverging species, got {diverging}"
-        assert "Tectona grandis" not in diverging
+        assert sorted(diverging) == sorted(db), (
+            f"only {diverging} diverge from Chave now. Every row is a "
+            "mis-transcription of a T-VER forest-type stem equation "
+            "(docs/ml/ALLOMETRIC_COEFFICIENTS.md), so a row that stopped "
+            "diverging has either been corrected or had its density moved"
+        )
 
 
 class TestVerifiedSpeciesStillWork:

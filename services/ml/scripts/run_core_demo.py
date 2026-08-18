@@ -119,13 +119,70 @@ def run_core_demo(output_dir: str | Path, repo_root: str | Path) -> dict[str, An
     return summary
 
 
+#: Fields of validation.core_demo that a fresh run reproduces, and where each
+#: one comes from in the run's own evidence.json.
+MANIFEST_CHECKED_FIELDS = {
+    "total_trees": ("results", "total_trees"),
+    "total_carbon_kg": ("results", "total_carbon_kg"),
+    "total_co2eq_kg": ("results", "total_co2eq_kg"),
+    "input_sha256": ("run", "input_sha256"),
+    "pipeline_version": ("run", "pipeline_version"),
+}
+
+
+def check_against_manifest(evidence: dict[str, Any], manifest_path: Path) -> list[str]:
+    """Compare a completed run against the figures the manifest publishes.
+
+    `sync_truth.py` validates that core_demo.total_carbon_kg is a positive
+    number and stops there, so the block could describe any pipeline at all. It
+    described one from three releases back: on 2026-08-14 the manifest carried
+    pipeline_version 0.3.0, an analyzed_commit from long before, and totals 1.9%
+    away from what the code produced, with every check green.
+
+    That is the same defect docs/ml/DEMOL_EVIDENCE_CHAIN.md records for the
+    accuracy figures, and it is easier to close here: the core demo is a
+    synthetic plot with a fixed seed, so unlike the Demol cohort it runs on CI
+    and this comparison can be enforced on every push.
+
+    Returns:
+        A list of human-readable disagreements; empty when the manifest is
+        current.
+    """
+    published = json.loads(manifest_path.read_text(encoding="utf-8"))["core_demo"]
+    problems = []
+    for field, (section, key) in MANIFEST_CHECKED_FIELDS.items():
+        produced = evidence[section][key]
+        if published.get(field) != produced:
+            problems.append(f"{field}: manifest {published.get(field)!r}, run {produced!r}")
+    return problems
+
+
 @click.command()
 @click.option("--output-dir", required=True, type=click.Path(path_type=Path))
 @click.option("--repo-root", default="../..", type=click.Path(path_type=Path))
-def cli(output_dir: Path, repo_root: Path) -> None:
+@click.option(
+    "--manifest",
+    type=click.Path(path_type=Path, exists=True),
+    help="fail if the published core_demo block no longer matches this run",
+)
+def cli(output_dir: Path, repo_root: Path, manifest: Path | None) -> None:
     """Run the deterministic baseline and print an ASCII-safe JSON summary."""
     summary = run_core_demo(output_dir, repo_root)
     click.echo(json.dumps(summary, sort_keys=True))
+
+    if manifest is None:
+        return
+    evidence = json.loads((output_dir / "evidence.json").read_text(encoding="utf-8"))
+    problems = check_against_manifest(evidence, manifest)
+    if problems:
+        for problem in problems:
+            click.echo(f"core_demo is stale -- {problem}", err=True)
+        click.echo(
+            "Re-derive it: run this without --manifest from a clean worktree and "
+            "copy the run's figures into docs/evidence/core_demo_manifest.json.",
+            err=True,
+        )
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
