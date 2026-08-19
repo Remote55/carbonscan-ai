@@ -951,6 +951,40 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
       says so on every bamboo tree.
 
       docs/ml/WOOD_DENSITY_PROVENANCE.md; tests/test_density_provenance.py.
+    - allometric.py gains an opt-in route to Thailand's own methodology, and no
+      existing caller's number moves.
+
+      calculate_carbon(..., forest_type=...) costs a tree with T-VER-S-TOOL-
+      01-01 v2 Appendix 2 Table 2 - the equation for the forest it stands in,
+      summing stem, branch and leaf - instead of Chave. Default is None and
+      Chave stays the production model, because T-VER has not been checked
+      against a tree this pipeline measured either.
+
+      pipeline/tver.py carries all seven forest types as published.
+      tests/test_tver.py transcribes them a second time from the table rather
+      than asserting what the module returns, because a test that asks the code
+      what the code says would have passed for species_db.csv too.
+
+      Two things worth knowing came out of transcribing it.
+
+      The first version of ALLOMETRIC_COEFFICIENTS.md, written the same day from
+      a partial reading, put 0.0509 under ป่าดิบชื้น. It is ป่าดิบแล้ง/ป่าดิบเขา.
+      Two Ogawa rows share a stem coefficient of 0.0396 and differ in every
+      exponent, which is the same confusion that put a real published
+      coefficient into a species_db row it does not belong to. Corrected in the
+      document and in agb_source.
+
+      And one row of the national methodology is not physically possible.
+      ป่าสนเขา (สนสองใบ) carries WS = 0.2141 (D2H)^0.9814 where its three-needle
+      sibling carries 0.02698. On a 30 cm, 20 m tree it predicts 3258 kg against
+      1414 kg for a solid cylinder of wood denser than lignum vitae - 2.3x, at
+      every size tested. tver.py reports it as published, because a national
+      methodology is not this repository's to silently correct; calculate_carbon
+      refuses to cost a tree with it.
+
+      That bound is deliberately not the qsm.TOTAL_TREE_FORM_FACTOR ceiling used
+      for species equations. 0.587 was measured on 65 Belgian temperate trees
+      and flags Chave itself. A solid cylinder of ironwood is physics.
     """
     from pipeline import (
         allometric,
@@ -981,7 +1015,7 @@ def test_default_pipeline_file_and_tlsep_default_are_unchanged():
             "ee9cf7e55c930094af4b37584518a4a1de338201e5cb3591c8e9281e82ee0431"
         ),
         qsm: "9e3e1d025088be81c968a9ca5127de235e5a1c99ebd59319bc2e80272cbb5e9d",
-        allometric: "fb4535acabc48928ac55b4f288d4e5539fb9bee4a3ec411a2b3b92ac70651a6b",
+        allometric: "1b5a3ec703e1cb0d5276086eaeef443b235b71d0fc94ac93cf6ea311880cf726",
         main: "8531dcb526dfa910d814dba3e5bd274fc5fe0aab80c14122e87742c11dcafd79",
     }
     for module, pinned in expected.items():

@@ -2,7 +2,10 @@
 
 Reference: Chave et al. 2014 — pantropical biomass model (Global Change Biology)
 Reference: IPCC 2006 — Vol. 4 (AFOLU) carbon fraction defaults
-Reference: TGO 2017 — Forestry Sector GHG Calculation Guideline (Thailand)
+Reference: TGO, T-VER-S-TOOL-01-01 Version 02 (26 March 2025) — Thailand's
+    official tree carbon methodology. Its equations live in pipeline/tver.py,
+    which is where the species coefficients below were transcribed from,
+    incorrectly. See docs/ml/ALLOMETRIC_COEFFICIENTS.md.
 
 Formulas:
     AGB (kg) = a × DBH^b × H^c        (species-specific, Tier 2/3)
@@ -14,9 +17,12 @@ Formulas:
     Carbon (kg C) = Biomass × C_fraction (default 0.47, IPCC 2006)
     CO2eq (kg) = Carbon × (44/12)         (molar mass ratio)
 
-⚠️ Coefficients in this file are sourced from peer-reviewed literature
-   (Tsutsumi, Ogawa, Chave, ICRAF, IPCC). Before final NSC submission,
-   verify all values against the official TGO 2017 Forestry Guideline PDF.
+⚠️ The species coefficients in species_db.csv were verified against the TGO
+   methodology on 2026-08-14 and do not survive it: they are forest-type
+   STEM coefficients with exponents that are not the published ones, used as
+   whole-tree biomass. Every row is gated off and every tree is costed with
+   Chave. The wood densities beside them were air-dry where Chave takes basic,
+   and have been corrected — docs/ml/WOOD_DENSITY_PROVENANCE.md.
 """
 
 from __future__ import annotations
@@ -422,6 +428,7 @@ def calculate_carbon(
     *,
     prefer_method: str = "auto",
     volume_m3: float | None = None,
+    forest_type: str | None = None,
 ) -> CarbonResult:
     """Compute biomass + carbon + CO2 equivalent for one tree.
 
@@ -436,9 +443,21 @@ def calculate_carbon(
             one. Costs the tree a second way — volume x density — and reports
             it alongside. See CarbonResult.co2eq_volume_route_kg for why that
             second number is worth carrying.
+        forest_type: a key of pipeline.tver.FOREST_TYPES. Costs the tree with
+            Thailand's official methodology instead of Chave — the equation for
+            the forest it stands in, summing stem, branch and leaf. Opt-in and
+            never the default: T-VER has not been checked against a tree this
+            pipeline measured, and changing the number the product reports is a
+            decision with evidence attached.
 
     Returns:
         CarbonResult with all values.
+
+    Raises:
+        ValueError: on a non-positive dimension, on prefer_method
+            'species_specific' without species data, or on a forest type whose
+            published equation is not physically possible.
+        KeyError: on an unknown forest type.
     """
     if dbh_cm <= 0:
         raise ValueError(f"DBH must be positive, got {dbh_cm}")
@@ -457,26 +476,34 @@ def calculate_carbon(
     # actually have.
     #
     # This comment used to say the four disagreeing rows had "the shape of a
-    # unit error". Measuring it says otherwise, in two ways. A unit error is a
-    # factor of 1000, and these are 2.3x-3.3x. And it is not four of five in the
-    # same direction: teak lands at 1.07 of the physical ceiling and tracks
-    # Chave to within 8% across the whole diameter range, so whatever is wrong
-    # with the other four did not happen to it.
+    # unit error". Measuring it says otherwise: a unit error is a factor of
+    # 1000, and these are 2.3x-3.3x.
     #
-    # What IS established is harder than a disagreement: Afzelia, Bambusa,
-    # Dipterocarpus and Hevea each predict more mass than the tree's whole
-    # volume times the density of its own wood - see
-    # species_equation_is_physically_possible. The ceiling used there is if
-    # anything too generous, since it is computed from densities that look
-    # air-dry, so the violation is understated.
+    # It also used to say teak was the exception - 1.07 of the ceiling, within
+    # 8% of Chave - and read that as evidence the teak row was sound. It was
+    # not. Teak's density was an air-dry 660, which inflated its Chave value by
+    # about 20%, just enough to meet a wrong equation coming the other way. At
+    # the measured basic 525 all five rows diverge. Two wrong numbers agreeing
+    # is not agreement.
+    #
+    # The source of all five is now known: they are T-VER forest-type stem
+    # coefficients with the wrong exponents attached and WS used as whole-tree
+    # biomass. pipeline/tver.py has the table as published.
+    #
+    # What IS established is harder than a disagreement: every row predicts
+    # more mass than the tree's whole volume times the density of its own wood
+    # - see species_equation_is_physically_possible. That ceiling is now
+    # computed from sourced basic densities rather than air-dry guesses, so the
+    # violation is measured rather than understated.
     #
     # This comment used to end "...and the density is the one parameter here we
     # do have grounds for." That was wrong, and in the more embarrassing
     # direction: the coefficients at least carry a citation and are gated on it,
     # while the densities beside them carried neither a source nor a stated
-    # basis and were used unconditionally. See SpeciesParams.density_basis —
-    # the one row with any evidence, teak, looks like an air-dry figure where
-    # Chave wants a basic one.
+    # basis and were used unconditionally. Three of the five now carry a
+    # measured basic density out of Reyes et al. 1992, while the coefficients
+    # beside them still cite a table they were transcribed out of incorrectly.
+    # See docs/ml/WOOD_DENSITY_PROVENANCE.md.
     # The physical check is deliberately not conditional on the flag. species_db
     # is data: it ships inside the Docker image and an operator can edit a row
     # to `yes` without touching code, so it never passes through CI. The flag
@@ -489,7 +516,27 @@ def calculate_carbon(
         and species_equation_is_physically_possible(species)
     )
 
-    if usable_species_equation and prefer_method != "chave_pantropical":
+    if forest_type is not None:
+        # Thailand's own method, opted into explicitly. It takes no density -
+        # the equations are fitted on D and H alone - so wood_density below is
+        # reported for the volume cross-check and does not enter this AGB.
+        from pipeline import tver
+
+        if tver.implausible_sizes(forest_type, ((dbh_cm, height_m),)):
+            # One published row predicts more than twice the mass of a solid
+            # cylinder of ironwood, at every size. Reporting it as published in
+            # tver.py is right; costing a customer's tree with it is not.
+            raise ValueError(
+                f"T-VER forest type {forest_type!r} predicts more mass than "
+                f"solid wood at DBH {dbh_cm} cm, H {height_m} m — see "
+                "docs/ml/ALLOMETRIC_COEFFICIENTS.md"
+            )
+        biomass_parts = tver.aboveground_biomass(forest_type, dbh_cm, height_m)
+        method = "tver_forest_type"
+        agb = biomass_parts.total_kg
+        wood_density = species.wood_density if species else DEFAULT_WOOD_DENSITY_TROPICAL
+        source = f"{tver.FOREST_TYPES[forest_type].name_th} — {tver.FOREST_TYPES[forest_type].source}"
+    elif usable_species_equation and prefer_method != "chave_pantropical":
         method = "species_specific"
         agb = calculate_agb_species_specific(dbh_cm, height_m, species)
         wood_density = species.wood_density
@@ -520,7 +567,19 @@ def calculate_carbon(
     def _to_co2eq(above_ground_kg: float) -> float:
         return above_ground_kg * (1.0 + root_ratio) * c_frac * CO2_PER_CARBON
 
-    if method == "species_specific":
+    if method == "tver_forest_type":
+        # The T-VER equations are fitted on D and H alone, so there is no
+        # density to propagate here either, and the methodology publishes no
+        # interval with them. Collapsing and saying so beats a ±0 that reads as
+        # precision, and beats a density band around a number density never
+        # touched.
+        co2eq_low = co2eq_high = co2eq
+        basis = (
+            f"สมการตามชนิดป่าของ อบก. ({source}) — "
+            "ไม่มีช่วงความไม่แน่นอนกำกับในระเบียบวิธี; "
+            f"{DBH_BIAS_NOTE}"
+        )
+    elif method == "species_specific":
         # a·DBH^b·H^c does not take a density, so there is nothing to propagate.
         # The equation's own uncertainty is unknown to us, and reporting ±0
         # would read as precision, so the bounds collapse and say why.
