@@ -43,11 +43,11 @@ export const CORE_DEMO_EVIDENCE = {
   },
   coreDemo: {
     reproducible: true,
-    analyzedCommit: "b6fe198f3de5c227c1adc7f1a481fc809339959f",
-    pipelineVersion: "0.3.0",
+    analyzedCommit: "8cf3058c1f618b5ec0cac7fb5cd9fa3feea40e67",
+    pipelineVersion: "0.4.0",
     backend: "tlsep",
     totalTrees: 3,
-    totalCarbonKg: 1320.39,
-    totalCo2eqKg: 4841.48,
+    totalCarbonKg: 1036.09,
+    totalCo2eqKg: 3798.99,
   },
 } as const;

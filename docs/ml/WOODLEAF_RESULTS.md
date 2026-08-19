@@ -16,7 +16,7 @@
 - Demol isolated-tree validation (65 trees): DBH MAE `0.898318 cm`; Volume MAPE `11.520556%`. This is not an eight-stage or carbon validation.
 - Independent PointNet review: verdict `FAIL_METRICS`; candidate/baseline external macro Wood IoU `0.23728726507501768`/`0.1958779956856453`.
 - Independent downstream candidate/baseline: DBH MAE `1.1591405814498605`/`1.1339476465903928` cm; Height MAE `0.9508502244897976`/`0.5433234000000015` m; Volume MAPE `21.74924193798788`/`18.928262273343613`%; measurable trees `49`/`65`.
-- Deterministic core demo: `3` trees, `1320.39 kg C`, `4841.48 kg CO2e`; analyzed commit `b6fe198f3de5` with a clean worktree.
+- Deterministic core demo: `3` trees, `1036.09 kg C`, `3798.99 kg CO2e`; analyzed commit `8cf3058c1f61` with a clean worktree.
 - Species classification: **Stub**. Carbon stock/CO2e estimates are not certified credits.
 <!-- TREEQ_TRUTH_END -->
 

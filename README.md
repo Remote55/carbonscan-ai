@@ -103,8 +103,8 @@ Gate ทำงานแบบ fail-closed ใน `services/ml/pipeline/provenanc
 
 ## Deterministic core demo
 
-Reviewed run ที่ commit `b6fe198f3de5c227c1adc7f1a481fc809339959f` ใช้ clean worktree,
-synthetic seed 42 และ `tlsep` ได้ 3 ต้น, 1320.39 kg C และ 4841.48 kg CO₂e
+Reviewed run ที่ commit `8cf3058c1f618b5ec0cac7fb5cd9fa3feea40e67` ใช้ clean worktree,
+synthetic seed 42 และ `tlsep` ได้ 3 ต้น, 1036.09 kg C และ 3798.99 kg CO₂e
 ตัวเลขนี้ใช้ยืนยัน reproducibility เท่านั้น ไม่ใช่ accuracy benchmark
 
 ```powershell

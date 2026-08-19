@@ -617,3 +617,61 @@ def test_nothing_still_refers_to_the_deleted_mobile_app():
     """
     for path in (Path(".github/workflows/ci-mobile.yml"), Path("apps/mobile")):
         assert not path.exists(), f"{path} is back; the guard it needs is not"
+
+
+CORE_DEMO_PROSE_DOCS = (Path("README.md"), Path("docs/PROJECT_SPEC.md"))
+
+#: "1036.09 kg C" / "3798.99 kg CO₂e", written into a sentence by hand rather
+#: than generated into a TREEQ_TRUTH block.
+_CARBON_IN_PROSE = re.compile(r"(\d+\.\d{2})\s*kg\s*C(?![O₂a-zA-Z])")
+_CO2E_IN_PROSE = re.compile(r"(\d+\.\d{2})\s*kg\s*CO(?:₂|2)e")
+
+
+def test_core_demo_figures_quoted_in_prose_match_the_manifest():
+    """sync_truth regenerates what lives inside TREEQ_TRUTH markers. It cannot
+    touch a number an author typed into a sentence next to them.
+
+    Both of these documents carried 1320.39 kg C and 4841.48 kg CO2e for as long
+    as the manifest did, and would have kept carrying them after the manifest
+    was corrected on 2026-08-14. The manifest figures were three releases stale;
+    the prose copies were stale twice over, and nothing in the repository looked
+    at them. A number is only as checked as its least-checked copy.
+    """
+    root = Path(__file__).resolve().parents[2]
+    manifest = json.loads(
+        (root / "docs/evidence/core_demo_manifest.json").read_text(encoding="utf-8")
+    )["core_demo"]
+
+    for relative in CORE_DEMO_PROSE_DOCS:
+        prose = (root / relative).read_text(encoding="utf-8")
+        for pattern, field in (
+            (_CARBON_IN_PROSE, "total_carbon_kg"),
+            (_CO2E_IN_PROSE, "total_co2eq_kg"),
+        ):
+            for quoted in pattern.findall(prose):
+                assert float(quoted) == manifest[field], (
+                    f"{relative} quotes {quoted} for {field}, and the manifest "
+                    f"says {manifest[field]}. Re-derive with "
+                    "services/ml/scripts/run_core_demo.py and fix the sentence; "
+                    "sync_truth only regenerates what is inside the markers"
+                )
+
+
+@pytest.mark.parametrize("relative", CORE_DEMO_PROSE_DOCS, ids=str)
+def test_that_check_actually_looks_at_something(relative: Path):
+    """A scan that matches nothing passes forever.
+
+    Per document rather than in total. A single count across both files was the
+    first version, and it survived deleting both figures from README.md, because
+    PROJECT_SPEC.md quotes them twice over and kept the total above the
+    threshold. A guard against vacuousness that is itself vacuous for one of the
+    two files it guards is not much of one.
+    """
+    prose = (Path(__file__).resolve().parents[2] / relative).read_text(encoding="utf-8")
+
+    for pattern, label in ((_CARBON_IN_PROSE, "kg C"), (_CO2E_IN_PROSE, "kg CO2e")):
+        assert pattern.findall(prose), (
+            f"{relative} no longer quotes a core-demo figure in '{label}', so "
+            "the check above stopped looking at it. Either the document changed "
+            "shape or the pattern did"
+        )
