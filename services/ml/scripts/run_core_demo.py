@@ -125,9 +125,26 @@ MANIFEST_CHECKED_FIELDS = {
     "total_trees": ("results", "total_trees"),
     "total_carbon_kg": ("results", "total_carbon_kg"),
     "total_co2eq_kg": ("results", "total_co2eq_kg"),
-    "input_sha256": ("run", "input_sha256"),
     "pipeline_version": ("run", "pipeline_version"),
 }
+
+#: Recorded in the manifest, deliberately not compared here, with the reason.
+#:
+#: input_sha256 hashes the raw float64 bytes of the generated plot. The first
+#: CI run of this check caught it disagreeing -- 5ca1abb9 on Windows against
+#: acf893e1 on Linux -- with identical numpy 2.4.6, identical Python, identical
+#: seed, and identical results downstream. pipeline/synthetic.py builds every
+#: coordinate out of np.sin and np.cos, and numpy dispatches those to different
+#: SIMD kernels on different platforms and CPU feature sets. The values agree to
+#: about fifteen significant digits, which is why total_carbon_kg and the tree
+#: counts match exactly; the last bit does not, which is all a byte hash reads.
+#:
+#: So the hash is a within-machine determinism check -- two runs of this script
+#: agreeing, which run_core_demo already asserts -- and not a cross-machine
+#: invariant. It stays in the manifest as provenance for the run that produced
+#: it. Comparing it across platforms would fail forever for a reason that has
+#: nothing to do with the measurement.
+MANIFEST_PER_MACHINE_FIELDS = ("input_sha256", "normalized_result_sha256", "segmented_ply_sha256")
 
 
 def check_against_manifest(evidence: dict[str, Any], manifest_path: Path) -> list[str]:

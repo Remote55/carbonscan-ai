@@ -106,6 +106,26 @@ class TestThePublishedDemoFiguresAreStillCurrent:
 
         assert len(problems) == 1 and "pipeline_version" in problems[0]
 
+    def test_the_per_machine_hashes_are_excluded_on_purpose(self, tmp_path):
+        """input_sha256 disagreed between Windows and Linux on this check's very
+        first CI run, with the same numpy, seed and results. synthetic.py builds
+        coordinates out of np.sin and np.cos, and numpy dispatches those to
+        different SIMD kernels per platform, so the values agree to fifteen
+        digits and the bytes do not.
+
+        The field stays in the manifest as provenance. Comparing it here would
+        fail forever for a reason unrelated to the measurement, and this test
+        exists so that re-adding it is a decision rather than an oversight.
+        """
+        from scripts.run_core_demo import MANIFEST_CHECKED_FIELDS, MANIFEST_PER_MACHINE_FIELDS
+
+        overlap = set(MANIFEST_CHECKED_FIELDS) & set(MANIFEST_PER_MACHINE_FIELDS)
+
+        assert not overlap, (
+            f"{sorted(overlap)} is compared across machines and cannot be. "
+            "Read the comment beside MANIFEST_PER_MACHINE_FIELDS first"
+        )
+
     def test_every_published_field_is_compared(self, tmp_path):
         """A block is only as current as its least-checked number."""
         from scripts.run_core_demo import MANIFEST_CHECKED_FIELDS, check_against_manifest
@@ -118,9 +138,11 @@ class TestThePublishedDemoFiguresAreStillCurrent:
 
     def test_a_missing_field_counts_as_a_disagreement(self, tmp_path):
         """Deleting the number is not a way to make it current."""
-        from scripts.run_core_demo import check_against_manifest
+        from scripts.run_core_demo import MANIFEST_CHECKED_FIELDS, check_against_manifest
 
         path = tmp_path / "manifest.json"
         path.write_text(json.dumps({"core_demo": {"total_trees": 3}}), encoding="utf-8")
 
-        assert len(check_against_manifest(self._evidence(), path)) == 4
+        assert len(check_against_manifest(self._evidence(), path)) == (
+            len(MANIFEST_CHECKED_FIELDS) - 1
+        )

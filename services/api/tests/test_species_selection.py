@@ -30,7 +30,11 @@ class TestCatalogue:
         catalogue = species_catalogue.load_species()
         assert "Tectona grandis" in catalogue
         assert catalogue["Tectona grandis"].name_th == "สัก"
-        assert catalogue["Tectona grandis"].wood_density == 660
+        # 525, not the 660 this asserted until 2026-08-14. That was an air-dry
+        # density at 12% moisture; Chave takes basic specific gravity, and Reyes
+        # et al. 1992 measures Tectona grandis at 0.50 and 0.55 basic. See
+        # docs/ml/WOOD_DENSITY_PROVENANCE.md.
+        assert catalogue["Tectona grandis"].wood_density == 525
 
     def test_reports_that_no_equation_has_been_verified(self):
         """Naming a species buys its density, not its equation. If this ever
@@ -78,14 +82,28 @@ class TestListingEndpoint:
             "density_verified",
         }
 
-    async def test_no_row_claims_a_checked_density(self, client):
-        response = await client.get("/api/v1/upload/species")
+    async def test_the_picker_distinguishes_checked_densities_from_converted(self, client):
+        """This asserted that no row claims a verified density, which was true
+        while every value was an unsourced air-dry figure.
 
-        rows = response.json()["species"]
+        Three now carry a basic density measured in Reyes et al. 1992 and are
+        flagged; two were converted from an air-dry figure that itself has no
+        source, and are not. The flag has to keep separating those, because it is
+        what the picker shows a user deciding whether to trust a number.
+        """
+        rows = (await client.get("/api/v1/upload/species")).json()["species"]
+
         assert rows, "no species returned"
-        assert all(row["density_verified"] is False for row in rows), (
-            "a row claims a verified density; confirm the source is a basic "
-            "density before the picker presents it as one"
+        verified = {row["name_sci"] for row in rows if row["density_verified"]}
+        unverified = {row["name_sci"] for row in rows if not row["density_verified"]}
+
+        assert verified and unverified, (
+            f"every row now reports density_verified={bool(verified)}. If the "
+            "last two were sourced, update this test rather than deleting it"
+        )
+        assert unverified == {"Afzelia xylocarpa", "Bambusa spp."}, (
+            f"the unsourced rows are now {sorted(unverified)}; "
+            "docs/ml/WOOD_DENSITY_PROVENANCE.md says which two should be"
         )
 
     async def test_says_what_happens_if_you_do_not_choose(self, client):
