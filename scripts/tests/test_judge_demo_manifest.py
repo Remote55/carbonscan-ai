@@ -164,6 +164,22 @@ def write_candidate_artifacts(candidate: dict, candidate_dir: Path) -> None:
     )
 
 
+def _pipeline_input_file(repo_root: Path, relative: str) -> Path:
+    """The real file to create or modify for one PIPELINE_INPUT_PATHS entry.
+
+    Every current entry but `services/ml/pipeline` already names a file. That
+    one names a directory, which needs a file inside it to be a committable,
+    diffable path - `main.py`, matching the filename `valid_candidate()`
+    already declares under `source.tracked_files`. If a second directory
+    entry is ever added to the watched set, this is the one place that needs
+    to learn about it.
+    """
+    target = repo_root / relative
+    if relative == "services/ml/pipeline":
+        return target / "main.py"
+    return target
+
+
 def init_clean_repo_and_candidate(
     tmp_path: Path, *, autocrlf: bool = False
 ) -> tuple[Path, Path, dict, str]:
@@ -177,11 +193,9 @@ def init_clean_repo_and_candidate(
     # reporting no staleness. Commit minimal stand-ins so this fixture repo
     # satisfies that guard.
     for relative in judge_demo_manifest.PIPELINE_INPUT_PATHS:
-        target = repo_root / relative
-        if relative == "services/ml/pipeline":
-            target = target / "main.py"
+        target = _pipeline_input_file(repo_root, relative)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("# fixture stand-in\n", encoding="utf-8")
+        target.write_bytes(b"# fixture stand-in\n")
     subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
     if autocrlf:
         (repo_root / ".gitattributes").write_text(
@@ -505,6 +519,40 @@ def test_seal_finalize_and_check_preserve_analyzed_commit(
         check_manifest(repo_root)
 
 
+def test_check_manifest_rejects_a_watched_path_changed_after_finalize(
+    tmp_path, allow_independent_reproduction
+):
+    """The integration stale_pipeline_paths' own tests cannot reach.
+
+    Deleting the staleness block from check_manifest (the lines right after
+    _validate_public_manifest) leaves the rest of this suite green: every
+    other test either calls stale_pipeline_paths directly or never advances
+    HEAD past the analyzed commit, so nothing observes the call inside
+    check_manifest itself. This drives HEAD forward for real, after a full
+    seal and finalize, and checks check_manifest refuses the result - matching
+    wording unique to staleness rather than the "pipeline" match used above,
+    which is safe only because _validate_public_manifest happens to run first
+    in that test - and confirms the offending path is named.
+    """
+    repo_root, candidate_dir, _, _ = init_clean_repo_and_candidate(tmp_path)
+    seal_candidate(candidate_dir, repo_root, status="candidate")
+    backup_video = tmp_path / "judge-backup.mp4"
+    backup_video.write_bytes(b"video evidence")
+    finalize_manifest(backup_video, repo_root)
+    check_manifest(repo_root)  # current immediately after finalize
+
+    _pipeline_input_file(repo_root, "services/ml/pipeline").write_text(
+        "changed after finalize\n", encoding="utf-8"
+    )
+    _git_commit_all(repo_root, "change a watched pipeline file after finalize")
+
+    with pytest.raises(
+        ValueError, match=r"Published demo artefacts are stale"
+    ) as exc_info:
+        check_manifest(repo_root)
+    assert "services/ml/pipeline/main.py" in str(exc_info.value)
+
+
 def test_seal_rejects_repository_change_during_staging(
     tmp_path, monkeypatch, allow_independent_reproduction
 ):
@@ -700,9 +748,7 @@ def test_stale_pipeline_paths_reports_a_real_change_under_a_watched_path(tmp_pat
     """
     repo_root = tmp_path / "repo"
     for relative in judge_demo_manifest.PIPELINE_INPUT_PATHS:
-        target = repo_root / relative
-        if relative == "services/ml/pipeline":
-            target = target / "example.py"
+        target = _pipeline_input_file(repo_root, relative)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("original\n", encoding="utf-8")
     subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
@@ -715,13 +761,13 @@ def test_stale_pipeline_paths_reports_a_real_change_under_a_watched_path(tmp_pat
         check=True,
     ).stdout.strip()
 
-    (repo_root / "services/ml/pipeline/example.py").write_text(
+    _pipeline_input_file(repo_root, "services/ml/pipeline").write_text(
         "changed\n", encoding="utf-8"
     )
     _git_commit_all(repo_root, "change a watched pipeline file")
 
     assert judge_demo_manifest.stale_pipeline_paths(repo_root, analyzed_commit) == (
-        "services/ml/pipeline/example.py",
+        "services/ml/pipeline/main.py",
     )
 
 
