@@ -100,7 +100,7 @@ core demo พร้อม hashes/provenance, backend sync+async-job, web landing
 
 **หลักฐานที่ต้องพูดครบ:** PointNet++ = Experimental; Wan held-out Wood IoU `0.418`, Leaf IoU `0.808`,
 Mean IoU `0.613`, accuracy `0.831` และ held-out loader ถูกใช้เลือก best epoch ด้วย · Demol isolated-tree
-65 ต้น DBH MAE `1.1673846154 cm`, Height MAE `0.5446153846 m`, Volume MAPE `18.7650916186%`;
+65 ต้น DBH MAE `0.898318 cm`, Height MAE `0.543323 m`, Volume MAPE `11.520556%`;
 ผล Demol ไม่ใช่ full-pipeline/allometric/carbon validation
 
 **⚠️ ค้าง:**

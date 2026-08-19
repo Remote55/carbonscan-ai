@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,71 @@ DEMOL_PUBLISHED_FIELDS = (
 )
 
 DEMOL_RESULT_PATH = "docs/evidence/demol_65/result.json"
+
+#: Documents that quote accuracy figures in hand-written prose.
+#:
+#: The TREEQ_TRUTH block is regenerated from the manifest, so the numbers inside
+#: it are correct by construction. Everything outside it is typed by hand and
+#: drifts. docs/PROJECT_SPEC.md carried both at once: the derived 0.898318 at
+#: line 16 and the superseded 1.1673846154 at line 234.
+FIGURE_PROSE_DOCS = (
+    Path("README.md"),
+    Path("AGENTS.md"),
+    Path("docs/PROJECT_SPEC.md"),
+    Path("docs/ml/PIPELINE.md"),
+)
+
+#: A metric name followed by its value, however the document spaces or marks it up.
+_FIGURE_PATTERN = re.compile(
+    r"(DBH MAE|Height MAE|Volume MAPE)[^0-9\n]{0,24}([0-9]+\.[0-9]+)"
+)
+
+
+def published_figure_values(manifest: dict[str, Any]) -> frozenset[float]:
+    """Every DBH MAE, Height MAE and Volume MAPE the manifest records.
+
+    Both evaluations are included. The Demol block and the independent PointNet
+    review measure the same cohort by different routes and legitimately differ,
+    and both are quoted in prose, so a figure matching either one is current.
+    """
+    demol = manifest["validation"]["demol_65"]
+    values = {
+        float(demol["dbh_mae_cm"]),
+        float(demol["height_mae_m"]),
+        float(demol["volume_mape_pct"]),
+    }
+    independent = manifest["validation"].get("pointnet_independent")
+    if independent is not None:
+        for side in ("baseline", "candidate"):
+            block = independent[side]
+            values |= {
+                float(block["dbh_mae_cm"]),
+                float(block["height_mae_m"]),
+                float(block["volume_mape_pct"]),
+            }
+    return frozenset(values)
+
+
+def stale_figures_in_text(
+    text: str, manifest: dict[str, Any]
+) -> tuple[tuple[int, str, str], ...]:
+    """Accuracy figures in `text` that no manifest field records.
+
+    Args:
+        text: a document's full contents.
+        manifest: the parsed core demo manifest.
+
+    Returns:
+        `(line_number, metric_name, value_as_written)` for each offending figure,
+        empty when every figure quoted is one the manifest holds.
+    """
+    allowed = published_figure_values(manifest)
+    found: list[tuple[int, str, str]] = []
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for label, raw in _FIGURE_PATTERN.findall(line):
+            if float(raw) not in allowed:
+                found.append((lineno, label, raw))
+    return tuple(found)
 
 
 def validate_demol(block: Any, *, repo_root: str | Path | None) -> None:

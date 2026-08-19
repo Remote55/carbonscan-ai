@@ -231,8 +231,8 @@ CO₂eq   = Carbon × 44/12
 | **Wan 2021 same-environment + synthetic augment** | Wood **0.418** / Leaf **0.808** / Mean **0.613** / accuracy **0.831** |
 
 - Wan held-out loader ถูกใช้เลือก best epoch ด้วย และ checkpoint/tree-ID provenance ยังไม่ครบ จึงไม่ใช่ independent final test
-- **Demol geometry validation:** isolated-tree 65 ต้น, DBH MAE **1.1673846154 cm**, Height MAE **0.5446153846 m**,
-  Volume MAPE **18.7650916186%**; ไม่ได้ validate ขั้น 1–4, species, allometric หรือ carbon
+- **Demol geometry validation:** isolated-tree 65 ต้น, DBH MAE **0.898318 cm**, Height MAE **0.543323 m**,
+  Volume MAPE **11.520556%**; ไม่ได้ validate ขั้น 1–4, species, allometric หรือ carbon
 - ห้ามรวม `0.613` เป็น “Wood/Leaf IoU” ที่ทำให้เข้าใจว่า Wood IoU เท่ากัน และห้ามปัด DBH เพื่อ marketing โดยไม่วางค่าจริงไว้ใกล้กัน
 
 ---

@@ -82,9 +82,9 @@ Wan 2021 spatial held-out loader:
 
 | Metric | ค่าที่บันทึก |
 |---|---:|
-| DBH MAE | **1.1673846154 cm** |
-| Height MAE | **0.5446153846 m** |
-| Volume MAPE | **18.7650916186%** |
+| DBH MAE | **0.898318 cm** |
+| Height MAE | **0.543323 m** |
+| Volume MAPE | **11.520556%** |
 
 การทดสอบนี้เริ่มจาก isolated-tree cloud ที่จำกัด 20,000 points, normalize ด้วย min-Z และใช้ `tlsep`
 จึงไม่ใช่ validation ของขั้น 1–4, species classification, allometric biomass, carbon stock หรือ carbon credit
