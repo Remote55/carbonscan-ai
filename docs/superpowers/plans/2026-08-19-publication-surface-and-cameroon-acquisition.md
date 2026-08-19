@@ -38,6 +38,35 @@ committed or stashed first. Tasks 1, 3, 4 and 5 do not need a clean tree.
 **Python.** Use the existing virtualenv: `services/ml/.venv/Scripts/python.exe` on
 this machine. CI uses a bare `python`. Both are written where a command appears.
 
+## Corrections to this plan, found while executing it
+
+Recorded rather than silently edited, because a plan that quietly rewrites itself
+is no more trustworthy than a manifest that does.
+
+**Task 1's comment and commit message carried a false claim.** Both said `8cf3058`
+moved the demo's CO₂e "without touching a line of pipeline code". It changed
+`services/ml/pipeline/allometric.py` by 99 lines — `DEFAULT_WOOD_DENSITY_TROPICAL`
+600.0 → 570.0, plus a new `basic_density_from_air_dry`. The `services/ml/pipeline`
+entry alone would have caught it, so the anecdote did not justify the decision it
+was offered for. Watching `species_db.csv` is still right, on the grounds that
+`allometric.py` reads it at runtime; every commit that has ever touched the CSV
+also touched `services/ml/pipeline/`, so a data-only change is a forward-looking
+risk rather than an observed one. The code comment was corrected in `ee7a320`;
+commit `786feb3`'s message still carries the claim and was left alone, the way
+`docs/DATABASE_TEARDOWN.md` leaves the migration that did nothing.
+
+**Task 1 was under-tested twice, both found in review.** The pathspec was never
+validated, so a typo would have made the gate a permanent green light; and no test
+asserted the function ever returns non-empty, so an inert watch set would have
+passed CI silently. Both closed in `ee7a320`. A third — nothing exercised the gate
+inside `check_manifest`, so those seven lines could be deleted with the suite still
+green — was closed separately.
+
+**Task 1's suggested `-k stale_pipeline_paths` filter matches only one of the two
+tests.** Steps 2 and 4 under-report what runs; use the whole-file run instead.
+
+**Task 2's predicted figure was exact.** 3798.38, to the cent.
+
 ## File structure
 
 | file | responsibility | change |
