@@ -645,3 +645,40 @@ def test_seal_rejects_self_consistent_semantic_forgery(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="independent reproduction"):
         seal_candidate(forged_dir, repo_root)
+
+
+def test_stale_pipeline_paths_reports_nothing_when_analysed_at_head():
+    """A demo sealed at HEAD has no pipeline change behind it."""
+    repo_root = Path(__file__).resolve().parents[2]
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    assert judge_demo_manifest.stale_pipeline_paths(repo_root, head) == ()
+
+
+def test_published_demo_artifacts_are_current():
+    """The committed artefacts must not lag a pipeline change.
+
+    This is the check `check_manifest` structurally cannot make: it reads the
+    core manifest at the artefact's own `analyzed_commit`, so it validates the
+    artefacts against the commit they pinned and never against HEAD.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest = json.loads(
+        (repo_root / "apps/web/public/demo/manifest.json").read_text(encoding="utf-8")
+    )
+
+    stale = judge_demo_manifest.stale_pipeline_paths(
+        repo_root, manifest["analyzed_commit"]
+    )
+
+    assert stale == (), (
+        "The published demo artefacts were analysed at "
+        f"{manifest['analyzed_commit'][:12]}, and these paths have changed since: "
+        f"{', '.join(stale)}. Regenerate and reseal them."
+    )

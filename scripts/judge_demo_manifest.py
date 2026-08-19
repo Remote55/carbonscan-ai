@@ -27,6 +27,63 @@ ARTIFACT_PATHS = {
 ARTIFACT_FILENAMES = {name: Path(path).name for name, path in ARTIFACT_PATHS.items()}
 ALLOWED_RELEASE_STATUSES = {"candidate", "frozen"}
 
+#: Paths whose contents determine what `run_judge_demo.py` produces.
+#:
+#: A change under any of these makes the published artefacts describe a pipeline
+#: that no longer exists. `species_db.csv` is here because it is data the image
+#: ships and Chave reads: `8cf3058` changed five wood densities and moved the
+#: demo's CO2e from 4748.95 to 3798.38 without touching a line of pipeline code.
+PIPELINE_INPUT_PATHS = (
+    "services/ml/pipeline",
+    "services/ml/data/species_db.csv",
+    "services/ml/scripts/run_judge_demo.py",
+)
+
+
+def stale_pipeline_paths(
+    repo_root: str | Path, analyzed_commit: str
+) -> tuple[str, ...]:
+    """Paths determining the demo output that changed between a commit and HEAD.
+
+    Empty when the published artefacts still describe the pipeline at HEAD.
+
+    This is deliberately a diff and not a re-run. Re-running needs a clean
+    worktree and three minutes; a diff needs neither and answers the only
+    question that matters - whether anything the result depends on has moved.
+
+    Args:
+        repo_root: the repository checkout.
+        analyzed_commit: the commit the published artefacts record.
+
+    Returns:
+        Changed paths, sorted, empty when the artefacts are current.
+
+    Raises:
+        ValueError: when `analyzed_commit` is not a commit in this repository.
+    """
+    root = Path(repo_root).resolve(strict=True)
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                f"{analyzed_commit}..HEAD",
+                "--",
+                *PIPELINE_INPUT_PATHS,
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(
+            f"Cannot diff {analyzed_commit!r} against HEAD: {exc.stderr.strip()}"
+        ) from exc
+    return tuple(sorted(line for line in completed.stdout.splitlines() if line))
+
 
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -858,6 +915,14 @@ def check_manifest(
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError("Public manifest must contain strict UTF-8 JSON") from exc
     _validate_public_manifest(manifest)
+
+    stale = stale_pipeline_paths(repo_root, manifest["analyzed_commit"])
+    if stale:
+        raise ValueError(
+            "Published demo artefacts are stale: analysed at "
+            f"{manifest['analyzed_commit'][:12]}, and these have changed since - "
+            + ", ".join(stale)
+        )
 
     _safe_repo_file(repo_root, CORE_MANIFEST_PATH, "Core manifest")
     core_bytes = _git_blob_bytes(
