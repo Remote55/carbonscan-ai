@@ -41,7 +41,7 @@ requires a separate reviewed default-switch decision.
 - Default wood/leaf backend: `tlsep` — **Implemented**
 - PointNet++: **Experimental**, not promoted
 - Wan held-out: Wood IoU `0.418`, Leaf IoU `0.808`, Mean IoU `0.613`, accuracy `0.831`; held-out loader ใช้เลือก best epoch ด้วย
-- Demol isolated-tree 65 ต้น: DBH MAE `1.1673846154 cm`, Height MAE `0.5446153846 m`, Volume MAPE `18.7650916186%`; geometry only
+- Demol isolated-tree 65 ต้น: DBH MAE `0.898318 cm`, Height MAE `0.543323 m`, Volume MAPE `11.520556%`; geometry only
 - Species classification: **Stub**
 - WebSocket, GIS, Marketplace/certificate และ production RunPod: **Planned**
 - Carbon stock/CO2e เป็นค่าประมาณ ไม่ใช่ certified/tradable carbon credits

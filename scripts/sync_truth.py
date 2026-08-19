@@ -83,11 +83,19 @@ DEMOL_RESULT_PATH = "docs/evidence/demol_65/result.json"
 #: it are correct by construction. Everything outside it is typed by hand and
 #: drifts. docs/PROJECT_SPEC.md carried both at once: the derived 0.898318 at
 #: line 16 and the superseded 1.1673846154 at line 234.
+#:
+#: docs/DOCUMENT_STATUS.md belongs here for a sharper reason than the other
+#: four: it is the document that declares which documents are current truth,
+#: and its own "Non-negotiable truth snapshot" section quoted the superseded
+#: Demol figures under that heading. The file that defines what counts as
+#: authoritative is not exempt from being checked against the manifest --
+#: if anything it is the one place this gate can least afford to miss.
 FIGURE_PROSE_DOCS = (
     Path("README.md"),
     Path("AGENTS.md"),
     Path("docs/PROJECT_SPEC.md"),
     Path("docs/ml/PIPELINE.md"),
+    Path("docs/DOCUMENT_STATUS.md"),
 )
 
 #: A metric name followed by its value, however the document spaces or marks it up.
