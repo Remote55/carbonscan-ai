@@ -30,9 +30,14 @@ ALLOWED_RELEASE_STATUSES = {"candidate", "frozen"}
 #: Paths whose contents determine what `run_judge_demo.py` produces.
 #:
 #: A change under any of these makes the published artefacts describe a pipeline
-#: that no longer exists. `species_db.csv` is here because it is data the image
-#: ships and Chave reads: `8cf3058` changed five wood densities and moved the
-#: demo's CO2e from 4748.95 to 3798.38 without touching a line of pipeline code.
+#: that no longer exists. `services/ml/pipeline` is the code; `8cf3058`, which
+#: moved the demo's CO2e from 4748.95 to 3798.38 by changing wood densities,
+#: changed `allometric.py` by 99 lines and would have been caught by that entry
+#: alone. `species_db.csv` is watched separately because `load_species_db()`
+#: reads it at runtime, so a CSV-only edit is possible in principle - though no
+#: commit that has ever touched this file has changed the CSV without also
+#: touching pipeline code, so this entry is forward-looking, not a response to
+#: a past miss.
 PIPELINE_INPUT_PATHS = (
     "services/ml/pipeline",
     "services/ml/data/species_db.csv",
@@ -51,6 +56,11 @@ def stale_pipeline_paths(
     worktree and three minutes; a diff needs neither and answers the only
     question that matters - whether anything the result depends on has moved.
 
+    Only committed state is compared. An uncommitted edit under a watched path,
+    in the working tree of either revision, is invisible to this check - that
+    is a deliberate boundary, not an oversight, because the deployed site is
+    built from committed code.
+
     Args:
         repo_root: the repository checkout.
         analyzed_commit: the commit the published artefacts record.
@@ -59,9 +69,47 @@ def stale_pipeline_paths(
         Changed paths, sorted, empty when the artefacts are current.
 
     Raises:
-        ValueError: when `analyzed_commit` is not a commit in this repository.
+        ValueError: when `analyzed_commit` is not a full 40-character hex Git
+            SHA; when it does not resolve to a commit in this repository,
+            including a SHA absent from a shallow clone; or when an entry of
+            `PIPELINE_INPUT_PATHS` matches nothing at that commit, so a
+            typo'd or renamed watched path fails closed instead of silently
+            watching nothing.
+        FileNotFoundError: when `git` is not on PATH.
+        subprocess.TimeoutExpired: when a `git` call exceeds 60 seconds.
+        OSError: when `repo_root` does not exist.
     """
+    if not _is_hex(analyzed_commit, 40):
+        raise ValueError(
+            f"analyzed_commit must be a full Git SHA, got {analyzed_commit!r}"
+        )
     root = Path(repo_root).resolve(strict=True)
+
+    missing = []
+    for path in PIPELINE_INPUT_PATHS:
+        try:
+            listed = subprocess.run(
+                ["git", "ls-tree", "--name-only", analyzed_commit, "--", path],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=60,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise ValueError(
+                f"Cannot resolve {analyzed_commit!r} in this repository: "
+                f"{exc.stderr.strip()}"
+            ) from exc
+        if not listed.stdout.strip():
+            missing.append(path)
+    if missing:
+        raise ValueError(
+            "Watched pipeline path does not exist at "
+            f"{analyzed_commit[:12]} and cannot be watched for staleness - "
+            + ", ".join(missing)
+        )
+
     try:
         completed = subprocess.run(
             [

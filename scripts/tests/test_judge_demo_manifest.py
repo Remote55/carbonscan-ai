@@ -172,6 +172,16 @@ def init_clean_repo_and_candidate(
     core_manifest = repo_root / "docs" / "evidence" / "core_demo_manifest.json"
     core_manifest.parent.mkdir(parents=True)
     core_manifest.write_bytes(b'{"schema_version":"1"}\n')
+    # check_manifest's stale_pipeline_paths requires every PIPELINE_INPUT_PATHS
+    # entry to resolve at analyzed_commit, or it fails closed rather than
+    # reporting no staleness. Commit minimal stand-ins so this fixture repo
+    # satisfies that guard.
+    for relative in judge_demo_manifest.PIPELINE_INPUT_PATHS:
+        target = repo_root / relative
+        if relative == "services/ml/pipeline":
+            target = target / "main.py"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("# fixture stand-in\n", encoding="utf-8")
     subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
     if autocrlf:
         (repo_root / ".gitattributes").write_text(
@@ -659,6 +669,92 @@ def test_stale_pipeline_paths_reports_nothing_when_analysed_at_head():
     ).stdout.strip()
 
     assert judge_demo_manifest.stale_pipeline_paths(repo_root, head) == ()
+
+
+def _git_commit_all(repo_root: Path, message: str) -> None:
+    subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=TreeQ Test",
+            "-c",
+            "user.email=treeq-test@example.invalid",
+            "commit",
+            "-qm",
+            message,
+        ],
+        cwd=repo_root,
+        check=True,
+    )
+
+
+def test_stale_pipeline_paths_reports_a_real_change_under_a_watched_path(tmp_path):
+    """The positive case Important 2 asked for: a genuine change must be found.
+
+    The other two tests of this function both assert `== ()`, which a
+    completely wrong `PIPELINE_INPUT_PATHS` would also satisfy. This is the
+    one that proves detection actually works, by building a scratch repo that
+    contains every watched path, committing it, changing one of them, and
+    checking that exactly that path comes back.
+    """
+    repo_root = tmp_path / "repo"
+    for relative in judge_demo_manifest.PIPELINE_INPUT_PATHS:
+        target = repo_root / relative
+        if relative == "services/ml/pipeline":
+            target = target / "example.py"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("original\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+    _git_commit_all(repo_root, "pipeline fixture")
+    analyzed_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    (repo_root / "services/ml/pipeline/example.py").write_text(
+        "changed\n", encoding="utf-8"
+    )
+    _git_commit_all(repo_root, "change a watched pipeline file")
+
+    assert judge_demo_manifest.stale_pipeline_paths(repo_root, analyzed_commit) == (
+        "services/ml/pipeline/example.py",
+    )
+
+
+def test_stale_pipeline_paths_rejects_a_watched_path_missing_at_the_commit(tmp_path):
+    """The Important-1 guard: an unresolvable watched path must fail closed.
+
+    `git diff` exits 0 with empty output when a pathspec matches nothing, so
+    without this guard a typo'd or renamed entry in `PIPELINE_INPUT_PATHS`
+    would make the gate report no staleness forever. Here `species_db.csv` is
+    never created, so it cannot exist at the commit under test.
+    """
+    repo_root = tmp_path / "repo"
+    (repo_root / "services/ml/pipeline").mkdir(parents=True)
+    (repo_root / "services/ml/pipeline/example.py").write_text(
+        "original\n", encoding="utf-8"
+    )
+    (repo_root / "services/ml/scripts").mkdir(parents=True)
+    (repo_root / "services/ml/scripts/run_judge_demo.py").write_text(
+        "original\n", encoding="utf-8"
+    )
+    # services/ml/data/species_db.csv is deliberately never created.
+    subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+    _git_commit_all(repo_root, "incomplete fixture")
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    with pytest.raises(ValueError, match=r"species_db\.csv"):
+        judge_demo_manifest.stale_pipeline_paths(repo_root, commit)
 
 
 def test_published_demo_artifacts_are_current():
