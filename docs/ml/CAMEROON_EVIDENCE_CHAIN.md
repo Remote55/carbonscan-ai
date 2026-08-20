@@ -128,6 +128,28 @@ Mapping to the ground truth is by the integer in the directory name against
 `ID`. IDs are not contiguous: 1–8, 11, 12, 15, 18, 28, 29, 31, 32, 52, 54–57,
 59–76, 79, 80, 83, 85, 87–89, 91–106.
 
+### Five clouds are not "tab-separated X Y Z, no header"
+
+Found the same way `ID_56` was: by attempting to load all 61 required trees,
+not by inspecting the archive up front.
+
+| tree | file | irregularity |
+|---|---|---|
+| 31 | `31_sans_feuilles.txt` | opens with a one-line header, `"V1" "V2" "V3"` (an R `write.table` artefact) |
+| 52 | `52_sans_feuilles.txt` | same header |
+| 59 | `59_sans_feuilles.txt` | opens with `//X Y Z Scalar_field` (a CloudCompare comment) and carries a fourth column |
+| 63 | `ID63_sans_feuilles.txt` | comma-delimited throughout, no header |
+| 68 | `68_sans_feuilles.txt` | comma-delimited throughout, no header |
+
+Every other line in all five is an ordinary X Y Z row once the header is
+dropped and commas are read as the delimiter — nothing about the coordinates
+themselves is unusual, and the fourth column on 59 is simply not read.
+`pipeline/cameroon_eval.py`'s `_load_cloud` repairs the text and retries
+through the same unmodified `demol_eval._load_xyz` rather than skipping the
+tree: a cohort that quietly dropped five more trees on top of `ID_56` would be
+the exact failure this evaluation exists to catch. The other 56 files are
+untouched by this path and go through `_load_xyz` exactly as written.
+
 ### One tree has a cloud and no ground truth
 
 **62 point-cloud directories, 61 database rows.** `ID_56` has

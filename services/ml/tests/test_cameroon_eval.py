@@ -5,7 +5,9 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-import pytest  # noqa: F401 - used by pytest.raises/approx/mark in tests appended by later tasks
+import pytest
+
+from pipeline import cameroon_eval
 
 ML_ROOT = Path(__file__).resolve().parents[1]
 GROUND_TRUTH = ML_ROOT / "data" / "cameroon_61" / "ground_truth.csv"
@@ -84,3 +86,134 @@ def test_units_are_the_ones_the_column_names_claim():
     assert 20.0 < min(agb) < 40.0, "smallest tree should be tens of kg, not tonnes"
     assert 43_000.0 < max(agb) < 44_500.0, "largest tree should be ~43.9 tonnes in kg"
     assert 300.0 < min(wsg) < 400.0, "density should be kg/m3, not g/cm3"
+
+
+ARCHIVE = ML_ROOT / "data" / "raw" / "dryad_cameroon" / "Trees"
+requires_archive = pytest.mark.skipif(
+    not (ARCHIVE / "Points_clouds").is_dir(),
+    reason="Cameroon archive not present: see docs/ml/CAMEROON_EVIDENCE_CHAIN.md",
+)
+
+
+def test_cloud_paths_are_found_by_listing_not_by_name():
+    """Nine of 62 filenames are irregular in five different ways.
+
+    15_sans_feuille.txt is singular, ID63_sans_feuilles.txt is prefixed,
+    67_sans feuilles.txt has a space, 74_sans _feuille.txt has both, and
+    97sans_feuilles.txt has no separator. Any loader that builds a filename from
+    an ID drops nine trees, and a cohort that silently shrinks is the failure
+    this project keeps finding.
+    """
+    listing = {
+        1: ["1_sans_feuilles.txt"],
+        63: ["ID63_sans_feuilles.txt"],
+        97: ["97sans_feuilles.txt"],
+    }
+
+    resolved = cameroon_eval.resolve_cloud_names(listing)
+
+    assert resolved == {1: "1_sans_feuilles.txt", 63: "ID63_sans_feuilles.txt", 97: "97sans_feuilles.txt"}
+
+
+def test_a_tree_directory_holding_two_clouds_is_refused():
+    """One file per tree. Two means an ambiguity nobody has resolved."""
+    with pytest.raises(ValueError, match="exactly one"):
+        cameroon_eval.resolve_cloud_names({4: ["4_a.txt", "4_b.txt"]})
+
+
+def test_an_empty_tree_directory_is_refused():
+    with pytest.raises(ValueError, match="exactly one"):
+        cameroon_eval.resolve_cloud_names({4: []})
+
+
+@requires_archive
+def test_cohort_is_keyed_on_the_ground_truth_not_the_directory_listing():
+    """62 clouds, 61 rows. ID_56 has no destructive data and must not appear."""
+    cohort = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
+
+    ids = sorted(tree.tree_id for tree in cohort)
+    assert len(cohort) == 61
+    assert 56 not in ids
+
+
+@requires_archive
+def test_loaded_points_are_capped_normalized_and_finite():
+    """Z is normalized against the full cloud, not against what survives the cap.
+
+    _load_xyz subtracts the whole cloud's min Z before subsampling, so the
+    floor it sets is exactly 0 for the cloud it read - but at max_points=2_000
+    against clouds up to 3.4 million points, the single lowest point is usually
+    not among the 2_000 kept. Measured on this archive: 60 of 61 trees end up
+    with a strictly positive post-subsample minimum, up to 0.53 m on the worst.
+    Non-negative is what normalization actually guarantees once a cap has
+    thrown points away; exact zero would only hold at max_points=None.
+    """
+    cohort = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
+
+    for tree in cohort:
+        assert tree.points.shape[1] == 3
+        assert len(tree.points) <= 2_000
+        assert float(tree.points[:, 2].min()) >= -1e-9
+
+
+@requires_archive
+def test_loading_is_deterministic_for_a_fixed_seed():
+    first = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
+    second = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
+
+    for left, right in zip(first, second, strict=True):
+        assert left.tree_id == right.tree_id
+        assert (left.points == right.points).all()
+
+
+# _load_xyz alone cannot read five of the 61 required clouds: 31, 52 and 59
+# open with a non-numeric header line (an R write.table header or a
+# CloudCompare comment), and 63 and 68 are comma-delimited instead of the
+# archive's usual whitespace. None of this is in CAMEROON_EVIDENCE_CHAIN.md's
+# "tab-separated X Y Z, no header" description - found only by attempting to
+# load all 61. cameroon_eval._load_cloud repairs the text and retries through
+# the same unmodified _load_xyz rather than skipping the tree, because a
+# cohort that quietly drops five more trees on top of ID_56 is the exact
+# failure this module exists to prevent.
+
+
+def test_repaired_cloud_text_drops_a_non_numeric_header_line(tmp_path):
+    """31, 52 and 59 each open with one line that is not point data."""
+    raw = tmp_path / "header.txt"
+    raw.write_text('"V1" "V2" "V3"\n1.0 2.0 3.0\n4.0 5.0 6.0\n', encoding="utf-8")
+
+    repaired = cameroon_eval._repaired_cloud_text(raw)
+
+    assert repaired == "1.0 2.0 3.0\n4.0 5.0 6.0\n"
+
+
+def test_repaired_cloud_text_turns_commas_into_whitespace(tmp_path):
+    """63 and 68 are comma-delimited throughout, with no header to drop."""
+    raw = tmp_path / "commas.txt"
+    raw.write_text("1.0,2.0,3.0\n4.0,5.0,6.0\n", encoding="utf-8")
+
+    repaired = cameroon_eval._repaired_cloud_text(raw)
+
+    assert repaired == "1.0 2.0 3.0\n4.0 5.0 6.0\n"
+
+
+def test_repaired_cloud_text_refuses_a_file_with_no_numeric_line_at_all(tmp_path):
+    """A genuinely malformed file must still fail loudly, not return a stub."""
+    raw = tmp_path / "garbage.txt"
+    raw.write_text("not\nany\nof\nthis\nis\nnumeric\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="no numeric point row"):
+        cameroon_eval._repaired_cloud_text(raw)
+
+
+@requires_archive
+def test_the_five_irregularly_formatted_clouds_load_through_the_same_cohort_call():
+    """The repair is exercised end to end, not only on synthetic fixtures."""
+    cohort = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
+
+    loaded_ids = {tree.tree_id for tree in cohort}
+    assert cameroon_eval.IRREGULAR_CLOUD_FORMAT_TREE_IDS <= loaded_ids
+    for tree in cohort:
+        if tree.tree_id in cameroon_eval.IRREGULAR_CLOUD_FORMAT_TREE_IDS:
+            assert tree.points.shape[1] == 3
+            assert len(tree.points) > 0
