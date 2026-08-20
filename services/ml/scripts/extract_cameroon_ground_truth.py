@@ -10,8 +10,11 @@ Units are converted here so no consumer has to remember them:
     Destructive AGB   Mg     -> kg
     WSG_ind           g/cm3  -> kg/m3
 
-`--check` re-extracts and compares against the committed file, so the CSV cannot
-drift from the archive unnoticed.
+`--check` re-extracts from the archive and compares against the committed file.
+It requires the 1.29 GB archive on disk, so it cannot run in CI and catches
+drift only when someone holding the archive remembers to run it. That is a
+manual guard, not an automatic one - see the data README for what enforces
+provenance in the meantime.
 
     python scripts/extract_cameroon_ground_truth.py --archive <Trees dir>
     python scripts/extract_cameroon_ground_truth.py --archive <Trees dir> --check
@@ -45,6 +48,13 @@ COLUMN_MAP: tuple[tuple[str, str, float], ...] = (
     # standing in for theirs.
     ("TLS edited total volume_5", "volume_total_reference_qsm_m3", 1.0),
 )
+
+#: Columns copied through as text. Every other column is parsed with float(),
+#: regardless of whether xlrd reports the source cell as TEXT or NUMBER. Most
+#: of this archive's numeric columns are stored as TEXT cells, and a dispatch
+#: keyed on the cell type - the previous version of this script - let all of
+#: them through with no numeric validation at all.
+TEXT_COLUMNS = frozenset({"genus", "species"})
 
 SHEET = "datafinal_test2"
 EXPECTED_ROWS = 61
@@ -80,8 +90,8 @@ def extract(archive_root: Path) -> str:
             raw = values[index[source]]
             if out == "tree_id":
                 record.append(str(int(float(raw))))
-            elif scale == 1.0 and isinstance(raw, str):
-                record.append(raw.strip())
+            elif out in TEXT_COLUMNS:
+                record.append(str(raw).strip())
             else:
                 record.append(f"{float(raw) * scale:.10g}")
         writer.writerow(record)

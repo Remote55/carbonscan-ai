@@ -1,12 +1,21 @@
 # Cameroon destructive ground truth, 61 trees
 
 Extracted from `database.xls` sheet `datafinal_test2` in the Dryad archive by
-`scripts/extract_cameroon_ground_truth.py`. Re-verify with `--check`.
+`scripts/extract_cameroon_ground_truth.py`. Re-verify with `--check` — this
+needs the 1.29 GB archive on disk, so nothing runs it automatically. It is a
+manual guard: it catches drift from the archive only when someone holding the
+archive remembers to run it.
 
 **Source:** Momo Takoudjou, S. et al. (2018), Dryad,
 <https://doi.org/10.5061/dryad.10hq7> — **CC0 1.0**, which is why this table can
 be committed. The point clouds are not: they are 1.29 GB and stay under
 `data/raw/`, excluded by `.gitignore`.
+
+**`database.xls` SHA-256:**
+`d06dd1db3bb524b437d419796326bc254422ba48c25442678c1f795a1ae0f7d5` (87,552
+bytes) — computed directly from the extracted file, so this table's provenance
+is checkable without downloading the 1.29 GB `Trees.rar` it came from. That
+archive's own MD5 and SHA-256 are in `docs/ml/CAMEROON_EVIDENCE_CHAIN.md`.
 
 `docs/ml/CAMEROON_EVIDENCE_CHAIN.md` records what the archive contains and how
 these columns were established, including the arithmetic showing `agb_dest_kg`

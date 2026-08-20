@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import math
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,13 @@ EXPECTED_COLUMNS = (
     "volume_total_reference_qsm_m3",
 )
 
+#: Every column that is a measurement rather than an identifier or a name.
+#: extract_cameroon_ground_truth.py used to dispatch text-vs-numeric parsing
+#: on the source cell's xlrd type, and most of these columns are stored as
+#: TEXT cells in the archive - so they were copied through as strings with no
+#: call to float() ever made on them. This list is what closes that gap.
+NUMERIC_COLUMNS = tuple(c for c in EXPECTED_COLUMNS if c not in ("tree_id", "genus", "species"))
+
 
 def _rows() -> list[dict[str, str]]:
     with GROUND_TRUTH.open(encoding="utf-8", newline="") as handle:
@@ -46,13 +54,24 @@ def test_ground_truth_has_sixty_one_trees_and_the_expected_columns():
     assert tuple(rows[0]) == EXPECTED_COLUMNS
 
 
+#: The archive's IDs are not contiguous, and 56 is additionally missing from
+#: this table because it has a point cloud and no destructive row. Pinned as
+#: the full set rather than min/max/count, which two transposed IDs would
+#: still pass.
+EXPECTED_IDS = (
+    1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 15, 18, 28, 29, 31, 32, 52, 54, 55, 57,
+    59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76,
+    79, 80, 83, 85, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
+    102, 103, 104, 105, 106,
+)
+
+
 def test_ground_truth_ids_match_the_archive_exactly():
     """56 is absent: it has a point cloud and no destructive row."""
-    ids = sorted(int(row["tree_id"]) for row in _rows())
+    ids = tuple(sorted(int(row["tree_id"]) for row in _rows()))
 
+    assert ids == EXPECTED_IDS
     assert 56 not in ids
-    assert ids[0] == 1
-    assert ids[-1] == 106
     assert len(set(ids)) == 61
 
 
@@ -86,6 +105,22 @@ def test_units_are_the_ones_the_column_names_claim():
     assert 20.0 < min(agb) < 40.0, "smallest tree should be tens of kg, not tonnes"
     assert 43_000.0 < max(agb) < 44_500.0, "largest tree should be ~43.9 tonnes in kg"
     assert 300.0 < min(wsg) < 400.0, "density should be kg/m3, not g/cm3"
+
+
+def test_every_numeric_column_is_finite_and_positive():
+    """No column is exempt from being parsed as a number.
+
+    Most of NUMERIC_COLUMNS is stored as TEXT cells in the source archive.
+    extract_cameroon_ground_truth.py used to copy TEXT cells through as
+    strings unparsed, so an NA, an empty cell, or a stray unit label in any of
+    them would have landed in this CSV verbatim and never been caught here.
+    Calling float() on every cell of every row is what closes that gap.
+    """
+    for row in _rows():
+        for column in NUMERIC_COLUMNS:
+            value = float(row[column])
+            assert math.isfinite(value), f"{column} not finite for tree {row['tree_id']}: {row[column]!r}"
+            assert value > 0.0, f"{column} not positive for tree {row['tree_id']}: {row[column]!r}"
 
 
 ARCHIVE = ML_ROOT / "data" / "raw" / "dryad_cameroon" / "Trees"

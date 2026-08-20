@@ -13,6 +13,7 @@
 docs/evidence/** text eol=lf
 apps/web/public/demo/** text eol=lf
 apps/web/src/generated/** text eol=lf
+services/ml/data/cameroon_61/** text eol=lf
 
 # Point clouds and other binaries must never be line-ending converted or diffed.
 *.ply binary
