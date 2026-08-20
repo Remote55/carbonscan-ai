@@ -23,6 +23,8 @@ on:
       - "services/api/README.md"
       - "apps/web/README.md"
       - "apps/web/src/generated/core-demo-evidence.ts"
+      - "apps/web/public/demo/**"
+      - "docs/evidence/judge_demo_manifest.json"
       - ".github/workflows/ci-ml.yml"
   pull_request:
     paths:
@@ -45,6 +47,8 @@ on:
       - "services/api/README.md"
       - "apps/web/README.md"
       - "apps/web/src/generated/core-demo-evidence.ts"
+      - "apps/web/public/demo/**"
+      - "docs/evidence/judge_demo_manifest.json"
       - ".github/workflows/ci-ml.yml"
 
 concurrency:
@@ -132,6 +136,18 @@ jobs:
 
       - name: Run repository truth and report contract tests
         run: python -m pytest scripts/tests/ -v --no-cov
+
+      - name: Verify published artifacts are current
+        # The suite above covers the document gates. This runs the demo
+        # artefact gate as a command, because that is how it fails in practice:
+        # judge_demo_manifest.py check is what a person runs, and its staleness
+        # branch is reachable only through the CLI.
+        #
+        # Nothing here needs a cohort or a pipeline run - it compares committed
+        # artefacts and committed text against the manifest - so unlike the
+        # accuracy tests in docs/ml/WHAT_CI_DOES_NOT_CHECK.md these cannot skip,
+        # and a green tick means they actually ran.
+        run: python scripts/judge_demo_manifest.py check
 
       - name: Verify deterministic core demo
         working-directory: services/ml
