@@ -225,3 +225,221 @@ Every number here was computed from the extracted archive on 2026-08-20 with the
 project virtualenv, reading `database.xls` through `xlrd` and the point clouds
 directly. `xlrd` was installed into the virtualenv to read the file and is
 deliberately **not** a project dependency — nothing in the pipeline reads `.xls`.
+
+## Evaluation results
+
+Derived 2026-08-20 by `services/ml/scripts/derive_cameroon_evidence.py`, committed
+at `docs/evidence/cameroon_61/result.json` (sha256
+`6fdf6121b9c1e7dca984ff46eac8846fae39d0bdb5c4b7a3563cccb14de2e231`), wired into
+`docs/evidence/core_demo_manifest.json` as `validation.cameroon_61`. Reproduce
+with:
+
+```bash
+cd services/ml && .venv/Scripts/python.exe scripts/derive_cameroon_evidence.py --check
+```
+
+`qsm.py`'s taper constants (`TOTAL_TREE_FORM_FACTOR = 0.587`, `STEM_FORM_FACTOR
+= 0.403`) are unchanged from `baa1128`, where they were fitted on the 65
+Belgian Demol trees. Nothing here recalibrated them, per the spec's section 6.
+`max_points = 20,000`, `sample_seed = qsm_seed = 0`, matching the Demol
+protocol so the two cohorts sit in one table. 61 trees in the ground truth, 62
+clouds available (`ID_56` excluded — no destructive row). 60 of 61 produced a
+measurement.
+
+Read in the order below, because each item depends on the one before it to
+mean anything.
+
+### 1. The headline: DBH where the tape and the fit describe the same thing
+
+`dbh_mae_cm_small_stems` (`gt_dbh_cm` < 50 cm, n=31, the subset where
+buttressing is not a confound): **1.68 cm**, bias -0.83 cm.
+
+Demol (65 temperate Belgian trees, all sizes, no size restriction needed):
+0.90 cm. This pipeline is worse on tropical stems even restricted to the fair
+comparison — about 1.9x the error — but not badly worse, and in the same
+order of magnitude as the archive's own published TLS method, which agrees
+with the tape to a mean **+0.30 cm** bias on this exact 31-tree subset (a bias,
+not an MAE, so not perfectly like-for-like, but the closest number available).
+This pipeline's bias on the same 31 trees is -0.83 cm, and its error against
+that same reference method (not the tape) is -1.13 cm bias / 2.08 cm MAE.
+
+### 2. DBH by size band: does it degrade more than a published method on the same clouds
+
+| band | n | bias vs tape (cm) | MAE vs tape (cm) | bias vs reference TLS (cm) | MAE vs reference TLS (cm) | mean fit quality |
+|---|---:|---:|---:|---:|---:|---:|
+| under 50 cm | 31 | -0.83 | 1.68 | -1.13 | 2.08 | 0.913 |
+| 50-100 cm | 20 | +8.86 | 11.55 | +9.97 | 16.65 | 0.496 |
+| 100 cm and over | 9 | -41.68 | 43.56 | -34.79 | 35.60 | 0.334 |
+
+Published reference (`DBH_L`, measured from the archive before any of this
+pipeline's code ran — see above): mean bias +0.30 cm under 50 cm (31 trees),
+-6.29 cm at 100 cm and over (10 trees — one more than the 9 this pipeline
+could measure; tree 60 at 120.5 cm is the difference, see item 5).
+
+The spec's section 14 asked a narrower question than "does it degrade": does
+it degrade **more than a published method on the same clouds**. It does, by a
+wide margin — -41.68 cm mean bias here against the reference method's -6.29 cm
+on a near-identical band. This pipeline is not merely finding the large-tree
+problem every method finds in this archive; it is finding it considerably
+harder than a competent published implementation does.
+
+Part of the reason is structural rather than a fit-quality problem alone.
+`qsm.measure_dbh` calls `_ransac_circle_fit` with its default
+`max_radius_m=0.6`, and that function rejects every candidate circle with a
+radius above 0.6 m **during the RANSAC search itself**, not only in the
+`np.clip(dbh_cm, 0.0, 120.0)` line that runs afterward. A trunk whose true
+diameter exceeds 120 cm cannot be correctly measured by this code **by
+construction**, independent of point density or scan quality: the search
+space the fitter is allowed to consider never contains the right answer. Five
+of the nine trees in the "100 cm and over" band have a taped DBH above 120 cm
+(2, 6, 12, 64, 100 — 134.5 to 180.3 cm), and across all 60 measured trees the
+largest reported `measured_dbh_cm` is 117.9 cm — no tree, however large, is
+ever reported above that. Checked directly: none of the five has a sparse
+breast-height slice (tree 100 has 24,713 raw points there, tree 12 has
+15,881), so this is the ceiling operating as designed, not a data shortage.
+The constant is commented in `qsm.py` as calibrated for "the species in
+scope" — the Belgian genera plus the five Thai species this product targets,
+none of which run this large. It was not raised for this evaluation, per the
+spec's section 6 (no recalibration on this cohort), and this finding should
+not be read as evidence the constant is wrong for its intended targets —
+only that it makes any Cameroon tree over 120 cm diameter unmeasurable by
+this pipeline regardless of scan quality, which is a sharper and more
+specific claim than "large trees are hard here."
+
+Below that ceiling, large stems are still frequently poor for reasons the
+ceiling does not explain: tree 5 (107.0 cm) reads -40.45 cm off, tree 99
+(108.5 cm) reads 0.02 cm off, both under 120 cm. Mean fit quality in the
+50-100 cm and 100-and-over bands (0.496 and 0.334) sits well under the 0.80
+`MIN_DBH_FIT_QUALITY` gate applied elsewhere in the pipeline (`single_tree.py`,
+`main.py`, not this evaluation, which calls `compute_qsm` directly — see the
+`gate` block in `result.json`). Most of this pipeline's large-tree
+measurements here would have been refused outright rather than reported, had
+that gate applied.
+
+### 3. Route B: how wrong is Chave on a tropical tree, with measurement removed
+
+Costed from the tape and the felled height directly — no point cloud, no QSM.
+
+| model | mean APE | median APE | predicted/harvested ratio (median, range) |
+|---|---:|---:|---|
+| Chave 2014 | 23.44% | **14.00%** | 1.096 (0.709-2.326) |
+| T-VER `mixed_deciduous` | 30.46% | 20.85% | 0.981 (0.494-2.113) |
+
+(These ratios reproduce Task 4's ad hoc pre-commit check — median 1.0962,
+range 0.709-2.326 for Chave and median 0.9807, range 0.494-2.113 for T-VER —
+essentially exactly, which is the wiring sanity check the plan asked for.)
+
+Chave 2014 is closer to the harvested mass on more trees (37 of 61) than
+T-VER (24 of 61), and closer on both aggregate statistics. `TVER_EQUATIONS.md`
+currently ends "agreement between two unvalidated models, not validation" —
+this is the first time either has been scored against a weighed tree, and
+Chave wins that score. T-VER's median ratio (0.981) sits closer to 1 than
+Chave's (1.096), though: its higher APE comes from a wider spread of per-tree
+misses (range 0.494-2.113 against Chave's 0.709-2.326 is similar in width but
+centered differently), not from being more biased on the typical tree.
+
+### 4. measurement_share_pct: does the error live in stage 6 or stage 8
+
+| model | route A mean / median APE | route B mean / median APE | measurement share, mean / median |
+|---|---:|---:|---:|
+| Chave | 38.28% / 27.30% | 23.44% / 14.00% | +14.56 / +5.80 pts |
+| T-VER | 39.59% / 29.30% | 30.46% / 20.85% | +9.42 / +4.11 pts |
+
+On the median tree, measurement adds a real but secondary amount of error —
+for Chave, about a fifth of route A's total (5.80 of 27.30 points), the rest
+being the equation's own miss even when fed the tape directly. The mean tells
+a different-shaped story, pulled up by a right-skewed handful of trees where
+measurement error dominates completely: tree 89 (61.4 cm) has a Chave
+measurement share of +200.87 points — the point-cloud measurement made that
+tree's AGB estimate far worse than the tape would have. Tree 104 (98.5 cm)
+has -49.78 points — the opposite, the measurement more accurate than the
+tape-derived route. Both patterns exist in this cohort. The typical-tree
+finding (allometry is the larger share of route A's error) is the opposite
+emphasis from what the spec's prediction implied, and it would be actively
+misleading applied to any one specific large or poorly-fit tree, where
+measurement can dominate entirely in either direction.
+
+### 5. Excluded: 1 of 61
+
+| tree | taped DBH | taped height | reason |
+|---|---:|---:|---|
+| 60 (*Erythrophleum suaveolens*) | 120.5 cm | 44.5 m | fewer than 5 wood points survived at breast height after the point-budget cap; `measure_dbh` returned `(0.0, 0.0)` |
+
+Checked directly rather than assumed: tree 60's **raw, uncapped** cloud (2.45
+million points) has 630 points in the 1.15-1.45 m breast-height slice — a
+healthy count, comparable to other trees. The `max_points=20,000` cap this
+protocol shares with Demol subsamples that down to roughly 11, too few for a
+reliable fit. This is the caveat `DEMOL_EVIDENCE_CHAIN.md` already carries in
+the abstract — "it measures a pipeline running at one tenth the product's
+point budget" (the product defaults to 200,000) — made concrete: at this
+cohort's point budget, one tree's breast-height slice starves specifically
+because of the cap, not because the data was not there. `max_points` was
+fixed before this run per the spec's instruction not to tune it after seeing
+a result, so this tree stays excluded rather than re-measured at a different
+budget.
+
+Separately, and independently of the exclusion: tree 60's cloud never
+reaches above 17.7 m in height, raw and uncapped, though its taped/felled
+height is 44.5 m. Most plausibly this is a ground-based TLS occlusion limit
+on this specific emergent — the archive states at least three scan
+positions per tree but carries no per-tree registration or occlusion record,
+so this is an inference, not a confirmed cause. Had this tree been
+measurable for DBH, its reported height would have been wildly wrong for a
+reason entirely outside this pipeline's control.
+
+### The repaired clouds carry no visible penalty
+
+Five trees (31, 52, 59, 63, 68) had their raw point-cloud text repaired
+before parsing — see `IRREGULAR_CLOUD_FORMAT_TREE_IDS` in
+`pipeline/cameroon_eval.py` and "Five clouds are not..." above.
+`cloud_was_repaired=true` for exactly these five in every `per_tree` row in
+`result.json`, and none of the five is the excluded tree or an extreme
+outlier: their DBH errors (-1.91, -0.39, -0.32, -9.71, -0.58 cm for 52, 59,
+68, 63, 31 respectively) sit inside the same range as unrepaired trees of
+comparable size. The one double-digit error among them (tree 63, -9.71 cm at
+90.5 cm DBH) is consistent with the 50-100 cm band's general pattern, not
+with a parsing artefact.
+
+### Volume
+
+`volume_mape_pct` (measured total volume vs the destructive total, oven-dry,
+stump-inclusive, 60 measurable trees): **33.28%**, against Demol's 11.52%.
+`volume_vs_reference_qsm_mape_pct` (against the authors' own edited QSM
+total, the fairer basis — both are what a QSM can see, see
+`data/cameroon_61/README.md`): a similar 29.95%.
+
+The spec predicted volume would degrade more than DBH, and it does, on both
+cohorts: Demol's own DBH-to-volume MAPE ratio is about 3.7x (3.07% to
+11.52%); Cameroon's is about 2.6x (12.96% to 33.28%). So this ordering is not
+unique to the tropical cohort — it already held for Demol, at a smaller
+absolute scale — but the absolute volume error here is far worse,
+consistent with a form factor calibrated on four Belgian genera of a very
+different size and taper being applied to trees up to three times their
+diameter.
+
+Worst single-tree volume miss: tree 12 (*Triplochiton scleroxylon*, the
+cohort's largest at 180.3 cm DBH, 54.2 m tall), measured at 24.2 m3 against a
+destructive 92.9 m3 and a reference QSM of 98.0 m3 — two independent
+figures that agree the tree is roughly four times the volume this pipeline
+reported. Tree 12 is one of the five trees item 2's 120 cm ceiling predicts
+should fail this way, and it does.
+
+### Scoring the spec's section 14 predictions
+
+| prediction | outcome |
+|---|---|
+| "The geometry will degrade, most at the large end." | **Confirmed, and sharper than predicted.** Not just degradation but, for 5 of 9 trees over 100 cm, a hard 120 cm measurement ceiling in `qsm.measure_dbh` that makes the true value unreachable regardless of scan quality (item 2). |
+| "...not *whether* our DBH degrades on big stems, but whether it degrades **more than a published method does on the same clouds**." | **Confirmed as worse.** -41.68 cm mean bias here against the reference method's -6.29 cm on a comparable band. |
+| "The volume figure will degrade more [than DBH]." | **Confirmed**, though the ordering itself already held for Demol. 33.28% volume MAPE against 12.96% DBH MAPE here (all measurable trees), and far worse in absolute terms than Demol's 11.52%/3.07%. |
+| "The equation comparison is genuinely open... If [route B does well where route A does not], the finding is that the measurement is the weak link, not the allometry." | **Partly wrong.** Route B is not simply fine: Chave's own median APE against harvested mass, tape-fed, is 14.00%, and T-VER's is 20.85% — both carry real error before measurement enters at all. On the median tree the equation is the *larger* share of route A's total error (item 4), the opposite emphasis from the prediction's framing — though measurement dominates completely, in either direction, for a right-skewed subset of individual trees. |
+
+### What this still does not validate
+
+Unchanged from the spec's section 15: stages 1-4 (isolated trees, no real
+plot end to end), stage 5 (these clouds arrive already leaf-stripped by the
+original authors, so no wood/leaf accuracy claim is made here), stage 7
+(still a stub), and Thailand (Cameroon is tropical, semi-deciduous forest and
+not Thai; T-VER is scored on African trees because that is the closest check
+available without field access, not because it has been validated on a Thai
+tree). Carbon credits are unaffected: nothing here makes any output a
+tradable or certified credit.
