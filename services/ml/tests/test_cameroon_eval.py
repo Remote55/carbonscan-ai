@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-import pytest  # noqa: F401 — used by pytest.raises/approx/mark in tests appended by later tasks
+import pytest  # noqa: F401 - used by pytest.raises/approx/mark in tests appended by later tasks
 
 ML_ROOT = Path(__file__).resolve().parents[1]
 GROUND_TRUTH = ML_ROOT / "data" / "cameroon_61" / "ground_truth.csv"
