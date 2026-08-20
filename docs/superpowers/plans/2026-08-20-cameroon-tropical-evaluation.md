@@ -348,7 +348,7 @@ a file the pipeline never reads.
 services/ml/.venv/Scripts/python.exe -m pytest services/ml/tests/test_cameroon_eval.py -v --no-cov
 ```
 
-Expected: all six pass. If `test_agb_is_oven_dry_mass_including_the_stump` fails,
+Expected: all five pass. If `test_agb_is_oven_dry_mass_including_the_stump` fails,
 stop — either the wrong AGB column was mapped or the archive is not what
 `CAMEROON_EVIDENCE_CHAIN.md` describes, and both invalidate the evaluation.
 
