@@ -84,11 +84,14 @@ describe('DemoShell frozen evidence result', () => {
     expect(markup).toContain('ไม่รวมผล 2');
     // Hardcoded on purpose. Reading these from the manifest would make the
     // test pass whatever the manifest said; typed out, changing the published
-    // figure costs somebody a deliberate edit. It has moved once, when the
-    // ground estimator stopped putting the floor up the trunk:
-    // 1,289.74 / 4,729.06 -> 1,295.17 / 4,748.95.
-    expect(markup).toContain('1,295.17 kg C');
-    expect(markup).toContain('4,748.95 kg CO₂e');
+    // figure costs somebody a deliberate edit. It has moved twice:
+    //   1,289.74 / 4,729.06 -> 1,295.17 / 4,748.95
+    //     the ground estimator stopped putting the floor up the trunk
+    //   1,295.17 / 4,748.95 -> 1,035.93 / 3,798.38
+    //     the artefacts were regenerated after 8cf3058 replaced five air-dry
+    //     wood densities with basic ones, which is the quantity Chave takes
+    expect(markup).toContain('1,035.93 kg C');
+    expect(markup).toContain('3,798.38 kg CO₂e');
   });
 
   it('guides the judge through the five evidence stages', () => {
