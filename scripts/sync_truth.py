@@ -151,6 +151,41 @@ def stale_figures_in_text(
     return tuple(found)
 
 
+#: An evidence entry that names a file rather than a hash or a sentence.
+#:
+#: The evidence column mixes both - "docs/evidence/x.json; SHA-256 5892..." - so
+#: only entries shaped like a repository path are resolved.
+_EVIDENCE_FILE = re.compile(r"^[A-Za-z0-9_./-]+\.(?:py|ts|tsx|json|csv|md|dart)$")
+
+
+def missing_evidence_paths(
+    repo_root: str | Path, capabilities: list[dict[str, Any]]
+) -> tuple[tuple[str, str], ...]:
+    """Capability evidence files that are not in the checkout.
+
+    A capability is a claim, and the evidence column is where the claim is meant
+    to be checkable. When the file is gone the row is an assertion with nothing
+    behind it, which is how a mobile capture flow stayed in the matrix for ten
+    days after `8ce6021` deleted the application.
+
+    Args:
+        repo_root: the repository checkout.
+        capabilities: the manifest's `capabilities` list.
+
+    Returns:
+        `(capability_name, missing_path)` pairs, empty when every cited file
+        exists.
+    """
+    root = Path(repo_root)
+    missing: list[tuple[str, str]] = []
+    for capability in capabilities:
+        for entry in str(capability.get("evidence", "")).split(";"):
+            candidate = entry.strip()
+            if _EVIDENCE_FILE.match(candidate) and not (root / candidate).exists():
+                missing.append((str(capability.get("name", "")), candidate))
+    return tuple(missing)
+
+
 def validate_demol(block: Any, *, repo_root: str | Path | None) -> None:
     """Check the published Demol figures against the artefact that derived them.
 

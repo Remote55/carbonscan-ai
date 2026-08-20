@@ -22,7 +22,6 @@ on:
       - "proposal/**"
       - "services/api/README.md"
       - "apps/web/README.md"
-      - "apps/mobile/README.md"
       - "apps/web/src/generated/core-demo-evidence.ts"
       - ".github/workflows/ci-ml.yml"
   pull_request:
@@ -45,7 +44,6 @@ on:
       - "proposal/**"
       - "services/api/README.md"
       - "apps/web/README.md"
-      - "apps/mobile/README.md"
       - "apps/web/src/generated/core-demo-evidence.ts"
       - ".github/workflows/ci-ml.yml"
 

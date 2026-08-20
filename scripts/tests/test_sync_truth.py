@@ -14,6 +14,7 @@ from scripts.sync_truth import (
     FIGURE_PROSE_DOCS,
     PROMOTION_POLICY,
     load_manifest,
+    missing_evidence_paths,
     render_capability_matrix,
     render_typescript,
     replace_truth_block,
@@ -724,3 +725,40 @@ def test_no_controlled_document_quotes_a_stale_figure():
             offences.append(f"{relative.as_posix()}:{lineno} {label} = {raw}")
 
     assert offences == [], "Figures not found in the manifest:\n" + "\n".join(offences)
+
+
+def test_missing_evidence_paths_accepts_a_file_that_exists():
+    repo_root = Path(__file__).resolve().parents[2]
+    capabilities = [{"name": "x", "evidence": "scripts/sync_truth.py"}]
+
+    assert missing_evidence_paths(repo_root, capabilities) == ()
+
+
+def test_missing_evidence_paths_reports_a_file_that_does_not():
+    repo_root = Path(__file__).resolve().parents[2]
+    capabilities = [{"name": "Mobile", "evidence": "apps/mobile/lib/main.dart"}]
+
+    assert missing_evidence_paths(repo_root, capabilities) == (
+        ("Mobile", "apps/mobile/lib/main.dart"),
+    )
+
+
+def test_missing_evidence_paths_ignores_a_hash_beside_a_path():
+    """The evidence column mixes paths with SHA-256 text; only paths resolve."""
+    repo_root = Path(__file__).resolve().parents[2]
+    capabilities = [
+        {"name": "x", "evidence": "scripts/sync_truth.py; SHA-256 5892abc"}
+    ]
+
+    assert missing_evidence_paths(repo_root, capabilities) == ()
+
+
+def test_no_capability_cites_evidence_that_does_not_exist():
+    """A capability whose evidence file is gone is a claim with nothing behind it."""
+    repo_root, manifest = _repo_manifest()
+
+    missing = missing_evidence_paths(repo_root, manifest["capabilities"])
+
+    assert missing == (), "Capabilities citing files that do not exist: " + "; ".join(
+        f"{name} -> {path}" for name, path in missing
+    )

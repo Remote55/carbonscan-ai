@@ -23,7 +23,7 @@ requires a separate reviewed default-switch decision.
 
 ## Mixed current/target — อ่าน banner ก่อนใช้
 
-- `services/api/README.md`, `services/ml/README.md`, `apps/web/README.md`, `apps/mobile/README.md`
+- `services/api/README.md`, `services/ml/README.md`, `apps/web/README.md`
 - `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/DEPLOYMENT.md`, `docs/ROADMAP.md`
 
 เอกสารเหล่านี้มีรายละเอียดเป้าหมายปะปนกับส่วนที่ implement แล้ว จึงติดป้ายสถานะด้านบนและห้ามใช้เป็นหลักฐาน completion โดยลำพัง
