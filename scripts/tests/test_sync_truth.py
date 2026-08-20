@@ -11,11 +11,14 @@ import pytest
 from scripts.sync_truth import (
     DEMOL_PUBLISHED_FIELDS,
     DEMOL_RESULT_PATH,
+    FIGURE_PROSE_DOCS,
     PROMOTION_POLICY,
     load_manifest,
+    missing_evidence_paths,
     render_capability_matrix,
     render_typescript,
     replace_truth_block,
+    stale_figures_in_text,
 )
 
 #: A plausible derived block. The values are not the real ones -- what these
@@ -492,9 +495,9 @@ def test_current_claim_documents_share_exact_evidence():
         "0.808",
         "0.613",
         "0.831",
-        "1.1673846154",
-        "0.5446153846",
-        "18.7650916186",
+        "0.898318",
+        "0.543323",
+        "11.520556",
     ):
         assert exact in combined
 
@@ -675,3 +678,87 @@ def test_that_check_actually_looks_at_something(relative: Path):
             "the check above stopped looking at it. Either the document changed "
             "shape or the pattern did"
         )
+
+
+def _repo_manifest() -> tuple[Path, dict[str, object]]:
+    """The checkout and its committed manifest, loaded the way sync uses it."""
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest = load_manifest(
+        repo_root / "docs/evidence/core_demo_manifest.json", repo_root=repo_root
+    )
+    return repo_root, manifest
+
+
+def test_stale_figures_accepts_a_manifest_value():
+    """A figure that equals a manifest field is not stale."""
+    _, manifest = _repo_manifest()
+    demol = manifest["validation"]["demol_65"]
+    document = f"Demol 65 trees give DBH MAE {demol['dbh_mae_cm']} cm.\n"
+
+    assert stale_figures_in_text(document, manifest) == ()
+
+
+def test_stale_figures_reports_a_superseded_value():
+    """1.1673846154 is the pre-derivation DBH MAE and must be caught."""
+    _, manifest = _repo_manifest()
+    document = "Demol 65 trees give DBH MAE 1.1673846154 cm.\n"
+
+    assert stale_figures_in_text(document, manifest) == (
+        (1, "DBH MAE", "1.1673846154"),
+    )
+
+
+def test_no_controlled_document_quotes_a_stale_figure():
+    """Every accuracy figure in prose must equal one the manifest records.
+
+    docs/ml/DEMOL_EVIDENCE_CHAIN.md:97 labels 1.1674 and 18.77 "published
+    before"; the derived values are 0.8983 and 11.52. Both were in the tree at
+    once, in the same documents, and sync_truth --check passed because it
+    compares the manifest against an artefact and never against the markdown
+    that quotes it.
+    """
+    repo_root, manifest = _repo_manifest()
+    offences = []
+    for relative in FIGURE_PROSE_DOCS:
+        text = (repo_root / relative).read_text(encoding="utf-8")
+        for lineno, label, raw in stale_figures_in_text(text, manifest):
+            offences.append(f"{relative.as_posix()}:{lineno} {label} = {raw}")
+
+    assert offences == [], "Figures not found in the manifest:\n" + "\n".join(offences)
+
+
+def test_missing_evidence_paths_accepts_a_file_that_exists():
+    repo_root = Path(__file__).resolve().parents[2]
+    capabilities = [{"name": "x", "evidence": "scripts/sync_truth.py"}]
+
+    assert missing_evidence_paths(repo_root, capabilities) == ()
+
+
+def test_missing_evidence_paths_reports_a_file_that_does_not():
+    repo_root = Path(__file__).resolve().parents[2]
+    capabilities = [{"name": "Mobile", "evidence": "apps/mobile/lib/main.dart"}]
+
+    assert missing_evidence_paths(repo_root, capabilities) == (
+        ("Mobile", "apps/mobile/lib/main.dart"),
+    )
+
+
+def test_missing_evidence_paths_ignores_a_hash_beside_a_path():
+    """The evidence column mixes paths with SHA-256 text; only paths resolve."""
+    repo_root = Path(__file__).resolve().parents[2]
+    capabilities = [
+        {"name": "x", "evidence": "scripts/sync_truth.py; SHA-256 5892abc"}
+    ]
+
+    assert missing_evidence_paths(repo_root, capabilities) == ()
+
+
+def test_no_capability_cites_evidence_that_does_not_exist():
+    """A capability whose evidence file is gone is a claim with nothing behind it."""
+    repo_root, manifest = _repo_manifest()
+
+    missing = missing_evidence_paths(repo_root, manifest["capabilities"])
+
+    assert missing == (), "Capabilities citing files that do not exist: " + "; ".join(
+        f"{name} -> {path}" for name, path in missing
+    )

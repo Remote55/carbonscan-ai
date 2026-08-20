@@ -54,7 +54,6 @@ flowchart LR
 | Allometric calculation | Implemented | ใช้ `services/ml/data/species_db.csv` และ Chave fallback; ยังต้อง verify coefficients กับ TGO 2017 |
 | FastAPI `/upload/analyze` | Implemented | synchronous — คืนผลเต็มในคำตอบเดียว คิว async ถูกถอดออกเพราะไม่มีผู้เรียกและไม่มี deployment ใดสตาร์ท worker |
 | Web 3D viewer | Implemented | แสดง segmented PLY และ run provenance |
-| Mobile capture flow | Experimental | มี Flutter screens แต่ Supabase init และ reviewed E2E ยังไม่ครบ |
 | Production API hosting | Planned | demo ปัจจุบันอาศัย local backend/tunnel |
 | GIS, anti-fraud, marketplace, payment, certificate | Planned | เป็น roadmap ไม่ใช่ prototype ที่เสร็จแล้ว |
 
@@ -82,9 +81,9 @@ Wan 2021 spatial held-out loader:
 
 | Metric | ค่าที่บันทึก |
 |---|---:|
-| DBH MAE | **1.1673846154 cm** |
-| Height MAE | **0.5446153846 m** |
-| Volume MAPE | **18.7650916186%** |
+| DBH MAE | **0.898318 cm** |
+| Height MAE | **0.543323 m** |
+| Volume MAPE | **11.520556%** |
 
 การทดสอบนี้เริ่มจาก isolated-tree cloud ที่จำกัด 20,000 points, normalize ด้วย min-Z และใช้ `tlsep`
 จึงไม่ใช่ validation ของขั้น 1–4, species classification, allometric biomass, carbon stock หรือ carbon credit
@@ -153,7 +152,6 @@ npm run build
 
 ```text
 apps/web/        Next.js landing, dashboard และ 3D viewer
-apps/mobile/     Flutter capture/results prototype
 services/api/    FastAPI synchronous analyze endpoint
 services/ml/     8-stage point-cloud pipeline, training และ evaluation
 docs/            master spec, ML evidence, capability matrix และ decisions
@@ -175,7 +173,7 @@ scripts/         truth sync และ report builder
 2. หาและ verify open wood/leaf dataset เพิ่ม แล้วเก็บ checkpoint/training provenance ให้ครบ
 3. verify allometric coefficients กับเอกสาร TGO 2017 ต้นฉบับ
 4. deploy API + worker บน shared persistent storage หรือเปลี่ยน job input เป็น object storage
-5. ปิด reviewed mobile E2E ก่อนเริ่ม marketplace/GIS/certificate
+5. เปิด independent tropical validation (Cameroon 61) ก่อนเริ่ม marketplace/GIS/certificate
 
 ## เอกสารหลัก
 

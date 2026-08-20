@@ -28,7 +28,6 @@ backend, web, mobile, สถานะจริง, known bugs, roadmap. **อ่
 
 ```
 apps/web/        Next.js 14 (App Router, TS, Tailwind, shadcn) — landing + dashboard + 3D viewer
-apps/mobile/     Flutter (Riverpod, go_router, camera, Supabase) — สแกน/ถ่ายภาพ → คาร์บอน
 services/api/    FastAPI (SQLAlchemy async, asyncpg, Pydantic v2, Alembic) — REST + async-job worker
 services/ml/     Point-cloud pipeline — tlsep default, PointNet++ Experimental, 8-step pipeline + allometric
 docs/            เอกสาร (PROJECT_SPEC.md, ml/, learning/, decisions/, superpowers/)
@@ -69,14 +68,6 @@ python -c "from pipeline.allometric import calculate_carbon; print(calculate_car
 # pipeline เต็ม: ดู services/ml/pipeline/main.py + services/api/app/services/pipeline_runner.py
 ```
 
-### Mobile (`apps/mobile`)
-```bash
-flutter pub get
-.\scripts\run-dev.ps1   # Windows: อ่าน .env → --dart-define (ต้องมี Android emulator/device ก่อน)
-# main.dart ยังไม่ init Supabase (TODO) → รันได้แม้ไม่มี key
-# API URL: emulator=http://10.0.2.2:8000 · เครื่องจริง=IP LAN + uvicorn --host 0.0.0.0
-```
-
 ---
 
 ## กติกา / Conventions (สำคัญ — กันพลาดซ้ำ)
@@ -100,11 +91,11 @@ core demo พร้อม hashes/provenance, backend sync+async-job, web landing
 
 **หลักฐานที่ต้องพูดครบ:** PointNet++ = Experimental; Wan held-out Wood IoU `0.418`, Leaf IoU `0.808`,
 Mean IoU `0.613`, accuracy `0.831` และ held-out loader ถูกใช้เลือก best epoch ด้วย · Demol isolated-tree
-65 ต้น DBH MAE `1.1673846154 cm`, Height MAE `0.5446153846 m`, Volume MAPE `18.7650916186%`;
+65 ต้น DBH MAE `0.898318 cm`, Height MAE `0.543323 m`, Volume MAPE `11.520556%`;
 ผล Demol ไม่ใช่ full-pipeline/allometric/carbon validation
 
 **⚠️ ค้าง:**
-- Rebrand core surface แล้ว · เหลือ mobile/legacy docs/proposal/GitHub-repo-name/logo assets
+- Rebrand core surface แล้ว · เหลือ legacy docs/proposal/GitHub-repo-name/logo assets
 - Species classifier (ขั้น 7) = stub → ต้องเทรน ResNet จริง
 - PointNet++ promotion = ต้องมี verified checkpoint/training provenance, independent real test และ DBH/height/volume non-regression
 - Dataset: research+verify open dataset เพิ่มตามคำสั่งอาจารย์ แล้วสร้าง independent final split

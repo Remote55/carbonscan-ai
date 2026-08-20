@@ -145,8 +145,8 @@ reproducible independent real test พร้อมกัน
 จงใจใช้ taper equation เพราะ sectional method overestimate เมื่อ heuristic wood points ยังมี crown/branch blobs
 ดังนั้น implementation นี้ **ไม่ใช่ full TreeQSM**, ไม่มี skeleton/branch-axis cylinders และห้ามเคลม branch volume
 
-Demol isolated-tree validation 65 ต้นให้ DBH MAE 1.1673846154 cm, Height MAE 0.5446153846 m
-และ Volume MAPE 18.7650916186% ภายใต้ preprocessing เฉพาะของ evaluation script
+Demol isolated-tree validation 65 ต้นให้ DBH MAE 0.898318 cm, Height MAE 0.543323 m
+และ Volume MAPE 11.520556% ภายใต้ preprocessing เฉพาะของ evaluation script
 ผลนี้ไม่ใช่ full eight-stage หรือ carbon validation
 
 ## Step 7: Species classification

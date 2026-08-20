@@ -131,11 +131,21 @@ components summed:
 
 | forest type | equation | source |
 |---|---|---|
-| ป่าดิบชื้น (tropical rain) | `WS = 0.0509 (D²H)^0.919`, `WB = 0.00893 (D²H)^0.977`, `WL = 0.0140 (D²H)^0.669` | Tsutsumi et al. 1983 |
+| ป่าดิบแล้ง / ป่าดิบเขา (dry evergreen, hill evergreen) | `WS = 0.0509 (D²H)^0.919`, `WB = 0.00893 (D²H)^0.977`, `WL = 0.0140 (D²H)^0.669` | Tsutsumi et al. 1983 |
+| ป่าดิบชื้น (tropical rain) | `WS = 0.0396 (D²H)^0.9326`, `WB = 0.006003 (D²H)^1.027`, `WL = (28/(WS+WB) + 0.025)⁻¹` | Ogawa et al. 1965 |
 | ป่าเต็งรัง / ป่าเบญจพรรณ (deciduous dipterocarp, mixed deciduous) | `WS = 0.0396 (D²H)^0.933`, `WB = 0.00349 (D²H)^1.030`, `WL = (28/(WS+WB) + 0.025)⁻¹` | Ogawa et al. 1965 |
-| ป่าสนเขา (pine) | two sets, สนสองใบ and สนสามใบ | สุนันทา 2531; พงษ์ศักดิ์ 2524 |
-| ป่าชายเลน (mangrove) | Rhizophora and other species | Komiyama et al. 1987 |
-| ปาล์ม, ไผ่, เถาวัลย์ | palm, four named bamboos, lianas | Pearson et al. 2005; Kutintara 1995; others |
+| ป่าสนเขา สนสองใบ (two-needle pine) | `WS = 0.2141 (D²H)^0.9814`, `WB = 0.00002 (D²H)^1.4561`, `WL = 0.00072 (D²H)^1.0138` | สุนันทา 2531 |
+| ป่าสนเขา สนสามใบ (three-needle pine) | `WS = 0.02698 (D²H)^0.946`, `WB = 0.00018 (D²H)^1.455`, `WL = 0.00072 (D²H)^1.094` | พงษ์ศักดิ์ 2524 |
+| ไม้โกงกาง (Rhizophora spp.) | `WS = 0.05466 (D²H)^0.945`, `WB = 0.01579 (D²H)^0.9124`, `WL = 0.0678 (D²H)^0.5806` | Komiyama et al. 1987 |
+| ป่าชายเลนชนิดอื่น (other mangrove) | `WS = 0.0449 (D²H)^0.9549`, `WB = 0.02412 (D²H)^0.8649`, `WL = 0.09422 (D²H)^0.5439` | Komiyama et al. 1987 |
+
+> The first version of this table, written on 2026-08-14 from a partial reading,
+> put `0.0509` under ป่าดิบชื้น. It is ป่าดิบแล้ง / ป่าดิบเขา; ป่าดิบชื้น is the
+> Ogawa row at `0.0396 (D²H)^0.9326`. Two Ogawa rows share a stem coefficient of
+> 0.0396 and differ in every exponent, which is exactly the confusion this
+> document exists to record. `pipeline/tver.py` carries all seven, transcribed
+> from the table itself, and `tests/test_tver.py` transcribes them a second time
+> independently.
 
 `WT = WS + WB + WL`, where WS is stem, WB branch, WL leaf, D is DBH in cm and H
 total height in m.
@@ -144,7 +154,7 @@ Now compare `species_db.csv`:
 
 | row | shipped | in T-VER |
 |---|---|---|
-| *Tectona grandis* | `a = 0.0509`, `D^2.150 · H^0.700` | `0.0509` is the **stem-only** coefficient of the **rain forest** equation, whose form is `(D²H)^0.919` = `D^1.838 · H^0.919` |
+| *Tectona grandis* | `a = 0.0509`, `D^2.150 · H^0.700` | `0.0509` is the **stem-only** coefficient of the **dry evergreen / hill evergreen** equation, whose form is `(D²H)^0.919` = `D^1.838 · H^0.919` |
 | *Dipterocarpus alatus* | `a = 0.0396`, `D^2.380 · H^0.800` | `0.0396` is the **stem-only** coefficient of the **deciduous** equation, form `(D²H)^0.933` |
 
 The leading coefficients match exactly, twice. That is not coincidence — it is
@@ -156,7 +166,7 @@ the same table, transcribed wrong in three separate ways:
    components; the row uses it as AGB.
 3. **Forest-type equations were labelled as species equations.** T-VER has no
    per-species equation for teak or *Dipterocarpus*; it has equations for the
-   forest they grow in — and teak is not rain forest.
+   forest they grow in — and teak grows in mixed deciduous forest, not dry evergreen.
 
 `agb_source` in every row now records this. Nothing costed changes, because
 `coefficients_verified` was already `no` on all five and the physical-ceiling

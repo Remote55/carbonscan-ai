@@ -27,6 +27,111 @@ ARTIFACT_PATHS = {
 ARTIFACT_FILENAMES = {name: Path(path).name for name, path in ARTIFACT_PATHS.items()}
 ALLOWED_RELEASE_STATUSES = {"candidate", "frozen"}
 
+#: Paths whose contents determine what `run_judge_demo.py` produces.
+#:
+#: A change under any of these makes the published artefacts describe a pipeline
+#: that no longer exists. `services/ml/pipeline` is the code; `8cf3058`, which
+#: moved the demo's CO2e from 4748.95 to 3798.38 by changing wood densities,
+#: changed `allometric.py` by 99 lines and would have been caught by that entry
+#: alone. `species_db.csv` is watched separately because `load_species_db()`
+#: reads it at runtime, so a CSV-only edit is possible in principle - though no
+#: commit that has ever touched this file has changed the CSV without also
+#: touching pipeline code, so this entry is forward-looking, not a response to
+#: a past miss.
+PIPELINE_INPUT_PATHS = (
+    "services/ml/pipeline",
+    "services/ml/data/species_db.csv",
+    "services/ml/scripts/run_judge_demo.py",
+)
+
+
+def stale_pipeline_paths(
+    repo_root: str | Path, analyzed_commit: str
+) -> tuple[str, ...]:
+    """Paths determining the demo output that changed between a commit and HEAD.
+
+    Empty when the published artefacts still describe the pipeline at HEAD.
+
+    This is deliberately a diff and not a re-run. Re-running needs a clean
+    worktree and three minutes; a diff needs neither and answers the only
+    question that matters - whether anything the result depends on has moved.
+
+    Only committed state is compared. An uncommitted edit under a watched path,
+    in the working tree of either revision, is invisible to this check - that
+    is a deliberate boundary, not an oversight, because the deployed site is
+    built from committed code.
+
+    Args:
+        repo_root: the repository checkout.
+        analyzed_commit: the commit the published artefacts record.
+
+    Returns:
+        Changed paths, sorted, empty when the artefacts are current.
+
+    Raises:
+        ValueError: when `analyzed_commit` is not a full 40-character hex Git
+            SHA; when it does not resolve to a commit in this repository,
+            including a SHA absent from a shallow clone; or when an entry of
+            `PIPELINE_INPUT_PATHS` matches nothing at that commit, so a
+            typo'd or renamed watched path fails closed instead of silently
+            watching nothing.
+        FileNotFoundError: when `git` is not on PATH.
+        subprocess.TimeoutExpired: when a `git` call exceeds 60 seconds.
+        OSError: when `repo_root` does not exist.
+    """
+    if not _is_hex(analyzed_commit, 40):
+        raise ValueError(
+            f"analyzed_commit must be a full Git SHA, got {analyzed_commit!r}"
+        )
+    root = Path(repo_root).resolve(strict=True)
+
+    missing = []
+    for path in PIPELINE_INPUT_PATHS:
+        try:
+            listed = subprocess.run(
+                ["git", "ls-tree", "--name-only", analyzed_commit, "--", path],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=60,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise ValueError(
+                f"Cannot resolve {analyzed_commit!r} in this repository: "
+                f"{exc.stderr.strip()}"
+            ) from exc
+        if not listed.stdout.strip():
+            missing.append(path)
+    if missing:
+        raise ValueError(
+            "Watched pipeline path does not exist at "
+            f"{analyzed_commit[:12]} and cannot be watched for staleness - "
+            + ", ".join(missing)
+        )
+
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                f"{analyzed_commit}..HEAD",
+                "--",
+                *PIPELINE_INPUT_PATHS,
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(
+            f"Cannot diff {analyzed_commit!r} against HEAD: {exc.stderr.strip()}"
+        ) from exc
+    return tuple(sorted(line for line in completed.stdout.splitlines() if line))
+
 
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -858,6 +963,14 @@ def check_manifest(
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError("Public manifest must contain strict UTF-8 JSON") from exc
     _validate_public_manifest(manifest)
+
+    stale = stale_pipeline_paths(repo_root, manifest["analyzed_commit"])
+    if stale:
+        raise ValueError(
+            "Published demo artefacts are stale: analysed at "
+            f"{manifest['analyzed_commit'][:12]}, and these have changed since - "
+            + ", ".join(stale)
+        )
 
     _safe_repo_file(repo_root, CORE_MANIFEST_PATH, "Core manifest")
     core_bytes = _git_blob_bytes(

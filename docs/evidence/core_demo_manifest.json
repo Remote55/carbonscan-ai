@@ -186,13 +186,6 @@
       "claim": "Implemented web visualization; generated evidence labels must accompany demo claims."
     },
     {
-      "name": "Mobile capture flow",
-      "status": "Experimental",
-      "implementation": "Flutter capture and result screens exist, but Supabase initialization and the reviewed end-to-end path are incomplete",
-      "evidence": "apps/mobile/lib/main.dart; apps/mobile/lib/features/tree_scan/presentation/tree_scan_screen.dart",
-      "claim": "Prototype UI only; not a verified production scan-to-carbon flow."
-    },
-    {
       "name": "Production API/worker deployment",
       "status": "Planned",
       "implementation": "Current verified demo uses a local backend exposed through a temporary tunnel",

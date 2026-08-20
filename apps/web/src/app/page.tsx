@@ -31,7 +31,7 @@ const JOURNEY = [
     step: '01',
     title: 'รับภาพสามมิติของต้นไม้',
     description:
-      'รองรับข้อมูล Point Cloud จากเครื่องสแกน LiDAR หรือภาพถ่ายทางอากาศ',
+      'รองรับข้อมูล Point Cloud จากเครื่องสแกน LiDAR ภาคพื้นดิน (TLS)',
     technical: [
       'Point Cloud รูปแบบ .ply',
       LIMITS_LABEL_TH,

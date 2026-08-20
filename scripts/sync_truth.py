@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,114 @@ DEMOL_PUBLISHED_FIELDS = (
 )
 
 DEMOL_RESULT_PATH = "docs/evidence/demol_65/result.json"
+
+#: Documents that quote accuracy figures in hand-written prose.
+#:
+#: The TREEQ_TRUTH block is regenerated from the manifest, so the numbers inside
+#: it are correct by construction. Everything outside it is typed by hand and
+#: drifts. docs/PROJECT_SPEC.md carried both at once: the derived 0.898318 at
+#: line 16 and the superseded 1.1673846154 at line 234.
+#:
+#: docs/DOCUMENT_STATUS.md belongs here for a sharper reason than the other
+#: four: it is the document that declares which documents are current truth,
+#: and its own "Non-negotiable truth snapshot" section quoted the superseded
+#: Demol figures under that heading. The file that defines what counts as
+#: authoritative is not exempt from being checked against the manifest --
+#: if anything it is the one place this gate can least afford to miss.
+FIGURE_PROSE_DOCS = (
+    Path("README.md"),
+    Path("AGENTS.md"),
+    Path("docs/PROJECT_SPEC.md"),
+    Path("docs/ml/PIPELINE.md"),
+    Path("docs/DOCUMENT_STATUS.md"),
+)
+
+#: A metric name followed by its value, however the document spaces or marks it up.
+_FIGURE_PATTERN = re.compile(
+    r"(DBH MAE|Height MAE|Volume MAPE)[^0-9\n]{0,24}([0-9]+\.[0-9]+)"
+)
+
+
+def published_figure_values(manifest: dict[str, Any]) -> frozenset[float]:
+    """Every DBH MAE, Height MAE and Volume MAPE the manifest records.
+
+    Both evaluations are included. The Demol block and the independent PointNet
+    review measure the same cohort by different routes and legitimately differ,
+    and both are quoted in prose, so a figure matching either one is current.
+    """
+    demol = manifest["validation"]["demol_65"]
+    values = {
+        float(demol["dbh_mae_cm"]),
+        float(demol["height_mae_m"]),
+        float(demol["volume_mape_pct"]),
+    }
+    independent = manifest["validation"].get("pointnet_independent")
+    if independent is not None:
+        for side in ("baseline", "candidate"):
+            block = independent[side]
+            values |= {
+                float(block["dbh_mae_cm"]),
+                float(block["height_mae_m"]),
+                float(block["volume_mape_pct"]),
+            }
+    return frozenset(values)
+
+
+def stale_figures_in_text(
+    text: str, manifest: dict[str, Any]
+) -> tuple[tuple[int, str, str], ...]:
+    """Accuracy figures in `text` that no manifest field records.
+
+    Args:
+        text: a document's full contents.
+        manifest: the parsed core demo manifest.
+
+    Returns:
+        `(line_number, metric_name, value_as_written)` for each offending figure,
+        empty when every figure quoted is one the manifest holds.
+    """
+    allowed = published_figure_values(manifest)
+    found: list[tuple[int, str, str]] = []
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for label, raw in _FIGURE_PATTERN.findall(line):
+            if float(raw) not in allowed:
+                found.append((lineno, label, raw))
+    return tuple(found)
+
+
+#: An evidence entry that names a file rather than a hash or a sentence.
+#:
+#: The evidence column mixes both - "docs/evidence/x.json; SHA-256 5892..." - so
+#: only entries shaped like a repository path are resolved.
+_EVIDENCE_FILE = re.compile(r"^[A-Za-z0-9_./-]+\.(?:py|ts|tsx|json|csv|md|dart)$")
+
+
+def missing_evidence_paths(
+    repo_root: str | Path, capabilities: list[dict[str, Any]]
+) -> tuple[tuple[str, str], ...]:
+    """Capability evidence files that are not in the checkout.
+
+    A capability is a claim, and the evidence column is where the claim is meant
+    to be checkable. When the file is gone the row is an assertion with nothing
+    behind it, which is how a mobile capture flow stayed in the matrix for ten
+    days after `8ce6021` deleted the application.
+
+    Args:
+        repo_root: the repository checkout.
+        capabilities: the manifest's `capabilities` list.
+
+    Returns:
+        `(capability_name, missing_path)` pairs, empty when every cited file
+        exists.
+    """
+    root = Path(repo_root)
+    missing: list[tuple[str, str]] = []
+    for capability in capabilities:
+        for entry in str(capability.get("evidence", "")).split(";"):
+            candidate = entry.strip()
+            if _EVIDENCE_FILE.match(candidate) and not (root / candidate).exists():
+                missing.append((str(capability.get("name", "")), candidate))
+    return tuple(missing)
 
 
 def validate_demol(block: Any, *, repo_root: str | Path | None) -> None:
