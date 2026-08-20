@@ -443,3 +443,149 @@ not Thai; T-VER is scored on African trees because that is the closest check
 available without field access, not because it has been validated on a Thai
 tree). Carbon credits are unaffected: nothing here makes any output a
 tradable or certified credit.
+
+## Can the pipeline tell a buttressed stem on its own?
+
+Spec section 8. The archive has no per-tree buttress flag (see "What the
+archive does not answer" above), so `model_quality` — what `qsm.QsmResult`
+and this evaluation's `result.json` call the value section 8 and Task 6 of
+the implementation plan call `ransac_inlier_ratio` (both names refer to
+`QsmResult.model_quality`, documented in `qsm.py` as "0-1 fit quality
+(RANSAC inlier ratio for DBH)") — is the only signal computed from the cloud
+that could either partition this cohort at evaluation time or warn a real
+user, who has neither a tape nor a database. Task 5's per-band means (0.913
+/ 0.496 / 0.334, under 50 / 50-100 / 100-and-over) suggested the signal
+exists; this task checks whether it separates the trees where our DBH and
+`DBH_dest` actually diverge, which is a stricter and different question than
+whether it correlates with size — fit quality falling with size could simply
+mean big trunks are harder to fit.
+
+Analysis done entirely from the committed `result.json`. Neither
+`derive_cameroon_evidence.py` nor `result.json` was touched by this task —
+confirmed by `git status` showing only `pipeline/cameroon_eval.py` and
+`tests/test_cameroon_eval.py` changed, and by `sync_truth.py --check`
+continuing to pass unmodified.
+
+### The measured relationship
+
+One statistic was computed: Spearman rank correlation between
+`model_quality` and `abs(dbh_error_cm)`, across the 60 measurable trees.
+
+| population | n | Spearman rho (model_quality vs abs(dbh_error_cm)) | p |
+|---|---:|---:|---:|
+| all measurable trees | 60 | -0.72 | 6e-11 |
+| excluding the 5 over-ceiling trees (2, 6, 12, 64, 100) | 55 | -0.68 | 8e-9 |
+| under 50 cm only (buttressing not a confound) | 31 | -0.48 | 0.006 |
+| 50 cm and over only | 29 | -0.48 | 0.009 |
+
+The five trees whose taped DBH exceeds the 120 cm RANSAC search ceiling
+(`qsm._ransac_circle_fit`'s `max_radius_m=0.6`, see item 2 above) are not
+carrying the whole effect: removing them drops rho from -0.72 to -0.68, not
+to zero. The signal also survives inside the confound-free under-50 cm band
+alone (rho=-0.48, p=0.006), which says something the size-band means alone
+could not — even where buttressing cannot be the explanation, because the
+archive's own reference TLS agrees with the tape to +0.30 cm down there, a
+low inlier ratio still tracks a larger DBH error. So `model_quality` is not
+a *pure* buttress detector; it is a general "how much to trust this circle"
+signal that happens to concentrate on large stems in this cohort, because
+large stems are where the fit struggles most. That is a narrower and more
+honest claim than "it detects buttressing", and it is the one this data
+supports.
+
+Two trees make the imperfection concrete rather than abstract. Tree 99
+(108.5 cm gt, `model_quality` 0.346) has `dbh_error_cm` +0.02 — a
+low-confidence fit that happened to land almost exactly right. Tree 95
+(20.4 cm gt, `model_quality` 1.000, comfortably inside the unconfounded
+band) has `dbh_error_cm` -8.92 cm, 44% relative — a perfect-looking fit that
+was not particularly accurate. Neither tree breaks the aggregate
+relationship, and both are reasons this is reported as a correlation with
+known exceptions, not as a rule that always holds tree by tree.
+
+### `DBH_FIT_BUTTRESS_SUSPECT` is added
+
+The correlation holds with and without the over-ceiling five, and holds
+(more weakly, but significantly) inside the unconfounded band alone: the
+inlier ratio separates the divergent trees. `pipeline/cameroon_eval.py`
+gains `dbh_fit_buttress_suspect_reason(measured_dbh_cm, model_quality)`,
+returning the reason code `DBH_FIT_BUTTRESS_SUSPECT` when both:
+
+- `measured_dbh_cm >= UNCONFOUNDED_MAX_DBH_CM` (50 cm — this module's
+  existing boundary for "buttressing is not a confound below here", reused
+  rather than duplicated with a second 50 cm constant)
+- `model_quality < DBH_FIT_BUTTRESS_SUSPECT_MAX_INLIER_RATIO` (0.60)
+
+The size gate reads `measured_dbh_cm`, not `gt_dbh_cm`: a live pipeline run
+has no ground truth to gate on, and this whole reason code exists because a
+real user does not either.
+
+`DBH_FIT_BUTTRESS_SUSPECT_MAX_INLIER_RATIO = 0.60` was chosen from the
+threshold sweep below, not guessed in advance. "false alarm" means flagged
+despite `gt_dbh_cm < 50` — inside the band where the archive's own
+reference TLS agrees with the tape to +0.30 cm, so there is close to
+nothing there for the flag to be right about being suspicious of:
+
+| threshold | n flagged (of 60) | false alarms | notable miss |
+|---:|---:|---:|---|
+| 0.30 | 10 | 0 | tree 12 (-77.59 cm) |
+| 0.40 | 14 | 0 | tree 12 (-77.59 cm) |
+| 0.50 | 19 | 0 | tree 12 (-77.59 cm) |
+| **0.60** | **23** | **0** | tree 63 (-9.71 cm) |
+| 0.70 | 26 | 0 | adds trees 31, 74: errors under 0.6 cm |
+
+0.60 is where tree 12 — 180.3 cm gt, -77.59 cm error, the single largest
+error in the confounded population after the four other over-ceiling trees
+— stops being missed, at zero cost in false alarms. The next threshold up,
+0.70, only adds two trees whose actual error is under a centimetre: more
+noise than signal. Without the size gate, 0.60 alone would also flag two
+under-50 cm trees (tree 3, -1.46 cm; tree 32, -2.38 cm); the reused
+`UNCONFOUNDED_MAX_DBH_CM` gate removes both at no cost elsewhere in the
+sweep.
+
+At this threshold, 23 of 60 measurable trees are flagged. All 9 trees in
+the `100_and_over` band are flagged (including all 5 over-ceiling trees),
+and 14 of the 20 trees in the `50_to_100` band. Mean `abs(dbh_error_cm)` is
+26.30 cm for the flagged trees against 1.90 cm for the rest — about a 14x
+separation.
+
+What it still misses, stated rather than buried: tree 63 (90.5 cm gt,
+-9.71 cm error, `model_quality` 0.603) sits just above the line and is not
+flagged. That error is smaller than the 50-100 cm band's own MAE (11.55 cm,
+`result.json`'s `metrics.dbh_bias_by_size_band`), so tree 63 is not an
+outlier the flag conspicuously failed on — it is a middling error in a band
+where middling errors are the norm, sitting just past a threshold that had
+to be drawn somewhere.
+
+### `DBH_ABOVE_CALIBRATED_RANGE` is added unconditionally
+
+No correlation was needed for this one — only the range
+`qsm.TOTAL_TREE_FORM_FACTOR` and `qsm.STEM_FORM_FACTOR` were fitted over,
+which is a fact about the 65-tree Demol calibration cohort
+(`docs/evidence/demol_65/result.json`), not a statistic measured on this
+one. The largest `gt_dbh_cm` in that cohort is 46.63239833 cm
+(`FORM_FACTOR_CALIBRATION_MAX_DBH_CM`); `dbh_above_calibrated_range_reason`
+returns `DBH_ABOVE_CALIBRATED_RANGE` whenever `measured_dbh_cm` exceeds it.
+
+31 of the 60 measurable Cameroon trees do — a majority of this cohort,
+including 2 of the 31 trees under the 50 cm buttress boundary (trees 3 and
+15, whose measured DBH lands at 47.04 cm and 47.36 cm despite a
+`gt_dbh_cm` under 50 of 48.5 cm and 44.3 cm respectively). Every tree in the
+`50_to_100` and `100_and_over` bands exceeds it. Item 2 above already found
+that the largest `measured_dbh_cm` this pipeline ever reports is 117.91 cm,
+for a tree taped at 180.3 cm, with nothing in the output distinguishing
+that number from a trustworthy one — this reason code is that distinction.
+It is a diagnostic predicate here, not an enforced refusal:
+`cameroon_eval.py` calls `qsm.compute_qsm` directly, so nothing in this
+evaluation stops a volume from being computed and reported for a tree past
+this range. Wiring an actual refusal into the live pipeline (`main.py`,
+alongside `QSM_LOW_FIT_QUALITY`) would be a separate change, outside this
+task's scope.
+
+### The discipline
+
+One statistic was tried — Spearman rank correlation of `model_quality`
+against `abs(dbh_error_cm)` — and it separated the divergent trees, so no
+second statistic was ever tried looking for a better correlation. The
+threshold (0.60) was chosen by sweeping candidate values of that one
+statistic against the false-alarm count and the largest miss, the same
+style `qsm.py`'s own `MIN_DBH_FIT_QUALITY` comment uses to justify its 0.80,
+not by searching for a differently-computed quantity until one worked.

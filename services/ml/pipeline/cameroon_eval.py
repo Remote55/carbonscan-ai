@@ -503,3 +503,119 @@ def mass_row(
         "route_b_ape_pct": route_b_ape,
         "measurement_share_pct": route_a_ape - route_b_ape,
     }
+
+
+#: The largest gt_dbh_cm among the 65 Belgian trees qsm.TOTAL_TREE_FORM_FACTOR
+#: and qsm.STEM_FORM_FACTOR were fitted on - read directly from
+#: docs/evidence/demol_65/result.json's per_tree rows, not estimated. No tree
+#: in that calibration cohort is this large; a measured DBH above it asks the
+#: taper equation to extrapolate past everything it was ever checked against.
+FORM_FACTOR_CALIBRATION_MAX_DBH_CM = 46.63239833
+
+#: The pipeline's reason code for a DBH past the calibration range above. Not
+#: wired into main.py's ExcludedSegment.reason_code Literal - this evaluation
+#: calls qsm.compute_qsm directly and never runs that orchestrator (see the
+#: "gate" block in result.json) - named identically so a future caller that
+#: does wire it in reuses this vocabulary instead of inventing a second one.
+DBH_ABOVE_CALIBRATED_RANGE = "DBH_ABOVE_CALIBRATED_RANGE"
+
+
+def dbh_above_calibrated_range_reason(measured_dbh_cm: float) -> str | None:
+    """DBH_ABOVE_CALIBRATED_RANGE when a DBH exceeds every tree the taper
+    constants were fitted on; None otherwise.
+
+    Needs no correlation and no threshold search - only the range the
+    Belgian calibration cohort covers, a fact about that cohort rather than a
+    statistic measured on this one. 31 of the 60 measurable Cameroon trees
+    exceed it, including 2 of the 31 trees under the 50 cm buttress boundary:
+    a majority of this cohort's reported volumes already come from a taper
+    equation extrapolating past its own calibration, regardless of whether
+    the DBH fit itself was good.
+
+    This is a diagnostic predicate, not an enforced refusal: cameroon_eval
+    calls qsm.compute_qsm directly, so nothing here stops a volume from being
+    computed and reported for this evaluation. Wiring an actual refusal into
+    the live pipeline (main.py, alongside QSM_LOW_FIT_QUALITY) would be a
+    separate change outside this evaluation's scope.
+
+    Args:
+        measured_dbh_cm: what qsm.measure_dbh reported for this tree.
+    """
+    if measured_dbh_cm > FORM_FACTOR_CALIBRATION_MAX_DBH_CM:
+        return DBH_ABOVE_CALIBRATED_RANGE
+    return None
+
+
+#: A large stem (measured_dbh_cm >= UNCONFOUNDED_MAX_DBH_CM) whose
+#: breast-height circle fit explains less than 60% of its slice is suspected
+#: of fitting a buttress cross-section rather than the trunk - or of some
+#: other measurement problem the geometry alone cannot tell apart from one.
+#: This is the pipeline's only way to know: the archive records no per-tree
+#: buttress flag (see the module docstring), so a real user has neither a
+#: tape nor a database either.
+#:
+#: Chosen from the measured distribution in
+#: docs/evidence/cameroon_61/result.json, not guessed in advance. Across the
+#: 60 measurable Cameroon trees, model_quality (the RANSAC inlier ratio
+#: qsm.QsmResult already carries) correlates with abs(dbh_error_cm) at
+#: Spearman rho=-0.72 (p=6e-11); rho=-0.68 (p=8e-9, n=55) with the five trees
+#: above the 120 cm RANSAC search ceiling removed, so those five are not
+#: carrying the whole effect (see qsm._ransac_circle_fit's max_radius_m and
+#: CAMEROON_EVIDENCE_CHAIN.md). Restricted to the 31 trees under
+#: UNCONFOUNDED_MAX_DBH_CM, where buttressing is not a confound, the
+#: correlation is weaker but still significant (rho=-0.48, p=0.006): fit
+#: quality is not a pure buttress detector, it tracks measurement trust more
+#: generally, and it happens to concentrate on large stems in this cohort.
+#:
+#: Threshold sweep, gated on measured_dbh_cm >= UNCONFOUNDED_MAX_DBH_CM
+#: (n=60 measurable trees; "false alarm" = flagged despite gt_dbh_cm < 50):
+#:
+#:     threshold   n flagged   false alarms   notable miss
+#:     0.30        10          0              tree 12 (-77.59 cm) missed
+#:     0.40        14          0              tree 12 (-77.59 cm) missed
+#:     0.50        19          0              tree 12 (-77.59 cm) missed
+#:     0.60        23          0              tree 63 (-9.71 cm) missed
+#:     0.70        26          0              adds trees 31, 74: errors
+#:                                            under 0.6 cm, not real misses
+#:
+#: 0.60 is where tree 12 - the single largest error in the confounded
+#: population after the four other over-ceiling trees, -77.59 cm on a
+#: 180.3 cm stem - stops being missed, while the false-alarm count on the
+#: unconfounded band stays zero and the next threshold up (0.70) only adds
+#: two trees whose actual error is under a centimetre. Without the size
+#: gate, 0.60 alone would also flag two under-50 cm trees (errors -1.46 and
+#: -2.38 cm); UNCONFOUNDED_MAX_DBH_CM removes both at no cost, since it is
+#: already this module's boundary for "buttressing is not a confound here".
+#:
+#: What it still misses, reported rather than hidden: tree 63 (90.5 cm,
+#: -9.71 cm error, model_quality 0.6033) sits just above this line and is
+#: not flagged - a real limit of this detector, not a case selected around.
+DBH_FIT_BUTTRESS_SUSPECT_MAX_INLIER_RATIO = 0.60
+
+#: The pipeline's reason code for a suspected buttress fit. Same wiring note
+#: as DBH_ABOVE_CALIBRATED_RANGE above.
+DBH_FIT_BUTTRESS_SUSPECT = "DBH_FIT_BUTTRESS_SUSPECT"
+
+
+def dbh_fit_buttress_suspect_reason(
+    *, measured_dbh_cm: float, model_quality: float
+) -> str | None:
+    """DBH_FIT_BUTTRESS_SUSPECT when a large stem's circle fit is too poor
+    to trust; None otherwise.
+
+    See DBH_FIT_BUTTRESS_SUSPECT_MAX_INLIER_RATIO for the measured evidence
+    behind the threshold, including its known misses.
+
+    Args:
+        measured_dbh_cm: what qsm.measure_dbh reported for this tree - the
+            only DBH a live pipeline run has. Ground truth is not an input a
+            real user could supply.
+        model_quality: the RANSAC inlier ratio from the same measurement
+            (qsm.QsmResult.model_quality).
+    """
+    if (
+        measured_dbh_cm >= UNCONFOUNDED_MAX_DBH_CM
+        and model_quality < DBH_FIT_BUTTRESS_SUSPECT_MAX_INLIER_RATIO
+    ):
+        return DBH_FIT_BUTTRESS_SUSPECT
+    return None

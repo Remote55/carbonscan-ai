@@ -452,3 +452,68 @@ def test_two_unvalidated_models_are_scored_against_the_same_weighed_trees():
     assert all(ratio > 0 for ratio in chave)
     assert all(ratio > 0 for ratio in tver_pred)
     assert len(chave) == len(tver_pred) == 61
+
+
+def test_dbh_above_calibrated_range_fires_past_the_belgian_cohort_max():
+    """FORM_FACTOR_CALIBRATION_MAX_DBH_CM is the largest DBH the taper
+    constants were ever fitted against - a boundary, not an estimate."""
+    edge = cameroon_eval.FORM_FACTOR_CALIBRATION_MAX_DBH_CM
+
+    assert cameroon_eval.dbh_above_calibrated_range_reason(edge) is None
+    assert (
+        cameroon_eval.dbh_above_calibrated_range_reason(edge + 0.01)
+        == cameroon_eval.DBH_ABOVE_CALIBRATED_RANGE
+    )
+
+
+def test_dbh_above_calibrated_range_is_silent_on_a_belgian_sized_stem():
+    assert cameroon_eval.dbh_above_calibrated_range_reason(30.0) is None
+
+
+def test_buttress_suspect_fires_on_a_low_inlier_large_stem():
+    reason = cameroon_eval.dbh_fit_buttress_suspect_reason(
+        measured_dbh_cm=cameroon_eval.UNCONFOUNDED_MAX_DBH_CM,
+        model_quality=cameroon_eval.DBH_FIT_BUTTRESS_SUSPECT_MAX_INLIER_RATIO - 0.01,
+    )
+
+    assert reason == cameroon_eval.DBH_FIT_BUTTRESS_SUSPECT
+
+
+def test_buttress_suspect_stays_silent_on_a_clean_small_stem():
+    reason = cameroon_eval.dbh_fit_buttress_suspect_reason(
+        measured_dbh_cm=20.0, model_quality=0.99
+    )
+
+    assert reason is None
+
+
+def test_buttress_suspect_stays_silent_on_a_large_stem_with_a_good_fit():
+    """A large stem alone is not suspicious - only a large stem whose fit
+    quality cannot back it up is. See qsm.MIN_DBH_FIT_QUALITY for the
+    unrelated absolute gate this evaluation deliberately does not apply."""
+    reason = cameroon_eval.dbh_fit_buttress_suspect_reason(
+        measured_dbh_cm=150.0, model_quality=0.95
+    )
+
+    assert reason is None
+
+
+def test_buttress_suspect_stays_silent_on_a_small_stem_with_a_bad_fit():
+    """Below UNCONFOUNDED_MAX_DBH_CM a poor fit is not evidence of
+    buttressing: buttressing is not a confound down there in the first
+    place, so a low ratio on a small stem is some other problem."""
+    reason = cameroon_eval.dbh_fit_buttress_suspect_reason(
+        measured_dbh_cm=20.0, model_quality=0.1
+    )
+
+    assert reason is None
+
+
+def test_buttress_suspect_threshold_is_strict_not_inclusive():
+    """A fit quality exactly at the threshold is not below it."""
+    reason = cameroon_eval.dbh_fit_buttress_suspect_reason(
+        measured_dbh_cm=cameroon_eval.UNCONFOUNDED_MAX_DBH_CM,
+        model_quality=cameroon_eval.DBH_FIT_BUTTRESS_SUSPECT_MAX_INLIER_RATIO,
+    )
+
+    assert reason is None
