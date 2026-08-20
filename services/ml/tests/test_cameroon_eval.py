@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import math
 from pathlib import Path
 
@@ -209,49 +210,132 @@ def test_loading_is_deterministic_for_a_fixed_seed():
 # load all 61. cameroon_eval._load_cloud repairs the text and retries through
 # the same unmodified _load_xyz rather than skipping the tree, because a
 # cohort that quietly drops five more trees on top of ID_56 is the exact
-# failure this module exists to prevent.
+# failure this module exists to prevent. _write_repaired_cloud streams rather
+# than materializing the whole file in memory, so these tests write into an
+# io.StringIO and read that back rather than asserting on an in-memory string
+# the function itself no longer builds.
 
 
-def test_repaired_cloud_text_drops_a_non_numeric_header_line(tmp_path):
-    """31, 52 and 59 each open with one line that is not point data."""
+def _repaired_text(raw: Path) -> str:
+    """Test helper: run _write_repaired_cloud into a StringIO and read it back."""
+    destination = io.StringIO()
+    cameroon_eval._write_repaired_cloud(raw, destination)
+    return destination.getvalue()
+
+
+def test_write_repaired_cloud_drops_a_non_numeric_header_line(tmp_path):
+    """31 and 52 each open with one line that is not point data."""
     raw = tmp_path / "header.txt"
     raw.write_text('"V1" "V2" "V3"\n1.0 2.0 3.0\n4.0 5.0 6.0\n', encoding="utf-8")
 
-    repaired = cameroon_eval._repaired_cloud_text(raw)
-
-    assert repaired == "1.0 2.0 3.0\n4.0 5.0 6.0\n"
+    assert _repaired_text(raw) == "1.0 2.0 3.0\n4.0 5.0 6.0\n"
 
 
-def test_repaired_cloud_text_turns_commas_into_whitespace(tmp_path):
+def test_write_repaired_cloud_turns_commas_into_whitespace(tmp_path):
     """63 and 68 are comma-delimited throughout, with no header to drop."""
     raw = tmp_path / "commas.txt"
     raw.write_text("1.0,2.0,3.0\n4.0,5.0,6.0\n", encoding="utf-8")
 
-    repaired = cameroon_eval._repaired_cloud_text(raw)
-
-    assert repaired == "1.0 2.0 3.0\n4.0 5.0 6.0\n"
+    assert _repaired_text(raw) == "1.0 2.0 3.0\n4.0 5.0 6.0\n"
 
 
-def test_repaired_cloud_text_refuses_a_file_with_no_numeric_line_at_all(tmp_path):
+def test_write_repaired_cloud_handles_tree_59s_shape(tmp_path):
+    """Tree 59 is the one irregular shape with no CI coverage otherwise.
+
+    data/raw/ is gitignored, so every @requires_archive test - including the
+    one that exercises 59 for real, below - skips on a machine without the
+    1.29 GB archive. This fixture reproduces its exact shape: a // comment
+    header, a fourth scalar-field column left in place (_load_xyz's own
+    usecols drops it, not this function), and CRLF line endings.
+    """
+    raw = tmp_path / "tree_59_shape.txt"
+    raw.write_bytes(
+        b"//X Y Z Scalar_field\r\n"
+        b"8.135 -13.849 -2.502 -1339.000000\r\n"
+        b"8.244 -13.726 -2.395 -1062.000000\r\n"
+    )
+
+    assert _repaired_text(raw) == (
+        "8.135 -13.849 -2.502 -1339.000000\n8.244 -13.726 -2.395 -1062.000000\n"
+    )
+
+
+def test_write_repaired_cloud_refuses_a_file_with_no_numeric_line_at_all(tmp_path):
     """A genuinely malformed file must still fail loudly, not return a stub."""
     raw = tmp_path / "garbage.txt"
     raw.write_text("not\nany\nof\nthis\nis\nnumeric\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="no numeric point row"):
-        cameroon_eval._repaired_cloud_text(raw)
+        _repaired_text(raw)
+
+
+def test_repair_line_leaves_a_decimal_comma_row_untouched():
+    """"1,5 2,5 3,5" intends 1.5, 2.5, 3.5 in a decimal convention this archive
+    does not use. Substituting its commas would silently produce six tokens -
+    1, 5, 2, 5, 3, 5 - and load three wrong points with no error. Whitespace
+    already splits it into three tokens, so the substitution is refused. A
+    genuinely comma-delimited row like 63 or 68's has no whitespace at all and
+    yields exactly one token, so it is still repaired.
+    """
+    assert cameroon_eval._repair_line("1,5 2,5 3,5") == "1,5 2,5 3,5"
+    assert cameroon_eval._repair_line("-6.217,-9.782,-0.832") == "-6.217 -9.782 -0.832"
+
+
+def test_write_repaired_cloud_fails_loudly_on_decimal_comma_input(tmp_path):
+    """The corruption the reviewer reproduced: the old, unconditional comma
+    substitution loaded [1.0, 5.0, ...] from "1,5 2,5 3,5" with no error.
+    Refusing the substitution on an already-whitespace-split line means "1,5"
+    never parses as a point row, so this raises instead of silently loading
+    wrong coordinates.
+    """
+    raw = tmp_path / "decimal_comma.txt"
+    raw.write_text("1,5 2,5 3,5\n4,5 5,5 6,5\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="no numeric point row"):
+        _repaired_text(raw)
+
+
+def test_write_repaired_cloud_refuses_a_short_but_fully_numeric_row(tmp_path):
+    """"1 2" is two valid numbers, not a header - every real header in this
+    archive is text. Dropping it silently the way a header is dropped would
+    cost a real point with no word said; this must raise instead.
+    """
+    raw = tmp_path / "truncated.txt"
+    raw.write_text("1 2\n4 5 6\n7 8 9\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="fewer than 3 numeric fields"):
+        _repaired_text(raw)
 
 
 @requires_archive
 def test_the_five_irregularly_formatted_clouds_load_through_the_same_cohort_call():
-    """The repair is exercised end to end, not only on synthetic fixtures."""
+    """The repair is exercised end to end, not only on synthetic fixtures, and
+    cloud_was_repaired is true for exactly these five and false for the rest -
+    the durable provenance marker a results table can key on.
+    """
     cohort = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
 
     loaded_ids = {tree.tree_id for tree in cohort}
     assert cameroon_eval.IRREGULAR_CLOUD_FORMAT_TREE_IDS <= loaded_ids
     for tree in cohort:
-        if tree.tree_id in cameroon_eval.IRREGULAR_CLOUD_FORMAT_TREE_IDS:
+        expected_repaired = tree.tree_id in cameroon_eval.IRREGULAR_CLOUD_FORMAT_TREE_IDS
+        assert tree.cloud_was_repaired == expected_repaired
+        if expected_repaired:
             assert tree.points.shape[1] == 3
             assert len(tree.points) > 0
+
+
+def test_load_cameroon_cohort_refuses_a_non_positive_max_points():
+    """Validation the plan omitted: load_demol_cohort has always had it."""
+    with pytest.raises(ValueError, match="positive"):
+        cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=0)
+
+
+def test_load_cameroon_cohort_refuses_a_negative_sample_seed():
+    with pytest.raises(ValueError, match="non-negative"):
+        cameroon_eval.load_cameroon_cohort(
+            ARCHIVE, GROUND_TRUTH, max_points=2_000, sample_seed=-1
+        )
 
 
 def test_geometry_row_reports_both_targets_for_one_tree():

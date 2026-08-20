@@ -25,10 +25,11 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO
 
 import numpy as np
 
-from pipeline.demol_eval import _load_xyz
+from pipeline.demol_eval import _exact_non_negative_int, _exact_positive_int, _load_xyz
 
 #: The tree with a point cloud and no destructive row. Excluded by keying the
 #: cohort on the ground truth, and named here so the exclusion is legible.
@@ -46,6 +47,12 @@ COHORT_SIZE = 61
 #: _load_cloud's repair path is not a silent guess, and so a test can pin it.
 IRREGULAR_CLOUD_FORMAT_TREE_IDS = frozenset({31, 52, 59, 63, 68})
 
+#: A leading line is only ever dropped as a header up to this many lines. All
+#: three header shapes in the archive are one line; the margin covers a
+#: two-line header without being large enough to eat several real points
+#: unnoticed if the true cause is a corrupt file rather than a header at all.
+MAX_HEADER_LINES = 3
+
 
 @dataclass(frozen=True, slots=True)
 class CameroonTree:
@@ -53,6 +60,12 @@ class CameroonTree:
 
     tree_id: int
     points: np.ndarray
+    #: True if this tree's raw cloud text needed repair - a non-numeric header
+    #: line dropped, or a comma delimiter turned into whitespace - before
+    #: _load_xyz would parse it. The durable record of which measurements come
+    #: from rewritten bytes rather than the archive's own; see _load_cloud.
+    #: Not logged per tree: this field is the log.
+    cloud_was_repaired: bool
     gt_dbh_cm: float
     gt_height_m: float
     gt_agb_kg: float
@@ -127,48 +140,136 @@ def _looks_like_point_row(line: str) -> bool:
     return True
 
 
-def _repaired_cloud_text(path: Path) -> str:
-    """Normalize one cloud's raw text to what _load_xyz expects.
+def _is_all_numeric_tokens(line: str) -> bool:
+    """True if every whitespace-separated token on this line parses as a float.
 
-    Commas become spaces on every line - a no-op where there are none, and what
-    63 and 68 need since they are comma-delimited throughout. Then at most the
-    first three lines are dropped while they fail to parse as a point, which
-    covers the one-line header that 31, 52 and 59 carry, with margin to spare
-    without silently eating real data: if no numeric line turns up within
-    three, this raises rather than returning a file that is short by however
-    many lines were dropped.
+    Distinguishes a short data row from an actual header. "1 2" is two valid
+    numbers and not a plausible header - every header shape in this archive is
+    text ("V1" "V2" "V3", or a // comment) - so it is corruption rather than a
+    title row, and _write_repaired_cloud raises on it rather than silently
+    dropping what may be a real point the way a genuine header is dropped.
+    """
+    tokens = line.split()
+    if not tokens:
+        return False
+    try:
+        for token in tokens:
+            float(token)
+    except ValueError:
+        return False
+    return True
+
+
+def _repair_line(line: str) -> str:
+    """Turn commas into spaces on this line, unless whitespace alone already
+    splits it into three or more tokens.
+
+    A genuinely comma-delimited row, like 63 and 68's, has no whitespace at
+    all, so line.split() yields exactly one token and the substitution is
+    exactly what turns "-6.217,-9.782,-0.832" into three parseable fields. A
+    decimal-comma row such as "1,5 2,5 3,5" is already whitespace-delimited
+    and yields three tokens; substituting there would silently turn it into
+    six - 1, 5, 2, 5, 3, 5 - and load three wrong points with no error. This
+    archive does not use decimal commas, so refusing the substitution whenever
+    three or more tokens already exist costs nothing on the real cohort and
+    turns that corruption into the same loud failure np.loadtxt would give any
+    other malformed row.
+    """
+    if len(line.split()) < 3:
+        return line.replace(",", " ")
+    return line
+
+
+#: Lines buffered before one destination.writelines() call. ID_63 is 3.5
+#: million lines; batching avoids that many individual write() calls into the
+#: temp file. The batch itself holds at most a few MB regardless of file size
+#: - three orders of magnitude below the 549.6 MB the old materialize-then-
+#: join approach peaked at (measured with tracemalloc; that peak is what this
+#: function replaces, not a timing claim - tracemalloc's own per-allocation
+#: bookkeeping dominates elapsed time for a loop processing millions of lines,
+#: enough to make timing under it meaningless as a measure of real cost).
+_WRITE_BATCH_LINES = 50_000
+
+
+def _write_repaired_cloud(source: Path, destination: IO[str]) -> None:
+    """Stream one cloud's raw text into destination, repaired line by line.
+
+    Reads source one line at a time and repairs each independently - see
+    _repair_line - buffering _WRITE_BATCH_LINES of them at a time before one
+    destination.writelines() call. Every line still gets its own comma/decimal
+    check; only the write is batched. That keeps memory bounded by the batch
+    size rather than the file size, unlike reading the whole file, splitting
+    it into a list, and rejoining it, which peaked at 549.6 MB on ID_63's
+    77.5 MB file (both figures measured with tracemalloc).
+
+    At most MAX_HEADER_LINES leading lines are dropped while they are not a
+    point row, which covers the one-line header 31, 52 and 59 carry. A dropped
+    line that is fully numeric but short, such as "1 2", is not a header by
+    that same standard - every header in this archive is text - so it raises
+    instead of silently costing a point the way a real header is silently
+    dropped.
 
     Args:
-        path: the cloud file to read.
-
-    Returns:
-        Whitespace-delimited numeric rows only, newline-terminated.
+        source: the cloud file to read.
+        destination: an open, writable text stream to write repaired lines
+            into - a temp file in production, an io.StringIO in tests.
 
     Raises:
-        ValueError: when no line in the first three parses as a point, because
-            that is a genuinely malformed file rather than a differently
-            formatted one.
+        ValueError: when no line in the first MAX_HEADER_LINES parses as a
+            point, or a dropped line is numeric but short - both mean a
+            genuinely malformed file rather than a differently formatted one.
     """
-    lines = [line.replace(",", " ") for line in path.read_text(encoding="utf-8").splitlines()]
-    skipped = 0
-    while lines and not _looks_like_point_row(lines[0]) and skipped < 3:
-        lines = lines[1:]
-        skipped += 1
-    if not lines or not _looks_like_point_row(lines[0]):
-        raise ValueError(f"no numeric point row found in the first 3 lines: {path.name}")
-    return "\n".join(lines) + "\n"
+    found_data = False
+    batch: list[str] = []
+    with source.open("r", encoding="utf-8") as handle:
+        for line_number, raw_line in enumerate(handle):
+            line = raw_line.rstrip("\r\n")
+            repaired = _repair_line(line)
+            if not found_data:
+                if _looks_like_point_row(repaired):
+                    found_data = True
+                elif _is_all_numeric_tokens(repaired):
+                    raise ValueError(
+                        f"point row has fewer than 3 numeric fields: {source.name}: {line!r}"
+                    )
+                elif line_number >= MAX_HEADER_LINES:
+                    raise ValueError(
+                        f"no numeric point row found in the first {MAX_HEADER_LINES} "
+                        f"lines: {source.name}"
+                    )
+                else:
+                    continue
+            batch.append(repaired)
+            batch.append("\n")
+            if len(batch) >= _WRITE_BATCH_LINES:
+                destination.writelines(batch)
+                batch = []
+    destination.writelines(batch)
+    if not found_data:
+        raise ValueError(
+            f"no numeric point row found in the first {MAX_HEADER_LINES} lines: {source.name}"
+        )
 
 
-def _load_cloud(path: Path, *, max_points: int, sample_seed: int) -> np.ndarray:
+def _load_cloud(path: Path, *, max_points: int, sample_seed: int) -> tuple[np.ndarray, bool]:
     """Load one tree's cloud, repairing the handful of irregularly-formatted
     files before handing off to the exact _load_xyz the Demol cohort uses.
 
     _load_xyz is tried unchanged first, so the 56 regularly-formatted files
     take exactly the path the plan specifies and demol_eval is never modified.
     Only on its "malformed point cloud" failure is the text repaired - see
-    _repaired_cloud_text - and retried through that same unmodified function
+    _write_repaired_cloud - and retried through that same unmodified function
     from a temporary copy, so every tree in the cohort, repaired or not, is
     still min-Z normalized and subsampled identically.
+
+    The temp handle is closed through a `with` block before _load_xyz reopens
+    it and before the `finally` unlinks it: closing inside the try body used
+    to leave the handle open if the write itself raised, and unlink() on an
+    open file raises PermissionError on Windows, masking the original error.
+
+    Returns:
+        The points, and whether this cloud needed repair - the provenance
+        CameroonTree.cloud_was_repaired carries.
 
     Raises:
         ValueError: when the file is empty, or fails to parse even after
@@ -176,24 +277,27 @@ def _load_cloud(path: Path, *, max_points: int, sample_seed: int) -> np.ndarray:
             message in every case except the one this function exists to fix.
     """
     try:
-        return _load_xyz(path, max_points=max_points, sample_seed=sample_seed)
+        return _load_xyz(path, max_points=max_points, sample_seed=sample_seed), False
     except ValueError as exc:
         if "malformed point cloud" not in str(exc):
             raise
-        repaired_text = _repaired_cloud_text(path)
         handle = tempfile.NamedTemporaryFile(
             mode="w", suffix=".txt", delete=False, encoding="utf-8", newline=""
         )
+        temp_path = Path(handle.name)
         try:
-            handle.write(repaired_text)
-            handle.close()
-            return _load_xyz(Path(handle.name), max_points=max_points, sample_seed=sample_seed)
+            with handle:
+                _write_repaired_cloud(path, handle)
+            return (
+                _load_xyz(temp_path, max_points=max_points, sample_seed=sample_seed),
+                True,
+            )
         except ValueError as retry_exc:
             raise ValueError(
                 f"malformed point cloud even after header/delimiter repair: {path.name}"
             ) from retry_exc
         finally:
-            Path(handle.name).unlink(missing_ok=True)
+            temp_path.unlink(missing_ok=True)
 
 
 def load_cameroon_cohort(
@@ -215,10 +319,15 @@ def load_cameroon_cohort(
     the caveat in docs/ml/WHAT_CI_DOES_NOT_CHECK.md applies to both.
 
     Raises:
+        TypeError: when max_points or sample_seed is not an exact int.
+        ValueError: when max_points is not positive, sample_seed is negative, a
+            tree in the ground truth has no cloud, or a cloud directory is
+            empty or ambiguous.
         FileNotFoundError: when the archive layout is not the expected one.
-        ValueError: when a tree in the ground truth has no cloud, or a cloud
-            directory is empty or ambiguous.
     """
+    max_points = _exact_positive_int(max_points, name="max_points")
+    sample_seed = _exact_non_negative_int(sample_seed, name="sample_seed")
+
     root = Path(archive_root)
     cloud_root = root / "Points_clouds"
     if not cloud_root.is_dir():
@@ -241,7 +350,7 @@ def load_cameroon_cohort(
     cohort: list[CameroonTree] = []
     for tree_id in sorted(truth):
         row = truth[tree_id]
-        points = _load_cloud(
+        points, cloud_was_repaired = _load_cloud(
             cloud_root / f"ID_{tree_id}" / names[tree_id],
             max_points=max_points,
             sample_seed=sample_seed,
@@ -250,6 +359,7 @@ def load_cameroon_cohort(
             CameroonTree(
                 tree_id=tree_id,
                 points=points,
+                cloud_was_repaired=cloud_was_repaired,
                 gt_dbh_cm=float(row["dbh_dest_cm"]),
                 gt_height_m=float(row["height_dest_m"]),
                 gt_agb_kg=float(row["agb_dest_kg"]),

@@ -18,11 +18,20 @@ against trees that were cut down and weighed:
 | `test_backend_promotion_gate.py` | whether PointNet++ measures better than tlsep |
 | `test_published_evidence_is_current.py` | whether the accuracy figures in the proposal and on the dashboard are still what the pipeline produces — see [DEMOL_EVIDENCE_CHAIN.md](DEMOL_EVIDENCE_CHAIN.md) |
 | `test_dbh_bias_by_species.py` (part) | the control for the bark finding: whether an independent QSM under-reads the same trees — see [DBH_BIAS_AND_BARK.md](DBH_BIAS_AND_BARK.md) |
+| `test_cameroon_eval.py` (part) | the cohort loader against the real 1.29 GB archive: the 61-tree keying that excludes `ID_56`, min-Z normalization and the point cap, seeded-sample determinism, and that the five irregularly-formatted clouds parse and are flagged as repaired — see [CAMEROON_EVIDENCE_CHAIN.md](CAMEROON_EVIDENCE_CHAIN.md) |
 
 They skip because `services/ml/data/raw/zenodo_belgium/` and
 `services/ml/woodleaf_pn2.pt` are not in git — point clouds for 65 trees and a
 model checkpoint, far past what belongs in a repository. The skips are correct
 behaviour, not a bug.
+
+`test_cameroon_eval.py`'s archive-dependent tests skip for the same reason, one
+cohort later: `services/ml/data/raw/dryad_cameroon/` is 1.29 GB and not in git
+either. Their skip reason, exactly as `-rs` prints it, is `Cameroon archive not
+present: see docs/ml/CAMEROON_EVIDENCE_CHAIN.md`. Most of that file's tests do
+not need the archive at all — the irregular-format repair is exercised through
+`tmp_path` fixtures that reproduce each shape byte-for-byte, so only the
+end-to-end reads against the real clouds are what this skip actually costs.
 
 What was wrong is that they were **invisible**. `pytest -v` prints `SKIPPED` per
 line among nearly 700 lines and a count in the summary; nobody reads that as

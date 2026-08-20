@@ -116,7 +116,9 @@ clouds, which is why this cohort cannot score stage 5.
 
 Format: **tab-separated X Y Z, no header, plain text, metres.** Coordinates are
 in the scanner's own frame — Z is negative in places, so no normalisation has
-been applied.
+been applied. **True for 56 of the 61 required trees. The other five are not
+tab-separated, or carry a header, or both — see below before trusting this
+sentence for a specific tree.**
 
 ```
 14.735	3.469	-1.637
