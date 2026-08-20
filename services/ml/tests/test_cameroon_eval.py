@@ -374,3 +374,81 @@ def test_small_stem_subset_is_the_unconfounded_comparison():
     ]
 
     assert cameroon_eval.small_stem_dbh_mae_cm(rows) == pytest.approx(1.0)
+
+
+def test_mass_row_separates_measurement_error_from_equation_error():
+    """Route A costs what the pipeline measured; route B costs the tape.
+
+    A minus B is the measurement's contribution; B against the harvested mass is
+    the equation's own error. Without the split a bad end-to-end number cannot be
+    attributed, and the next sprint is a guess.
+    """
+    row = cameroon_eval.mass_row(
+        tree_id=7,
+        gt_agb_kg=1000.0,
+        route_a_agb_kg=800.0,
+        route_b_agb_kg=900.0,
+    )
+
+    assert row["route_a_ape_pct"] == pytest.approx(20.0)
+    assert row["route_b_ape_pct"] == pytest.approx(10.0)
+    assert row["measurement_share_pct"] == pytest.approx(10.0)
+
+
+def test_mass_row_refuses_a_non_positive_harvested_mass():
+    with pytest.raises(ValueError, match="positive"):
+        cameroon_eval.mass_row(tree_id=1, gt_agb_kg=0.0, route_a_agb_kg=1.0, route_b_agb_kg=1.0)
+
+
+@requires_archive
+def test_chave_on_the_tape_lands_within_an_order_of_the_harvested_mass():
+    """A smoke test, not an accuracy claim.
+
+    Chave 2014 fitted on pantropical destructive data should not be wrong by more
+    than a factor of a few on trees inside its domain. If it is, the wiring is
+    broken - wrong units, wrong density, wrong column - and no later figure from
+    this module means anything.
+    """
+    cohort = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
+
+    ratios = []
+    for tree in cohort:
+        predicted = cameroon_eval.chave_agb_kg(
+            dbh_cm=tree.gt_dbh_cm, height_m=tree.gt_height_m, wood_density_kg_m3=tree.wsg_kg_m3
+        )
+        ratios.append(predicted / tree.gt_agb_kg)
+
+    median = sorted(ratios)[len(ratios) // 2]
+    assert 0.5 < median < 2.0, f"Chave median ratio {median} - check units and wiring"
+
+
+@requires_archive
+def test_two_unvalidated_models_are_scored_against_the_same_weighed_trees():
+    """docs/ml/TVER_EQUATIONS.md currently ends "agreement between two
+    unvalidated models, not validation". This is what changes that sentence.
+
+    Both models are costed from the tape and the felled height - route B - so
+    the comparison isolates the equations from the measurement entirely.
+    """
+    cohort = cameroon_eval.load_cameroon_cohort(ARCHIVE, GROUND_TRUTH, max_points=2_000)
+
+    chave, tver_pred = [], []
+    for tree in cohort:
+        chave.append(
+            cameroon_eval.chave_agb_kg(
+                dbh_cm=tree.gt_dbh_cm,
+                height_m=tree.gt_height_m,
+                wood_density_kg_m3=tree.wsg_kg_m3,
+            )
+            / tree.gt_agb_kg
+        )
+        tver_pred.append(
+            cameroon_eval.tver_agb_kg(dbh_cm=tree.gt_dbh_cm, height_m=tree.gt_height_m)
+            / tree.gt_agb_kg
+        )
+
+    # No assertion on which wins - that is the finding, not a requirement.
+    # Both must merely be finite and positive, so a broken wiring cannot pass.
+    assert all(ratio > 0 for ratio in chave)
+    assert all(ratio > 0 for ratio in tver_pred)
+    assert len(chave) == len(tver_pred) == 61

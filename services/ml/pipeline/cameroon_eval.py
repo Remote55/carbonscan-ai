@@ -29,6 +29,7 @@ from typing import IO
 
 import numpy as np
 
+from pipeline import allometric, tver
 from pipeline.demol_eval import _exact_non_negative_int, _exact_positive_int, _load_xyz
 
 #: The tree with a point cloud and no destructive row. Excluded by keying the
@@ -439,3 +440,66 @@ def small_stem_dbh_mae_cm(rows: list[dict[str, float]]) -> float:
     if not errors:
         raise ValueError("no stems below the unconfounded diameter threshold")
     return sum(errors) / len(errors)
+
+
+#: The T-VER row for the forest this cohort stands in. Eastern Cameroon is
+#: semi-deciduous, which is the stand type T-VER assigns this equation. Fixed
+#: here rather than chosen at read time: picking the best-fitting row after
+#: seeing the answers is the selection error the spec's section 6 forbids.
+TVER_FOREST_TYPE = "mixed_deciduous"
+
+
+def chave_agb_kg(*, dbh_cm: float, height_m: float, wood_density_kg_m3: float) -> float:
+    """Chave 2014 above-ground biomass, in kilograms.
+
+    Called directly rather than through `calculate_carbon` because this compares
+    biomass against a weighed mass. `calculate_carbon` continues to the carbon
+    fraction and the 44/12 ratio, and neither belongs between a model's output
+    and a scale reading.
+
+    `calculate_agb_chave_pantropical` takes density in kg/m3 and divides by 1000
+    internally, which is why `wsg_ind_kg_m3` is stored in kg/m3 and passed
+    straight through.
+    """
+    return allometric.calculate_agb_chave_pantropical(
+        dbh_cm, height_m, wood_density_kg_m3
+    )
+
+
+def tver_agb_kg(*, dbh_cm: float, height_m: float) -> float:
+    """T-VER above-ground biomass for this cohort's forest type, in kilograms.
+
+    Thailand's official methodology, scored on African trees because that is the
+    closest check available without field access in Thailand. The equations take
+    no density term - they are fitted on D and H alone - so nothing about the
+    species enters here.
+    """
+    return tver.aboveground_biomass(TVER_FOREST_TYPE, dbh_cm, height_m).total_kg
+
+
+def mass_row(
+    *, tree_id: int, gt_agb_kg: float, route_a_agb_kg: float, route_b_agb_kg: float
+) -> dict[str, float | int]:
+    """One tree's biomass error, split between measurement and equation.
+
+    Route A costs the tree from what the pipeline measured. Route B costs it from
+    the tape and the felled height. Both go through the same allometric model, so
+    their difference isolates the measurement.
+
+    Raises:
+        ValueError: when the harvested mass is not positive, since every figure
+            here is a percentage of it.
+    """
+    if not gt_agb_kg > 0.0:
+        raise ValueError(f"harvested mass must be positive, got {gt_agb_kg}")
+    route_a_ape = abs(route_a_agb_kg - gt_agb_kg) / gt_agb_kg * 100.0
+    route_b_ape = abs(route_b_agb_kg - gt_agb_kg) / gt_agb_kg * 100.0
+    return {
+        "tree_id": tree_id,
+        "gt_agb_kg": gt_agb_kg,
+        "route_a_agb_kg": route_a_agb_kg,
+        "route_b_agb_kg": route_b_agb_kg,
+        "route_a_ape_pct": route_a_ape,
+        "route_b_ape_pct": route_b_ape,
+        "measurement_share_pct": route_a_ape - route_b_ape,
+    }
