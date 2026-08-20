@@ -264,3 +264,68 @@ def load_cameroon_cohort(
             )
         )
     return cohort
+
+
+#: DBH bands, half-open and covering every positive diameter.
+#:
+#: 50 cm is the boundary that matters. Below it the cohort authors' own TLS
+#: measurement agrees with the tape to +0.30 cm across 31 trees; above 100 cm it
+#: loses 6.29 cm on average and 63.6 cm at worst. That is the buttress confound,
+#: and it belongs to the measurement problem rather than to any one
+#: implementation.
+SIZE_BAND_EDGES_CM: tuple[tuple[str, float, float], ...] = (
+    ("under_50", 0.0, 50.0),
+    ("50_to_100", 50.0, 100.0),
+    ("100_and_over", 100.0, float("inf")),
+)
+
+#: Above this diameter the tape may have been placed above a buttress rather than
+#: at 1.30 m, so our figure and the ground truth are not the same measurement.
+UNCONFOUNDED_MAX_DBH_CM = 50.0
+
+
+def geometry_row(
+    *,
+    tree_id: int,
+    measured_dbh_cm: float,
+    measured_height_m: float,
+    gt_dbh_cm: float,
+    gt_height_m: float,
+    reference_dbh_cm: float,
+    reference_height_m: float,
+) -> dict[str, float | int]:
+    """One tree's geometry, scored against the tape and against the reference.
+
+    Both targets are reported for every tree because neither alone answers the
+    question. The tape is the truth but is not always taken at 1.30 m; the
+    reference is taken the same way ours is and faces the identical confound, so
+    it says whether a large error is this pipeline's or the problem's.
+    """
+    return {
+        "tree_id": tree_id,
+        "measured_dbh_cm": measured_dbh_cm,
+        "measured_height_m": measured_height_m,
+        "gt_dbh_cm": gt_dbh_cm,
+        "gt_height_m": gt_height_m,
+        "dbh_error_cm": measured_dbh_cm - gt_dbh_cm,
+        "height_error_m": measured_height_m - gt_height_m,
+        "dbh_error_vs_reference_cm": measured_dbh_cm - reference_dbh_cm,
+        "height_error_vs_reference_m": measured_height_m - reference_height_m,
+    }
+
+
+def small_stem_dbh_mae_cm(rows: list[dict[str, float]]) -> float:
+    """DBH MAE over stems small enough that the tape was certainly at 1.30 m.
+
+    The headline figure for this pipeline's diameter accuracy, because it is the
+    only subset where our measurement and the ground truth are the same
+    measurement. The all-trees figure is reported too, as an upper bound.
+    """
+    errors = [
+        abs(float(row["dbh_error_cm"]))
+        for row in rows
+        if float(row["gt_dbh_cm"]) < UNCONFOUNDED_MAX_DBH_CM
+    ]
+    if not errors:
+        raise ValueError("no stems below the unconfounded diameter threshold")
+    return sum(errors) / len(errors)

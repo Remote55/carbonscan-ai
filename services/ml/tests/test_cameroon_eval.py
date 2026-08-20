@@ -252,3 +252,41 @@ def test_the_five_irregularly_formatted_clouds_load_through_the_same_cohort_call
         if tree.tree_id in cameroon_eval.IRREGULAR_CLOUD_FORMAT_TREE_IDS:
             assert tree.points.shape[1] == 3
             assert len(tree.points) > 0
+
+
+def test_geometry_row_reports_both_targets_for_one_tree():
+    """Every measured tree is scored against the tape and against the reference."""
+    row = cameroon_eval.geometry_row(
+        tree_id=7,
+        measured_dbh_cm=40.0,
+        measured_height_m=30.0,
+        gt_dbh_cm=44.0,
+        gt_height_m=31.0,
+        reference_dbh_cm=42.0,
+        reference_height_m=30.5,
+    )
+
+    assert row["dbh_error_cm"] == pytest.approx(-4.0)
+    assert row["dbh_error_vs_reference_cm"] == pytest.approx(-2.0)
+    assert row["height_error_m"] == pytest.approx(-1.0)
+    assert row["height_error_vs_reference_m"] == pytest.approx(-0.5)
+
+
+def test_size_bands_partition_the_cohort_without_gaps_or_overlap():
+    edges = cameroon_eval.SIZE_BAND_EDGES_CM
+    for dbh in (0.1, 10.0, 49.9, 50.0, 99.9, 100.0, 500.0):
+        matched = [name for name, low, high in edges if low <= dbh < high]
+        assert len(matched) == 1, f"{dbh} cm matched {matched}"
+
+
+def test_small_stem_subset_is_the_unconfounded_comparison():
+    """Buttressing is effectively absent below 50 cm, so that subset compares like
+    with like. The archive's own reference agrees with the tape to +0.30 cm mean
+    over those 31 trees, and loses 63.6 cm on the worst tree above a metre.
+    """
+    rows = [
+        {"gt_dbh_cm": 30.0, "dbh_error_cm": 1.0},
+        {"gt_dbh_cm": 120.0, "dbh_error_cm": -40.0},
+    ]
+
+    assert cameroon_eval.small_stem_dbh_mae_cm(rows) == pytest.approx(1.0)
