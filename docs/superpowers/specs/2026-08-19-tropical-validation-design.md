@@ -101,12 +101,27 @@ CC-BY-4.0, 65 Belgian temperate trees. Cameroon's trees are roughly three times
 the diameter and twice the height. This is not a similar cohort in a different
 place; it is a harder one.
 
-**Unverified until the archive is opened.** The abstract and the article
-establish that leaf-stripped point clouds and harvest measurements both exist,
-but not their file layout, formats, or per-tree pairing. `load_cameroon_cohort`
-cannot be written until `Trees.rar` is extracted and inspected. That inspection
-is step 1 of the implementation order (§12) and its findings are recorded before
-any evaluation code is written.
+**Opened on 2026-08-20.** The archive was downloaded, verified against Dryad's
+published MD5, extracted and read. `docs/ml/CAMEROON_EVIDENCE_CHAIN.md` records
+what is in it. Four findings change this document, and the sections below have
+been revised around them rather than left as written:
+
+1. **The harvested biomass is oven-dry and stump-inclusive.** Settled
+   arithmetically: `AGB / (total volume × WSG_ind)` has median 1.0074 across all
+   61 trees, and 1.13 with the stump excluded. Chave 2014 predicts oven-dry
+   above-ground biomass, so the comparison in §5 is sound. This was the one
+   finding that could have invalidated the whole evaluation.
+2. **The ground-truth diameter is not always at 1.30 m.** `Meta_data` defines
+   both `DBH_dest` and `DBH_L` as taken "at breast height **or above buttresses
+   if present**", and no column says which trees those were. `qsm.py` always fits
+   at 1.30 m. §7 and §8 are rewritten around this.
+3. **The archive carries a reference TLS implementation.** `DBH_L` and
+   `Hauteur_L` are the authors' own laser-derived diameter and height, and
+   `Edited_QSMs/` holds their hand-corrected cylinder models. That is a
+   published baseline to be scored against, which this document did not know
+   existed. §7 adds it.
+4. **62 point-cloud directories, 61 ground-truth rows.** `ID_56` has a cloud and
+   no data. The loader keys on the database, not the directory listing.
 
 A second dataset provides context rather than input:
 
@@ -192,6 +207,20 @@ two errors that are otherwise indistinguishable:
 Without the split, a bad end-to-end number cannot be assigned to a cause, and
 the next sprint would be a guess.
 
+The comparison at the bottom of that diagram is valid, and it is worth saying
+why rather than assuming it. `Destructive AGB` is oven-dry mass including the
+stump — established from the archive's own arithmetic, not from its
+documentation, which does not state a moisture basis. Chave 2014 predicts
+oven-dry above-ground biomass. The two are the same quantity.
+
+**Route B's input is not what this document originally assumed.** `DBH_dest` is
+the tape measurement "at breast height **or above buttresses if present**". On
+an unbuttressed tree it is a diameter at 1.30 m and route B is exactly as drawn.
+On a buttressed tree it is a diameter at some unrecorded greater height, and
+feeding it to Chave is still correct — that is how the allometry was fitted, and
+how a field crew would use it — but it is no longer the same measurement route A
+produces. §7 handles the consequence.
+
 ## 6. Cameroon is held out. This is not negotiable.
 
 `qsm.TOTAL_TREE_FORM_FACTOR` is 0.587, measured on the 65 Belgian trees.
@@ -233,6 +262,10 @@ New, because Demol has no harvested mass:
 | `agb_equation_only_mape_pct` | route B: allometric error with measurement removed |
 | `agb_measurement_share_pct` | route A minus route B |
 | `chave_vs_tver` | Chave 2014 against T-VER `mixed_deciduous`, per tree and aggregate |
+| `dbh_bias_by_size_band` | DBH bias in bands — the buttress question, measured |
+| `ransac_inlier_ratio_by_size_band` | fit quality by size; `TreeResult` already carries it per tree |
+| `vs_reference_tls` | our DBH and height against `DBH_L` and `Hauteur_L` |
+| `vs_reference_qsm` | our stem volume against the authors' edited QSM |
 
 `within_20_pct` rather than the `within_10_pct` used for geometry: ±20% is the
 band biomass models are conventionally judged in, and Chave 2014 does not claim
@@ -243,14 +276,55 @@ semi-deciduous forest, which is the row T-VER assigns that stand type. The
 choice is recorded in `protocol` rather than inferred at read time. No other
 T-VER row is scored: picking the best-fitting one after seeing the answers is
 the selection error §6 exists to prevent.
-| `dbh_bias_by_size_band` | bias in 4 DBH bands — the buttress question, measured |
-| `ransac_inlier_ratio_by_size_band` | fit quality by size; the pipeline already computes it per tree and the field exists on `TreeResult` |
 
-`dbh_bias_by_size_band` is the one to read first. `docs/ml/DBH_BIAS_AND_BARK.md`
-established that the Belgian under-read of −0.80 cm is bark, ordered by fissure
-depth, and not tree size — across trees far smaller than these. Whether that
-holds at 186 cm, where the stem at 1.30 m is buttressed and is not a circle at
-all, is unknown and is exactly what this band tells us.
+### The DBH comparison is confounded, and the metric has to say so
+
+This document originally treated `dbh_bias_by_size_band` as a clean test of
+whether the pipeline degrades on large stems. It is not, and the reason is in
+the archive rather than in the code.
+
+`Meta_data` defines `DBH_dest` as the diameter "at breast height **or above
+buttresses if present**". On a buttressed tree the tape was placed at some
+greater height that the archive does not record. `qsm.py` fits its circle at
+1.30 m always. On those trees the two numbers describe different cross-sections
+of a tapering trunk, so a large disagreement is not evidence the fit failed.
+
+There is no per-tree buttress flag. Three things can be done about that, and the
+design does all three rather than pretending the confound away:
+
+1. **Report the bands, and report that they are confounded.** `dbh_bias_by_size_band`
+   stays, because a pipeline that reads 60 cm low on metre-wide trees matters to a
+   user whatever the cause. It is labelled as an upper bound on measurement error,
+   not as measurement error.
+2. **Score the unconfounded subset separately.** Buttressing in these genera is
+   effectively absent below roughly 50 cm DBH, and the authors' own laser agrees
+   with their tape to +0.30 cm mean over the 31 trees under that size. A
+   `dbh_mae_cm_small_stems` restricted to that subset is a comparison of like
+   with like, and is the figure this pipeline should be judged on.
+3. **Use the reference implementation as the control.** See below.
+
+### The archive supplies a baseline, and it is the honest yardstick
+
+`DBH_L` and `Hauteur_L` are the cohort authors' own TLS-derived diameter and
+height, produced by a published method on these exact clouds and reported in
+*Methods in Ecology and Evolution*. `Edited_QSMs/ID_<n>/<n>.csv` holds their
+hand-corrected cylinder models, with per-cylinder length, width and volume.
+
+That makes `vs_reference_tls` and `vs_reference_qsm` more informative than the
+absolute error, because both implementations face the identical confound on the
+identical trees. Measured from the archive before any of our code runs:
+
+| cohort | mean `DBH_L − DBH_dest` | min | max |
+|---|---:|---:|---:|
+| all 61 trees | −1.24 cm | −63.60 | +26.10 |
+| `DBH_dest` < 50 cm (31) | **+0.30 cm** | −4.10 | +16.10 |
+| `DBH_dest` ≥ 100 cm (10) | **−6.29 cm** | **−63.60** | +6.30 |
+
+A published method loses 63 cm on a buttressed stem. If this pipeline does
+something comparable, that is a property of measuring a buttressed tree at 1.30 m
+and not a defect unique to this code. If it does something much worse, that is a
+real finding about this code. Neither conclusion is available from the absolute
+error alone, which is why the reference comparison is a metric and not a footnote.
 
 ## 8. Error handling
 
@@ -258,20 +332,33 @@ Reuse `ExcludedSegment` and its `reason_code`. A tree the pipeline cannot
 measure is counted and named, never dropped — the behaviour
 `PipelineDiagnostics` already enforces.
 
-Two reason codes are added, both predicted rather than observed, and both are
-removed from the design if the data does not produce them:
+Two reason codes are added. Both were predicted before the archive was opened;
+what it showed has changed what they mean rather than whether they are needed.
 
 - `DBH_FIT_BUTTRESS_SUSPECT` — the breast-height circle fit returns a low inlier
-  ratio on a large stem. The threshold is chosen from the measured distribution
-  in step 4 of §12, not guessed now.
+  ratio on a large stem. The threshold comes from the measured distribution in
+  §12, not from a guess here.
+
+  This is now the pipeline's **only** means of knowing a stem is buttressed. The
+  archive has no per-tree flag, so a geometric signal computed from the cloud is
+  not a convenience — it is the only thing that can partition the cohort at
+  evaluation time and the only thing that could warn a real user. If the inlier
+  ratio turns out not to separate the trees where our DBH and `DBH_dest` diverge
+  most, that is a genuine negative result and belongs in the evidence chain
+  rather than being quietly dropped.
+
 - `DBH_ABOVE_CALIBRATED_RANGE` — DBH exceeds the range the taper constants were
-  fitted over. This one is a refusal, not a warning: the system declines to cost
-  a tree it has never been checked on. It follows the precedent
-  `calculate_carbon` already sets by refusing the T-VER pine row that predicts
-  more mass than solid wood.
+  fitted over. A refusal, not a warning: the system declines to cost a tree it
+  has never been checked on, following the precedent `calculate_carbon` already
+  sets by refusing the T-VER pine row that predicts more mass than solid wood.
 
 Refusing to answer is a feature here. A carbon number for a tree three times
 larger than anything the constants were fitted on is worse than no number.
+
+A third exclusion is data, not measurement: `ID_56` has a point cloud and no
+ground-truth row. It is excluded by keying the cohort on `database.xls`, and the
+count is reported, so that a future reader sees 61 of 62 clouds used and why
+rather than a silent 61.
 
 ## 9. The publication surface
 
@@ -427,16 +514,32 @@ committed artefacts against a pipeline CI already builds.
 - No document claims a capability whose evidence file does not exist.
 - `protocol` records the taper constants and their origin commit, and they are
   Belgium's.
+- The cohort is keyed on `database.xls`; the run reports 61 of 62 clouds used and
+  names `ID_56` as the one without ground truth.
+- `vs_reference_tls` is reported beside the absolute error, so no DBH figure is
+  quoted without the published method's figure on the same trees next to it.
+- `dbh_bias_by_size_band` is labelled as an upper bound on measurement error,
+  and `dbh_mae_cm_small_stems` is reported for the unconfounded subset.
 - The result is committed and published whether it is good or bad.
 
 ## 14. What the result is likely to be
 
-A prediction, recorded before the measurement so it can be scored:
+A prediction, recorded before the measurement so it can be scored. It was
+written before the archive was opened; where opening it has already settled
+part of a prediction, that is marked rather than quietly rewritten.
 
 **The geometry will degrade, most at the large end.** RANSAC circle fitting at
 1.30 m assumes a circular cross-section. Large tropical trees are buttressed at
 that height, and the mean DBH here is 58 cm against Belgium's much smaller
 trees. `dbh_bias_by_size_band` should show the top band diverging.
+
+> **Partly settled already, and not by our code.** The authors' own published TLS
+> method loses a mean 6.29 cm on the ten trees over a metre and 63.6 cm on the
+> worst, while agreeing to +0.30 cm on the 31 trees under 50 cm. So the large end
+> is hard for a competent implementation, and the open question is narrower than
+> this prediction assumed: not *whether* our DBH degrades on big stems, but
+> whether it degrades **more than a published method does on the same clouds**.
+> `vs_reference_tls` answers that; the absolute error alone cannot.
 
 **The volume figure will degrade more.** The taper equations were fitted to
 temperate stems whose form differs from a 50 m tropical emergent, and the whole
