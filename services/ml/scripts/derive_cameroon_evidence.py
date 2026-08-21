@@ -318,6 +318,44 @@ def derive(*, archive_root: Path) -> dict[str, Any]:
     metrics["dbh_mae_cm_small_stems"] = small_stem_dbh_mae_cm(measurable)
     metrics["dbh_mae_cm_small_stems_n"] = len(small_stem_rows)
 
+    # 2. What a user of the product actually receives.
+    #
+    # This evaluation calls compute_qsm directly, which is right for measuring
+    # the geometry stage but is NOT what the pipeline does. main.py:244 and
+    # single_tree.py:165 both refuse any stem whose circle fit scores below
+    # qsm.MIN_DBH_FIT_QUALITY and emit QSM_LOW_FIT_QUALITY instead of a number.
+    #
+    # Reporting only the all-measurable figures therefore understates the
+    # shipped pipeline, by including every tree it would have declined to
+    # measure. That is the same class of defect as publishing a superseded
+    # accuracy figure, pointing the other way: a claim the evidence does not
+    # support, made against ourselves.
+    #
+    # Both figures are published. The all-measurable one bounds what the
+    # geometry stage can do when forced to answer; this one is what the product
+    # says.
+    gate_passed = [row for row in measurable if row["model_quality"] >= qsm.MIN_DBH_FIT_QUALITY]
+    metrics["gate_min_dbh_fit_quality"] = qsm.MIN_DBH_FIT_QUALITY
+    metrics["gate_passed_trees"] = len(gate_passed)
+    metrics["gate_refused_trees"] = len(measurable) - len(gate_passed)
+    if gate_passed:
+        gate_errors = np.array([row["dbh_error_cm"] for row in gate_passed])
+        gate_truth = np.array([row["gt_dbh_cm"] for row in gate_passed])
+        metrics.update(
+            _error_stats(gate_errors, gate_truth, prefix="dbh_gate_applied", unit="cm")
+        )
+        # The gate is a fit-quality test, not a correctness test, and it is not
+        # a complete safeguard. Naming the worst tree that passes it keeps that
+        # limit attached to the figure rather than left to a reader to discover.
+        worst = max(gate_passed, key=lambda row: abs(row["dbh_error_cm"]))
+        metrics["gate_passed_worst_tree"] = {
+            "tree_id": worst["tree_id"],
+            "gt_dbh_cm": worst["gt_dbh_cm"],
+            "measured_dbh_cm": worst["measured_dbh_cm"],
+            "dbh_error_cm": worst["dbh_error_cm"],
+            "model_quality": worst["model_quality"],
+        }
+
     # DBH / height vs the tape, all measurable trees -- an upper bound on
     # measurement error, confounded by buttressing above ~50 cm. See
     # pipeline/cameroon_eval.py's UNCONFOUNDED_MAX_DBH_CM.

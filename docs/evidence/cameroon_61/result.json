@@ -1,7 +1,7 @@
 {
   "dataset": "Momo Takoudjou et al. 2018 destructive tropical validation",
   "derivation": {
-    "commit": "8c252d15cca4a4b24c5bfe4dea4f0ba3e2c18929",
+    "commit": "3d7e8e0f07448afc7eb6c0972f09e3341b79768c",
     "dirty": true,
     "numpy": "2.4.6",
     "python": "3.11.9"
@@ -55,6 +55,13 @@
     },
     "dbh_bias_cm": -3.727847,
     "dbh_bias_vs_reference_cm": -2.478847,
+    "dbh_gate_applied_bias_cm": -0.956113,
+    "dbh_gate_applied_mae_cm": 1.369868,
+    "dbh_gate_applied_mape_pct": 5.134292,
+    "dbh_gate_applied_rmse_cm": 2.307045,
+    "dbh_gate_applied_within_10_pct": "25/27",
+    "dbh_gate_applied_worst_abs_cm": 8.922719,
+    "dbh_gate_applied_worst_pct": 43.738816,
     "dbh_mae_cm": 11.254575,
     "dbh_mae_cm_small_stems": 1.683709,
     "dbh_mae_cm_small_stems_n": 31,
@@ -70,6 +77,16 @@
         "tree_id": 60
       }
     ],
+    "gate_min_dbh_fit_quality": 0.8,
+    "gate_passed_trees": 27,
+    "gate_passed_worst_tree": {
+      "dbh_error_cm": -8.922719,
+      "gt_dbh_cm": 20.4,
+      "measured_dbh_cm": 11.477281,
+      "model_quality": 1.0,
+      "tree_id": 95
+    },
+    "gate_refused_trees": 33,
     "height_bias_m": -1.880259,
     "height_bias_vs_reference_m": -1.126909,
     "height_mae_m": 2.914892,
@@ -2492,7 +2509,7 @@
   "protocol": {
     "clouds_available": 62,
     "cohort_size": 61,
-    "derivation_commit": "8c252d15cca4a4b24c5bfe4dea4f0ba3e2c18929",
+    "derivation_commit": "3d7e8e0f07448afc7eb6c0972f09e3341b79768c",
     "excluded_cloud": 56,
     "ground_truth_csv_sha256": "912443ada0c16e9ba520846325f170407ff75cdc691b654d3b1897e21c93739a",
     "max_points": 20000,
