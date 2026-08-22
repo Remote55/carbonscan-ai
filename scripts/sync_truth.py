@@ -107,9 +107,17 @@ _FIGURE_PATTERN = re.compile(
 def published_figure_values(manifest: dict[str, Any]) -> frozenset[float]:
     """Every DBH MAE, Height MAE and Volume MAPE the manifest records.
 
-    Both evaluations are included. The Demol block and the independent PointNet
-    review measure the same cohort by different routes and legitimately differ,
-    and both are quoted in prose, so a figure matching either one is current.
+    Every evaluation is included. The Demol block, the independent PointNet
+    review and the Cameroon block measure different cohorts, or the same cohort
+    by different routes, and legitimately differ; all three are quoted in prose,
+    so a figure matching any of them is current.
+
+    The Cameroon block contributes four DBH figures rather than one, because
+    that cohort has no single honest answer: the shipped gate refuses 33 of its
+    60 measurable trees, the tape is not always taken at 1.30 m above about
+    50 cm, and the archive publishes its own TLS measurement to compare against.
+    Each of those is a different question, so each is quotable and each has to
+    be recognised here. See docs/ml/CAMEROON_EVIDENCE_CHAIN.md section 2b.
     """
     demol = manifest["validation"]["demol_65"]
     values = {
@@ -126,6 +134,18 @@ def published_figure_values(manifest: dict[str, Any]) -> frozenset[float]:
                 float(block["height_mae_m"]),
                 float(block["volume_mape_pct"]),
             }
+    cameroon = manifest["validation"].get("cameroon_61")
+    if cameroon is not None:
+        for field in (
+            "dbh_gate_applied_mae_cm",
+            "dbh_mae_cm_small_stems",
+            "dbh_mae_cm",
+            "dbh_mae_vs_reference_cm",
+            "height_mae_m",
+            "volume_mape_pct",
+        ):
+            if field in cameroon:
+                values.add(float(cameroon[field]))
     return frozenset(values)
 
 
