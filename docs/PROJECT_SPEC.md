@@ -60,7 +60,7 @@ Pipeline ที่รันได้ตอนนี้รับ point cloud (`.l
 
 | Role | ผู้รับผิดชอบ | โฟกัส |
 |---|---|---|
-| **Lead / Core** | User (เจ้าของ repo) | AI/ML, Mobile (Flutter), Backend (FastAPI), Team Lead, Proposal |
+| **Lead / Core** | User (เจ้าของ repo) | AI/ML, Backend (FastAPI), Team Lead, Proposal |
 | **Frontend** | Person A | Next.js Web Dashboard, 3D Viewer; GIS Map เป็น Planned |
 | **Design** | Person B | UI/UX (Figma), Branding, Video, Slides |
 
@@ -77,7 +77,7 @@ Pipeline ที่รันได้ตอนนี้รับ point cloud (`.l
 1. **Point-cloud carbon assessment — Implemented core path:** วัด geometry และคำนวณค่าประมาณคาร์บอน
 2. **Wood-Leaf Segmentation:** `tlsep` เป็น Implemented baseline; PointNet++ เป็น Experimental candidate
 3. **3D evidence viewer — Implemented:** แสดง segmented PLY และ provenance ของ analysis run
-4. **Mobile photogrammetry / GIS / anti-fraud / B2B marketplace / certification — Planned หรือ Experimental**
+4. **GIS / anti-fraud / B2B marketplace / certification — Planned** · mobile กับ photogrammetry **ถูกลบทิ้งแล้ว** (ADR 0007)
 
 **คุณค่าที่เคลมได้ตอนนี้:** ทำให้ขั้นคำนวณและ provenance เปิดตรวจสอบได้ใน prototype
 ยังไม่มี controlled cost study, production SLA หรือกระบวนการรับรอง carbon credit จึงไม่เคลมลดต้นทุน 100 เท่า
@@ -89,7 +89,7 @@ Pipeline ที่รันได้ตอนนี้รับ point cloud (`.l
 - **ชื่อปัจจุบัน: `TreeQ Carbon Platform`** (ทีมตัดสินใจ 2026-07-16)
 - **ชื่อเดิม `CarbonScan AI` = historical name** — ยังหลงเหลือใน legacy docs/code metadata บางส่วน
 - rebrand core surface แล้วใน **apps/web**, README, master spec และ ML docs
-- **ยังไม่ rebrand ครบ:** mobile package/label, legacy docs/proposal, brand assets และ GitHub repo name (`carbonscan-ai`)
+- **ยังไม่ rebrand ครบ:** legacy docs/proposal, brand assets และ GitHub repo name (`carbonscan-ai`)
 - Logo bug: `apps/web/public/logo.png` เป็นโลโก้เดิม — ยังไม่เปลี่ยน
 
 ---
@@ -99,7 +99,7 @@ Pipeline ที่รันได้ตอนนี้รับ point cloud (`.l
 | ชั้น | เทคโนโลยี |
 |---|---|
 | **Web** | Next.js 14 (App Router) + TypeScript + Tailwind + shadcn/ui + React Three Fiber/Three.js (3D viewer); Leaflet/GIS เป็น Planned surface |
-| **Mobile** | Flutter (Android+iOS) + Riverpod + go_router + dio + camera/geolocator + Supabase + (TFLite — deferred) |
+| ~~**Mobile**~~ | ลบทิ้งแล้วตาม ADR 0007 — ดูหัวข้อ 15 |
 | **Backend** | FastAPI (Python) + SQLAlchemy 2.0 async + asyncpg + Pydantic v2 + Alembic + PostgreSQL/PostGIS + Supabase |
 | **AI/ML** | NumPy/SciPy/scikit-image + laspy + PyTorch PointNet++ Experimental; PDAL CSF และ COLMAP/OpenMVS เป็น target ไม่ใช่ default path |
 | **Cloud** | Vercel (web) + Supabase; Railway/RunPod เป็น target และ API demo ใช้ local backend ผ่าน temporary tunnel |
@@ -117,8 +117,6 @@ D:\Project_Carbon\
 │   │       ├── components/     viewer/point-cloud-viewer.tsx ฯลฯ
 │   │       ├── lib/            api.ts (API client), supabase.ts, utils.ts
 │   │       └── middleware.ts   Supabase session refresh + guard
-│   └── mobile/                 Flutter — สแกน/ถ่ายภาพ → คาร์บอน
-│       └── lib/                main.dart, app.dart, core/, features/(camera,tree_scan,results,species_id), shared/
 ├── services/
 │   ├── api/                    FastAPI backend
 │   │   ├── app/
@@ -308,15 +306,17 @@ CO₂eq   = Carbon × 44/12
 
 ---
 
-## 15. Mobile (Flutter)
+## 15. Mobile (Flutter) — ลบออกแล้ว
 
-- **Status: Experimental.** `apps/mobile` — `carbonscan_mobile` (ชื่อ package ยังไม่ rebrand), Flutter 3.22+, Dart 3.4+
-- Stack: Riverpod + go_router + dio + camera + geolocator + permission_handler + Supabase
-- Features: `camera/`, `tree_scan/`, `results/`, `species_id/`
-- **run (Windows):** `cd apps/mobile && flutter pub get && .\scripts\run-dev.ps1` (อ่าน `.env` → `--dart-define`)
-  - ต้องมี Android emulator/เครื่องจริงก่อน · `main.dart` **ยังไม่ init Supabase** (TODO) → รันได้แม้ไม่มี key
-  - API URL: emulator ใช้ `http://10.0.2.2:8000` (default) · เครื่องจริงใช้ IP LAN + uvicorn `--host 0.0.0.0`
-- ⚠️ **TFLite (on-device species) ถูก defer** — `tflite_flutter` ชน namespace `org.tensorflow.lite` กับ AGP 9.x (ดู `docs/decisions/0007`)
+**`apps/mobile` ไม่มีอยู่แล้ว** ถูกลบที่ commit `8ce6021` เมื่อ 9 ส.ค. 2569 ตาม
+[ADR 0007](decisions/0007-drop-the-photo-path.md) พร้อมกับเส้นทาง photogrammetry ทั้งหมด
+และ `.github/workflows/ci-mobile.yml`
+
+เหตุผลตาม ADR: แอปมีไว้ถ่ายภาพเพื่อป้อน photogrammetry และ gate ที่ต้องพิสูจน์ว่าภาพถ่ายลำต้นจริง
+ให้จุดพอ fit วงกลมที่ 1.3 ม. ได้ไหม **ไม่เคยผ่าน เพราะไม่เคยรัน** — `colmap` ไม่ได้ติดตั้ง และเรื่อง
+scale ไม่เคยถูกแก้เลย (SfM คืนรูปทรง ไม่ใช่ขนาด) ทุกเส้นผ่านศูนย์กลางที่มันจะผลิตได้คือตัวเลขที่ไม่มีหน่วย
+
+หัวข้อนี้เก็บไว้เป็นบันทึก เพราะเอกสารรุ่นเก่ายังอ้างถึง `apps/mobile` อยู่ ไม่ใช่เพราะยังมีของอยู่
 
 ---
 
@@ -346,7 +346,7 @@ CO₂eq   = Carbon × 44/12
 - Reviewed synthetic core demo รันซ้ำได้: 3 ต้น, 1036.09 kg C, 3798.99 kg CO₂e (ไม่ใช่ accuracy benchmark)
 
 **⚠️ กำลังทำ / ค้าง:**
-- Rebrand core surface แล้ว; เหลือ mobile/legacy docs/proposal/assets/GitHub repo name
+- Rebrand core surface แล้ว; เหลือ legacy docs/proposal/assets/GitHub repo name
 - Species classifier (ขั้น 7): ยังเป็น stub — ต้องเทรน ResNet จริง (หลัง proposal)
 - PointNet++ reviewed evidence: `FAIL_METRICS`; external Wood IoU point estimate ดีขึ้น แต่ CI คร่อมศูนย์
   และ DBH/height/volume/measurable-tree formal criteria ไม่ผ่าน จึงไม่ promote
@@ -391,9 +391,10 @@ CO₂eq   = Carbon × 44/12
    freeze candidate/protocol ก่อนเปิดผล และใช้ independent final cohort/split ใหม่ที่ไม่เคยเปิดผลเป็น decisive gate รอบถัดไป
 2. เพิ่มและ verify open wood/leaf training data พร้อม checkpoint/training provenance ชุดใหม่;
    ผล Cohort A + Demol ปัจจุบันคงเป็น immutable historical evidence เท่านั้น
-3. verify `species_db.csv` กับ TGO 2017 ต้นฉบับ
+3. verify coefficients ของ `species_db.csv` กับ paper ต้นทางของแต่ละสมการ เพื่อปลด gate
+   (ตาราง T-VER ของ อบก. ถอดและตรวจแล้วใน `pipeline/tver.py` — ดู `docs/ml/TVER_EQUATIONS.md`)
 4. Deploy API บน host ถาวร (เลิกพึ่ง tunnel)
-5. ปิด reviewed mobile E2E และค่อยเทรน species classifier
+5. เทรน species classifier จริง — ขั้นที่ 7 ยังเป็น Stub
 6. B2B marketplace / GIS / certification workflow หลัง core measurement evidence พร้อม
 
 ---

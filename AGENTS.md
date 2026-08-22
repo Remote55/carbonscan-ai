@@ -8,7 +8,7 @@
 ## 👉 อ่านก่อนเริ่มงานเสมอ
 
 **`docs/PROJECT_SPEC.md`** = context ฉบับเต็ม (23 numbered sections: §0–§22) — อธิบายทั้งโปรเจกต์: pipeline, allometric,
-backend, web, mobile, สถานะจริง, known bugs, roadmap. **อ่านไฟล์นั้นก่อนแตะโค้ด**
+backend, web, สถานะจริง, known bugs, roadmap. **อ่านไฟล์นั้นก่อนแตะโค้ด**
 
 เอกสารนี้ (AGENTS.md) = orientation สั้นๆ + คำสั่ง build/run/test + กติกา
 
