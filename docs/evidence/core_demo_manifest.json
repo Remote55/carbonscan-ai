@@ -200,8 +200,8 @@
       "name": "8. Allometric carbon calculation",
       "status": "Implemented",
       "implementation": "Chave 2014 pantropical, at the named species' wood density when one is given; the species-specific equations in species_db.csv are gated off until their coefficients are checked against the cited papers",
-      "evidence": "services/ml/pipeline/allometric.py; services/ml/data/species_db.csv",
-      "claim": "Produces biomass, carbon stock, and CO2e estimates; coefficient verification against TGO 2017 remains required."
+      "evidence": "services/ml/pipeline/allometric.py; services/ml/data/species_db.csv; services/ml/pipeline/tver.py; docs/evidence/cameroon_61/result.json",
+      "claim": "Produces biomass, carbon stock, and CO2e estimates. TGO's own table (T-VER-S-TOOL-01-01 v2 Appendix 2) is transcribed and scored against 61 destructively harvested tropical trees, and one of its rows predicts more mass than solid wood; the species-specific equations in species_db.csv remain gated off pending checks against their own cited papers."
     },
     {
       "name": "Deterministic core demo",
