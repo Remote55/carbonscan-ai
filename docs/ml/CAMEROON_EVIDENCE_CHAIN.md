@@ -316,6 +316,103 @@ ceiling does not explain: tree 5 (107.0 cm) reads -40.45 cm off, tree 99
 measurements here would have been refused outright rather than reported, had
 that gate applied.
 
+### 2b. What the product actually reports, which is not what section 2 measures
+
+The paragraph above says the gate would have refused most large-tree
+measurements. That was left qualitative, and quantifying it changes the
+headline:
+
+| population | n | DBH MAE |
+|---|---:|---:|
+| every measurable tree | 60 | 11.25 cm |
+| **trees the shipped gate reports** | **27** | **1.37 cm** |
+| stems under 50 cm (the unconfounded subset) | 31 | 1.68 cm |
+
+`main.py:244` and `single_tree.py:165` both refuse any stem scoring below
+`qsm.MIN_DBH_FIT_QUALITY` (0.80) and emit `QSM_LOW_FIT_QUALITY` instead of a
+number. This evaluation bypasses that, correctly, because it is measuring the
+geometry stage rather than the product — but it means the 11.25 cm figure
+includes 33 trees the pipeline would have declined to measure. **All five trees
+over the 120 cm ceiling are among them**, scoring 0.205 to 0.556.
+
+So the number a user of this pipeline receives is 1.37 cm across 27 tropical
+trees, against Demol's 0.90 cm on 65 temperate ones. Publishing only the
+all-measurable figure understated the shipped product by a factor of eight.
+That is the same defect as publishing a superseded accuracy figure, pointing
+the other way — a claim the evidence does not support, made against ourselves,
+and this project has now made it in both directions.
+
+Note the gate-applied figure is *better* than the small-stem one. The gate is
+not a size filter: it refuses badly-fitted small stems too, and 6 of the 31
+trees under 50 cm fail it — trees 3, 15, 32, 69, 79 and 93.
+
+**The gate is not a correctness test and does not catch everything.** Tree 95
+scores a perfect 1.000 and reads 11.48 cm against a taped 20.4 — a 44% error
+reported with full confidence. `result.json` names it in
+`metrics.gate_passed_worst_tree` so the limit travels with the figure.
+
+### 2c. Why the 120 cm ceiling was not raised
+
+The obvious response to section 2 is to raise `max_radius_m` from 0.6. It was
+measured before being attempted, and the measurement says not to.
+
+**Raising the bound trades a systematic underestimate for an unstable one.**
+Refitting the five over-ceiling trees at successively looser bounds, and two
+controls that the shipped bound already measures well:
+
+| tree | taped | r@0.6 | r@1.0 | r@1.5 | r@2.0 |
+|---|---:|---:|---:|---:|---:|
+| 6 | 165.0 | 94.3 | 191.7 | 229.9 | 229.9 |
+| 12 | 180.3 | 102.7 | 197.6 | 197.6 | 197.6 |
+| 100 | 153.4 | 56.7 | 161.6 | 161.6 | **379.3** |
+| 99 | 108.5 | **108.5** | 108.5 | **256.8** | 256.8 |
+| 57 | 98.8 | 117.9 | **129.9** | 129.9 | 129.9 |
+| 1 | 34.0 | 34.0 | 34.0 | 34.0 | 34.0 |
+
+Tree 99 is measured exactly right at the shipped bound and destroyed at 1.5.
+Tree 57 gets worse at 1.0. The giants improve in magnitude but overshoot on
+four of five. Small trees are untouched throughout.
+
+**More points do not fix it either.** Holding the bound at 0.6 and raising
+`max_points` from 20,000 to 400,000 — twenty times the data, with the
+breast-height slice growing from 9 to 214 points on tree 12:
+
+| tree | taped | 20k | 100k | 400k |
+|---|---:|---:|---:|---:|
+| 12 | 180.3 | 102.7 | 87.4 | 55.8 |
+| 100 | 153.4 | 56.7 | 89.3 | 111.4 |
+| 5 | 107.0 | 66.5 | 66.9 | 67.1 |
+
+Tree 12 gets *worse* with twenty times the points. Tree 5 does not move for
+either the bound or the budget.
+
+**The reason is that there is no circle to find.** Measured fit-free — bin each
+breast-height slice into 36 sectors around its own centroid, and take the
+standard deviation of point-to-centroid distance:
+
+| tree | taped | slice points | sectors occupied | radial spread |
+|---|---:|---:|---:|---:|
+| 1 | 34.0 | 272 | 35/36 (97%) | **2.0 cm** |
+| 57 | 98.8 | 393 | 32/36 (89%) | 40.2 cm |
+| 2 | 134.5 | 195 | 30/36 (83%) | 42.8 cm |
+| 100 | 153.4 | 109 | 27/36 (75%) | 54.1 cm |
+| 99 | 108.5 | 448 | 22/36 (61%) | 46.5 cm |
+| 6 | 165.0 | 31 | 11/36 (31%) | 52.8 cm |
+| 12 | 180.3 | 9 | 5/36 (14%) | 12.2 cm |
+
+Tree 1, which the pipeline measures exactly, has its points at a near-constant
+distance from the centre — a ring, which is what a circular trunk is. Every
+large tree scatters by 40 to 54 cm. **The cross-section at 1.30 m on these
+trees is not a circle**, so a circle fit has no correct answer available at any
+search bound. The bound is the only thing keeping the output in a plausible
+range, which is why loosening it produces 379 cm on tree 100.
+
+That reframes the ceiling. It is not a wrong constant to be corrected; it is a
+guard rail on a model that does not apply to buttressed stems. Making the model
+apply — fitting a non-circular cross-section, or measuring above the buttress
+as the cohort's own field crew did — is real work and is not a constant change.
+Until then the honest behaviour is the one the pipeline already has: refuse.
+
 ### 3. Route B: how wrong is Chave on a tropical tree, with measurement removed
 
 Costed from the tape and the felled height directly — no point cloud, no QSM.
