@@ -68,8 +68,21 @@ so this is agreement between two unvalidated models, not validation.
 same dimensions machined from wood denser than lignum vitae weighs 1414 kg. The
 equation exceeds the mass of solid wood by 2.3×, and it does so at every size
 tested — 10, 30, 50 and 80 cm — which points at the coefficient rather than the
-exponent. Its three-needle sibling carries 0.02698 where this carries 0.2141, an
-order of magnitude apart.
+exponent. Its three-needle sibling carries 0.02698 where this carries 0.2141 —
+a factor of **7.94**, not the order of magnitude an earlier draft of this
+paragraph claimed, and close enough to a moved decimal point to suggest one
+without reproducing it.
+
+The branch coefficients differ too, by a factor of 9.0, which that earlier draft
+missed by looking only at the stem. It changes nothing: the two-needle branch
+fit is the *smaller* of the pair, contributing 31 kg where three-needle
+contributes 280, while the stem term contributes 3,212 kg against 286. The whole
+discrepancy lives in the stem coefficient.
+
+Three independent estimates put the true figure at 350–630 kg — Chave 2014
+across a plausible pine density range, the same table's three-needle row, and
+cylinder volume times a pine form factor times density. See
+[`docs/paper/2026-08-23-tver-implausible-row.md`](../paper/2026-08-23-tver-implausible-row.md).
 
 `tver.py` reports it as published. A national methodology is not this
 repository's to silently correct, and a "fix" would be a guess about which digit
