@@ -1,6 +1,6 @@
 # 📊 Datasets
 
-> Sources of training and validation data for CarbonScan AI
+> Sources of training and validation data for TreeQ Carbon Platform
 
 ---
 

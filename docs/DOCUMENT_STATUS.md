@@ -32,6 +32,7 @@ requires a separate reviewed default-switch decision.
 
 - `docs/AI_AGENT_CONTEXT.md`, `docs/SESSION_HANDOFF.md`, `docs/DEVELOPMENT_PLAN.md`, `docs/P1_SPRINT_PLAN.md`
 - `docs/DATASET_REQUEST.md`, `proposal/outline.md`, `docs/proposal/`, `proposal/5-questions-answers.md`
+- `TASKS.md` — ทุก phase สร้างรอบไทม์ไลน์ NSC 2026 ที่ไม่ผ่าน และทีมสามคนที่เหลือคนเดียว
 - `docs/superpowers/plans/`, `docs/superpowers/specs/`, `docs/decisions/`, `docs/learning/`
 
 คำว่า WebSocket, RunPod, GIS, Marketplace, full TreeQSM, ResNet หรือ metric ที่ปัดเศษในเอกสารกลุ่มนี้อาจเป็น historical target ไม่ใช่ current capability

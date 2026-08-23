@@ -268,6 +268,16 @@ NEON_API_TOKEN=xxx
 
 ## Database Setup
 
+> [!CAUTION]
+> **There is no database.** The API's database layer was deleted in `927ae78` —
+> no table backed it, no endpoint read from it. Nothing in this section is
+> needed to run or develop anything in this repository, and following it sets up
+> a PostGIS container the code will never connect to. See
+> [`docs/DATABASE_TEARDOWN.md`](DATABASE_TEARDOWN.md).
+>
+> Kept because Alembic's migration files are still in the tree and someone will
+> eventually wonder what they were for.
+
 ### Local PostgreSQL with PostGIS
 
 ```bash

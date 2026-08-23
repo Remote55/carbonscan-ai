@@ -1,4 +1,4 @@
-# Contributing to CarbonScan AI
+# Contributing to TreeQ Carbon Platform
 
 > ขอบคุณที่สนใจร่วมพัฒนาโปรเจกต์ NSC 2026 กับเรา! เอกสารนี้สรุปวิธีการ contribute, code conventions และ workflow ของทีม
 

@@ -1,5 +1,15 @@
 # CarbonScan AI — Task List
 
+> [!CAUTION]
+> **Historical — the plan this tracked ended on 23 August 2026.** ทุก phase ในไฟล์นี้
+> สร้างรอบไทม์ไลน์ NSC 2026 ซึ่ง**ไม่ผ่าน** และทีมสามคนที่ตอนนี้เหลือคนเดียว
+> Phase 3 เป็นงาน Flutter ที่ถูกลบทิ้งไปแล้วตาม [ADR 0007](docs/decisions/0007-drop-the-photo-path.md)
+>
+> เก็บไว้เพื่อ trace ว่าอะไรถูกวางแผนและอะไรทำจริง — **ห้ามใช้เป็นรายการงานปัจจุบัน**
+> งานที่ทำอยู่จริงดูที่หัวข้อ "งานถัดไป" ใน [`README.md`](README.md)
+
+**บริบทเดิม ณ เวลาที่เขียน:**
+
 > **Project:** CarbonScan AI — NSC 2026 (หมวด 14 อุดมศึกษา)
 > **Deadline ใกล้สุด:** 29 พ.ค. 2569 17:00 น. — **เหลือ 7 วัน**
 > **ทีม:** User (Core/Lead), Person A (Web), Person B (Design)

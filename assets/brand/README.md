@@ -1,8 +1,13 @@
-# Brand Assets — CarbonScan AI
+# Brand Assets — TreeQ Carbon Platform
 
-> Official brand assets for the CarbonScan AI project (NSC 2026 หมวด 14)
+> Brand assets for TreeQ Carbon Platform, formerly CarbonScan AI.
 >
-> **Owner:** Person B (Designer) — primary author of the logo + brand identity
+> **The mark carries no wordmark**, so the rename cost it nothing — `logo.png` is
+> byte-identical to what shipped under the old name, and nothing on the deployed
+> site displays the old one. What follows is the description catching up.
+>
+> **Owner:** was Person B (Designer) on the three-person NSC team. The project is
+> now one person, and no designer is producing the variants listed below.
 
 ---
 
@@ -21,7 +26,7 @@ Web-deployed copy:
 
 ## Logo Concept
 
-The logo represents the **complete CarbonScan AI value proposition** in a single illustration:
+The logo represents what the project set out to be, in a single illustration:
 
 | Visual Element | Meaning |
 |---|---|
@@ -58,9 +63,10 @@ These align with the brand tokens defined in [`packages/design-tokens/`](../../p
 - **Footer logo** (size: 28×28 px) — `src/app/page.tsx` footer
 - **Social share preview** (OG image) — via `metadata.openGraph.images` and `metadata.twitter.images`
 
-### Mobile App (`apps/mobile/`)
-- TODO Phase 1: copy to `apps/mobile/assets/icons/app_icon.png`
-- Used for Android launcher icon + iOS app icon + splash screen
+### ~~Mobile App~~
+`apps/mobile/` was deleted on 9 August 2026 under
+[ADR 0007](../../docs/decisions/0007-drop-the-photo-path.md). No launcher icon,
+no splash screen, nothing to copy.
 
 ### Proposal Document (`proposal/`)
 - Cover page (full size)
@@ -81,7 +87,7 @@ The single PNG works for Web/Mobile but Phase 1 will need:
 | **SVG** version | Scalable for any size (favicons, print) | SVG |
 | **Monochrome** (single color, Forest Green) | For watermarks, low-color print, letterheads | PNG + SVG |
 | **Reversed** (white on dark) | For dark mode UI, dark slide backgrounds | PNG + SVG |
-| **Wordmark** (logo + "CarbonScan AI" text) | For wide layouts, headers | PNG + SVG |
+| **Wordmark** (logo + "TreeQ" text) | For wide layouts, headers | PNG + SVG |
 | **Mark only** (no background) | For tight contexts where the circle frame is too much | PNG + SVG |
 | **Favicon ICO** (multi-res 16/32/48 px) | Legacy browser tabs | ICO |
 | **App icon PNG** (1024×1024 + 512×512 + 180×180) | iOS App Store, Android Play | PNG |

@@ -89,7 +89,10 @@ Pipeline ที่รันได้ตอนนี้รับ point cloud (`.l
 - **ชื่อปัจจุบัน: `TreeQ Carbon Platform`** (ทีมตัดสินใจ 2026-07-16)
 - **ชื่อเดิม `CarbonScan AI` = historical name** — ยังหลงเหลือใน legacy docs/code metadata บางส่วน
 - rebrand core surface แล้วใน **apps/web**, README, master spec และ ML docs
-- **ยังไม่ rebrand ครบ:** legacy docs/proposal, brand assets และ GitHub repo name (`carbonscan-ai`)
+- **ยังไม่ rebrand ครบ:** GitHub repo name (`carbonscan-ai`) และ package identifier ในโค้ด
+  (`carbonscan-api`, `carbonscan-ml`, `@carbonscan/*`, bucket `carbonscan-uploads`)
+  · เอกสาร historical และ ADR **ตั้งใจไม่แก้** เพราะการแก้บันทึกย้อนหลังคือการปลอมบันทึก
+  · brand assets แก้แล้ว — โลโก้ไม่มี wordmark จึงย้ายมาใช้ได้ทั้งดุ้น
 - Logo bug: `apps/web/public/logo.png` เป็นโลโก้เดิม — ยังไม่เปลี่ยน
 
 ---
