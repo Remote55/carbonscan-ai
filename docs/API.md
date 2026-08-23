@@ -15,7 +15,8 @@
 > Backend REST API + WebSocket endpoints
 >
 > **Base URL (dev):** `http://localhost:8000/api/v1`
-> **Base URL (prod):** `https://api.carbonscan-ai.com/api/v1`
+> **Base URL (prod):** none. There is no production API deployment, and
+> `api.carbonscan-ai.com` — which this line used to name — was never registered.
 > **Auto-generated docs:** `/docs` (Swagger) and `/redoc` (ReDoc)
 
 ---

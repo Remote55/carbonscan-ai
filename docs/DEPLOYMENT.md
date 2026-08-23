@@ -6,18 +6,24 @@
 > และ object-storage handoff ยัง Planned. ค่าใช้จ่ายและขั้นตอนด้านล่างเป็นประมาณการ/target
 > และต้องตรวจราคาปัจจุบันก่อนตัดสินใจ. ดู `docs/PROJECT_SPEC.md`.
 
-> Production deployment for CarbonScan AI
+> Production deployment for TreeQ Carbon Platform
 
 ---
 
 ## Deployment Targets
 
-| Component | Platform | URL Pattern | Cost (Monthly) |
+> [!IMPORTANT]
+> **Only the first row exists.** The rest of this table has always been a plan,
+> and three of its URLs resolve to nothing. It is kept as the intended shape
+> rather than deleted, but nothing below the web row should be read as
+> describing something you can visit today.
+
+| Component | Platform | URL | Status |
 |---|---|---|---|
-| **Web (Next.js)** | Vercel | `https://carbonscan-ai.vercel.app` | $0 (Hobby) |
-| **API (FastAPI)** | Railway | `https://api.carbonscan-ai.up.railway.app` | $5 |
-| **Database** | Supabase | `*.supabase.co` | $0 (Free) |
-| **Storage** | Supabase | `*.supabase.co/storage` | $0 (Free, 1GB) |
+| **Web (Next.js)** | Vercel | `https://treeqcarbon.vercel.app` | **Live** |
+| **API (FastAPI)** | — | — | **Not deployed.** `NEXT_PUBLIC_API_URL` is unset in production, so the site runs its browser-side work and says the carbon step is unavailable. The Railway URL this table used to name never existed. |
+| **Database** | — | — | **Removed.** The database layer was deleted; no table backs the API. See `docs/DATABASE_TEARDOWN.md`. |
+| **Auth / Storage** | Supabase | `*.supabase.co` | Live, $0 |
 | **ML GPU Worker** | RunPod Serverless | Endpoint URL | ~$6-15 (usage) |
 | **Mobile APK** | GitHub Releases | Artifact | $0 |
 | **Mobile IPA** | (Optional) Codemagic | TestFlight | $0 (Free tier) |

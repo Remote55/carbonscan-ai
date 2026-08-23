@@ -7,7 +7,7 @@
 > สถานะปัจจุบันให้ยึด `docs/evidence/core_demo_manifest.json`, `docs/PROJECT_SPEC.md` และ
 > `docs/CAPABILITY_MATRIX.md`.
 
-> System architecture, design patterns, and rationale for CarbonScan AI
+> System architecture, design patterns, and rationale for TreeQ Carbon Platform
 
 ---
 
@@ -24,8 +24,9 @@
 
 ## System Overview
 
-CarbonScan AI เป็น **distributed system** ที่ใช้ event-driven architecture เพื่อรองรับ:
-- **Heterogeneous input** (.las/.laz files หรือ multiple RGB photos)
+TreeQ Carbon Platform เป็น **distributed system** ที่ใช้ event-driven architecture เพื่อรองรับ:
+- **Heterogeneous input** (.las/.laz files หรือ multiple RGB photos) — ⚠️ เส้นทาง RGB photos
+  ถูกลบทิ้งแล้วตาม [ADR 0007](decisions/0007-drop-the-photo-path.md) รับเฉพาะ point cloud จากเครื่องสแกน
 - **Long-running ML jobs** (5-30 นาที/ไฟล์)
 - **Real-time visualization** (3D Viewer in browser)
 - **Cost-controlled GPU** (serverless, scale-to-zero)

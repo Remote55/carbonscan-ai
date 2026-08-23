@@ -2,7 +2,7 @@
 
 > **เป้าหมาย:** อ่านเอกสารนี้ภายใน 30 นาที แล้วเริ่มลงมือทำงานได้
 >
-> **สำหรับ:** Developer ใหม่ที่เพิ่งเข้าร่วมทีม CarbonScan AI
+> **สำหรับ:** Developer ใหม่ที่เพิ่งเข้าร่วม TreeQ Carbon Platform
 
 ---
 
@@ -10,7 +10,7 @@
 
 | เวลา | กิจกรรม |
 |---|---|
-| **0-5 min** | อ่าน Section 1 "What is CarbonScan AI?" |
+| **0-5 min** | อ่าน Section 1 "What is TreeQ Carbon Platform?" |
 | **5-10 min** | อ่าน Section 2 "Architecture Quick Tour" |
 | **10-15 min** | อ่าน Section 3 "Your Role & First Tasks" |
 | **15-25 min** | ทำตาม Section 4 "Local Setup" |
@@ -18,7 +18,7 @@
 
 ---
 
-## 1. What is CarbonScan AI?
+## 1. What is TreeQ Carbon Platform?
 
 ### One-liner
 ระบบประเมิน Carbon Credit จากต้นไม้แบบโปร่งใส โดยใช้ LiDAR 3D Point Cloud + AI
@@ -288,4 +288,4 @@ A: ใช้ Free tier ของ Colab/Kaggle เป็นหลัก. RunPod �
 - [ ] Clone repo + create branch แรกได้
 - [ ] อ่าน [TASKS.md](../TASKS.md) แล้วเห็นงานของตัวเอง
 
-**ยินดีต้อนรับสู่ทีม CarbonScan AI! 🌲**
+**ยินดีต้อนรับสู่ TreeQ Carbon Platform! 🌲**
