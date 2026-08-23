@@ -6,7 +6,7 @@
 
 ## Brand Essence
 
-**CarbonScan AI = "Forest meets Code"**
+**TreeQ Carbon Platform = "Forest meets Code"** (เดิมชื่อ CarbonScan AI)
 
 เราคือ Climate FinTech ที่:
 - เคารพธรรมชาติ (Forest)
@@ -32,8 +32,8 @@
 | 🟢 Gradient เขียว→ฟ้า (วงนอก) | Nature → Technology |
 
 ### Wordmark
-- Font: **Space Grotesk Bold** สำหรับ "CarbonScan"
-- "AI" ใช้สีเขียว forest-500 เพื่อสะดุดตา
+- Font: **Space Grotesk Bold** สำหรับ "TreeQ"
+- "Q" ใช้สีเขียว forest-500 เพื่อสะดุดตา
 - ใช้คู่กับ mark เมื่อพื้นที่กว้าง
 
 ### Variants (ที่จะทำใน Phase 1)

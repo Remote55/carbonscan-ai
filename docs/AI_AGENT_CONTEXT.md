@@ -4,7 +4,7 @@
 > **Historical context — superseded 2026-07-16.** ห้ามใช้ไฟล์นี้เป็นสถานะปัจจุบันหรือแหล่งตัวเลขสำหรับรายงาน
 > ให้ยึด `docs/evidence/core_demo_manifest.json`, `docs/PROJECT_SPEC.md` และ
 > `docs/CAPABILITY_MATRIX.md`: `tlsep` = Implemented default, PointNet++ = Experimental/not promoted,
-> Wan Wood/Leaf/Mean IoU = `0.418/0.808/0.613`, Demol DBH MAE = `1.1673846154 cm`,
+> Wan Wood/Leaf/Mean IoU = `0.418/0.808/0.613`, Demol DBH MAE = `0.898318 cm`,
 > Species Classification = Stub, งาน WebSocket/GIS/Marketplace/production RunPod = Planned.
 
 > **จุดประสงค์:** ให้ AI agent (context ใหม่) เข้าใจโปรเจค + สถานะล่าสุด + งานที่เหลือ ได้ทันทีจากไฟล์เดียว

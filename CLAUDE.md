@@ -1,67 +1,91 @@
-# CarbonScan AI — Working Memory
+# TreeQ Carbon Platform — Working Memory
 
 > โหลดเข้า context อัตโนมัติทุกครั้งที่เปิด project นี้
+> เดิมชื่อ **CarbonScan AI** — ชื่อเก่ายังอยู่ในเอกสาร historical และใน GitHub repo slug
 
 ## Project
-**CarbonScan AI** — แพลตฟอร์มประเมินคาร์บอนชีวมวลต้นไม้ด้วย LiDAR Point Cloud + AI Wood-Leaf Segmentation + B2B Carbon Offset Matchmaking
 
-### Competition
-- **NSC 2026** (National Software Contest ครั้งที่ 28)
-- **หมวด 14** โปรแกรมเพื่องานการพัฒนาด้านวิทยาศาสตร์และเทคโนโลยี
-- **ระดับ:** อุดมศึกษา (ปริญญาตรี)
-- **Deadline ใกล้สุด:** 29 พ.ค. 2569 (Proposal) | 17 ก.ค. 2569 (Final Report)
+ประเมินชีวมวล คาร์บอน และ CO₂e ของต้นไม้จาก 3D point cloud (`.ply` / `.las` / `.laz`)
+พร้อม provenance ที่ตรวจสอบย้อนกลับได้ทุกตัวเลข
 
-## Team
-| Role | Person | Focus |
-|---|---|---|
-| **Lead / Core** | User | AI/ML, Backend (FastAPI), Team Lead |
-| **Frontend** | Person A | Next.js Web Dashboard, 3D Viewer, GIS Map |
-| **Design** | Person B | UI/UX (Figma), Branding, Video, Slides |
+**ผลลัพธ์ไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรอง** — เป็นค่าประมาณที่บอกที่มาได้
 
-> ⚠️ ยังไม่ได้ใส่ชื่อจริง — รอข้อมูลจาก User
+## สถานะจริง (23 ส.ค. 2569)
 
-## Tech Stack
-- **Web:** Next.js 14 + TypeScript + Tailwind + shadcn/ui + Three.js + React Three Fiber + Leaflet
-- **Backend:** FastAPI (Python) + PostgreSQL + PostGIS + Supabase
-- **AI/ML:** numpy + scipy + scikit-image + Open3D + laspy (production path is tlsep — no GPU, no torch)
-- **Cloud:** Vercel (Web) + Railway (API) + RunPod Serverless GPU + Supabase
+- **NSC 2026 ไม่ผ่าน** — ไม่ใช่กรอบการทำงานอีกต่อไป
+- **ทำคนเดียว** ไม่มีอาจารย์ ไม่มีสถาบัน ไม่มี TLS scanner ไม่มี GPU
+- ใช้ได้แต่ **open data** เท่านั้น
+- เป้าหมายใหม่: **ถูกวิทยาศาสตร์ + ตีพิมพ์ได้ + ใช้งานได้จริง**
+
+## Tech Stack (เฉพาะที่ใช้จริง)
+
+- **Web:** Next.js 14 + TypeScript + Tailwind + Three.js — deploy บน Vercel
+- **API:** FastAPI synchronous · **ไม่มี database layer** (ถอดออกแล้ว ดู `docs/DATABASE_TEARDOWN.md`)
+- **ML:** numpy + scipy + scikit-image + laspy · **ไม่มี GPU ไม่มี torch ในเส้นทาง production**
+- **Auth/Storage:** Supabase
 
 ## Key Architecture Decisions
-1. **รับ point cloud จากเครื่องสแกนอย่างเดียว** (.ply / .las / .laz) — เส้นทางถ่ายด้วยโทรศัพท์
-   (COLMAP/OpenMVS) ถูกตัดออกเมื่อ 9 ส.ค. 2569 พร้อมแอป Flutter: gate ยังตอบ BLOCKED
-   และไม่เคยพิสูจน์ว่าภาพถ่ายลำต้นจริงให้จุดพอ fit วงกลมที่ 1.3 ม. ได้ไหม
-   ทิศทางคือทำเส้นทางที่ใช้ได้จริงให้แม่น แทนที่จะขยายไปเส้นทางที่ยังไม่รู้ว่าเป็นไปได้
-2. **ไม่ต้องใช้ GPU** — wood/leaf backend ที่ใช้จริงคือ tlsep (PCA บน KD-tree)
-3. **Cloud GPU On-demand** — RunPod Serverless แทนซื้อ Workstation
-4. **Open-Source First** — ทุก component ใช้ open-source ได้
-5. **Lock Scope** — Prototype รองรับต้นไม้ 3-5 ชนิด (สัก, ยางนา, ไผ่, ยางพารา, มะค่าโมง)
 
-## Reference Files
-- `C:\Users\Acer\Downloads\Carbo.txt` — บันทึกสนทนาเดิม + 5 คำถามอาจารย์
-- `D:\Research_Project\CarbontreeNsc\Segment individual trees and compute metrics · r-lidar_lidR Wiki.pdf` — เอกสาร lidR
-- `C:\Users\Acer\.claude\plans\c-users-acer-downloads-carbo-txt-d-rese-tingly-moon.md` — Strategic Plan ฉบับเต็ม
+1. **รับ point cloud จากเครื่องสแกนเท่านั้น** — เส้นทางถ่ายภาพด้วยมือถือและแอป Flutter
+   ถูกลบทิ้ง 9 ส.ค. 2569 ([ADR 0007](docs/decisions/0007-drop-the-photo-path.md))
+   gate ไม่เคยผ่านเพราะไม่เคยรัน และเรื่อง scale ไม่เคยถูกแก้
+2. **`tlsep` เป็น wood/leaf backend ที่ใช้จริง** — PointNet++ เป็น Experimental และถูก
+   evidence gate บล็อกอยู่ (verdict `FAIL_METRICS`)
+3. **Chave 2014 เป็นสมการหลัก** — T-VER เป็น opt-in และยังไม่เปลี่ยนค่า default
+4. **Open-source ทั้งหมด** และข้อมูล validation ต้องเป็น open data
 
-## Critical Constraints
-- **9 วัน** ถึง Deadline Proposal
-- **ต้องเดินลายเซ็น** ที่ปรึกษา + คณบดี/ผอ. (ใช้เวลา 2-3 วัน ในระบบ)
-- **ทีมเป็นนักศึกษา** — ไม่มีงบซื้อ Hardware แพง
-- **NSC 2026 ระบบปิดอัตโนมัติ** 17:00 น. — ห้ามเลท
+## กติกาที่สำคัญที่สุดของโปรเจกต์นี้
 
-## Glossary (ศัพท์ที่ใช้บ่อย)
+> **ตัวเลขทุกตัวที่เผยแพร่ ต้อง re-derive ได้จาก artefact ที่ commit ไว้**
+
+- `sync_truth.py --check` ผูกเอกสารเข้ากับ manifest — เอกสาร drift จากหลักฐานไม่ได้
+- `judge_demo_manifest.py check` ตรวจว่า artefact ที่เผยแพร่ยังตรงกับ pipeline ปัจจุบัน
+- evidence gate ใน `provenance.py` เป็น fail-closed
+- **ผลลัพธ์ที่ออกมาแย่ก็ commit** — `pointnet_independent_eval/result.json` commit ไว้ทั้งที่เป็น `FAIL_METRICS`
+- **ห้าม recalibrate บน cohort ที่ใช้วัดผล** — เป็น defect เดียวกับที่ PointNet++ ถูกบล็อก
+
+## Validation ที่มีอยู่
+
+| cohort | n | ครอบคลุม |
+|---|---:|---|
+| Demol 2021 (เบลเยียม เขตอบอุ่น) | 65 | geometry เท่านั้น |
+| Momo Takoudjou 2018 (แคเมอรูน เขตร้อน) | 61 | geometry + **allometric กับมวลที่ชั่งจริง** |
+
+ตัวเลขที่ผู้ใช้ได้รับ: **DBH MAE 1.37 ซม.** (27 ต้นที่ผ่าน gate) · รายละเอียดใน
+[`docs/ml/CAMEROON_EVIDENCE_CHAIN.md`](docs/ml/CAMEROON_EVIDENCE_CHAIN.md)
+
+**ยังไม่ validate:** ขั้น 1–4 (ยังไม่เคยทดสอบบน plot จริง) · ขั้น 5 บนต้นไม้เขตร้อน ·
+ขั้น 7 species classifier ยังเป็น Stub · และยังไม่เคยทดสอบกับต้นไม้ในไทย
+
+## ⚠️ ข้อจำกัดของเครื่องผู้ใช้
+
+**โน้ตบุ๊ก Acer Predator PHN16-71 ค้างตายสนิท 12 ครั้ง** (7 ครั้งใน 24 ชม. เมื่อ 22-23 ส.ค.)
+ไม่มี bugcheck ไม่มี dump ไม่มี WHEA — สงสัยฮาร์ดแวร์ ยังไม่ได้ข้อสรุป
+
+- **ห้ามรัน full test suite บนเครื่องนี้** (`pytest tests/` ชุดเต็มใช้ ~29 นาที และเคยทิ้ง
+  scratch ไว้ 93 GB จนเครื่องอืด) — ให้ GitHub Actions รับไป
+- รันเฉพาะไฟล์ที่เกี่ยวข้องได้ (1–2 นาที) และบอกล่วงหน้าเสมอถ้าจะรันอะไรหนัก
+- คู่มือแก้ปัญหา: artifact "Predator Freeze Triage"
+
+## Glossary
+
 | Term | Meaning |
 |---|---|
-| **DBH** | Diameter at Breast Height — เส้นผ่านศูนย์กลางลำต้นที่ระดับอก (1.3 ม.) |
+| **DBH** | Diameter at Breast Height — เส้นผ่านศูนย์กลางลำต้นที่ 1.3 ม. |
 | **QSM** | Quantitative Structure Model — โมเดลทรงกระบอกคำนวณปริมาตรไม้ |
 | **CHM** | Canopy Height Model |
 | **TLS** | Terrestrial Laser Scanning |
-| **TGO** | องค์การบริหารจัดการก๊าซเรือนกระจก (Thailand Greenhouse Gas Management Organization) |
-| **Allometric** | สมการแอลโลเมตริก แปลง dimension ของต้นไม้ → biomass |
-| **CBAM** | Carbon Border Adjustment Mechanism (EU Carbon Tax) |
+| **TGO / อบก.** | องค์การบริหารจัดการก๊าซเรือนกระจก |
+| **T-VER** | โครงการลดก๊าซเรือนกระจกภาคสมัครใจของไทย · `T-VER-S-TOOL-01-01` คือคู่มือคำนวณคาร์บอนต้นไม้ |
+| **Allometric** | สมการแปลง dimension ของต้นไม้ → biomass |
+| **Chave 2014** | สมการ pantropical ที่ใช้เป็นเส้นทางหลัก |
 | **ITD** | Individual Tree Detection |
-| **NEON** | National Ecological Observatory Network (USA — มี LiDAR Open Data) |
 
 ## Preferences
-- ตอบเป็นภาษาไทย (แต่ technical terms ใช้ EN ได้)
-- โฟกัสที่ "ทำให้กรรมการ NSC ว้าว" — Deep Tech + Visual storytelling
-- หลีกเลี่ยง Over-engineer — Prototype ที่ทำเสร็จดีกว่า Vision ที่สมบูรณ์แต่ไม่เสร็จ
-- ทุก decision ที่มีค่าใช้จ่าย ให้พิจารณาว่า "นักศึกษาจ่ายไหวไหม"
+
+- **ตอบเป็นภาษาไทย** (technical terms ใช้ EN ได้)
+- **ความถูกต้องมาก่อนความน่าประทับใจ** — กรอบ "ทำให้กรรมการว้าว" เลิกใช้แล้ว
+- ตัวเลขที่พูดต้องมาจากการวัด ไม่ใช่ความจำ — **รันแล้วดู อย่าอ่านแล้วเดา**
+- commit message บอกว่า *อะไรผิด* ไม่ใช่ *เพิ่มอะไร*
+- **ไม่มี non-ASCII ใน Python source** (console เป็น cp874 — UnicodeEncodeError ทำให้ process ตาย)
+  เอกสาร markdown เป็นภาษาไทยได้ตามปกติ
