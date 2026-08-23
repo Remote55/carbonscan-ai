@@ -204,9 +204,19 @@ useEffect(() => {
               </h1>
 
               <p className="mt-6 max-w-xl text-base leading-8 text-canopy sm:text-lg">
-                อัปโหลดข้อมูล Point Cloud เพื่อวิเคราะห์ขนาดลำต้น
-                โครงสร้างต้นไม้ และประเมินปริมาณคาร์บอนสะสม
-                พร้อมหลักฐานที่สามารถตรวจสอบย้อนกลับได้
+                วัดขนาดลำต้นและโครงสร้างต้นไม้จาก Point Cloud
+                แล้วประเมินปริมาณคาร์บอนสะสม พร้อมหลักฐานที่ตรวจสอบย้อนกลับได้ทุกตัวเลข
+              </p>
+
+              {/* The upload page runs the 3D separation in the browser, but the
+                  carbon step needs the pipeline on a backend and there is no
+                  public deployment. Saying "upload to get carbon" here would be
+                  a claim the site cannot honour — the same defect the evidence
+                  gates catch in numbers, arriving instead as copy. */}
+              <p className="mt-3 max-w-xl text-sm leading-7 text-canopy/80">
+                เวอร์ชันออนไลน์นี้แยกลำต้น / ใบ / พื้นดิน ให้ดูในเบราว์เซอร์
+                ส่วนการคำนวณคาร์บอนต้องรัน pipeline บน backend ซึ่งยังไม่มี deployment สาธารณะ —
+                ผลที่ตรวจสอบแล้วดูได้ที่หน้าสาธิต
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -216,7 +226,7 @@ useEffect(() => {
                   size="xl"
                   className="justify-center sm:min-w-48"
                 >
-                  ทดลองอัปโหลดไฟล์
+                  อัปโหลดดูการแยก 3 มิติ
                 </Button>
 
                 {/* /demo is the hash-verified evidence page: the reconciled

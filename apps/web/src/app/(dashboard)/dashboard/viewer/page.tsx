@@ -357,9 +357,14 @@ export default function ViewerPage() {
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>ผลประมาณการคาร์บอน (ML pipeline)</CardTitle>
+                {/* Two states, two descriptions. Describing the upload flow when
+                    no backend is configured tells the visitor the page can do
+                    something it cannot, which is the same defect the evidence
+                    gates exist to catch — just in copy instead of a number. */}
                 <CardDescription>
-                  ส่งไฟล์นี้เข้า backend → รัน pipeline (ground → tree → wood/leaf → QSM →
-                  allometric) → คืนค่าประมาณการคาร์บอนพร้อม provenance
+                  {apiReady
+                    ? 'ส่งไฟล์นี้เข้า backend → รัน pipeline (ground → tree → wood/leaf → QSM → allometric) → คืนค่าประมาณการคาร์บอนพร้อม provenance'
+                    : 'หน้านี้แยกกลุ่มจุดเป็นลำต้น / ใบ / พื้นดิน ในเบราว์เซอร์ได้เอง แต่การคำนวณคาร์บอนต้องรัน pipeline บน backend ซึ่งตอนนี้ยังไม่มี deployment สาธารณะ'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -414,15 +419,28 @@ export default function ViewerPage() {
                 ) : (
                   <div className="rounded-lg border border-dashed border-hairline bg-paper p-4">
                     <p className="text-sm font-medium text-forest-ink">
-                      การวิเคราะห์คาร์บอนทำงานผ่าน backend (ML pipeline จริง)
+                      ยังไม่มี backend เชื่อมต่ออยู่ — วิเคราะห์คาร์บอนจากไฟล์นี้ไม่ได้
                     </p>
                     <p className="mt-1 text-sm text-canopy">
-                      เวอร์ชันสาธิตออนไลน์นี้แสดงเฉพาะการแยก 3 มิติ (ลำต้น / ใบ / พื้นดิน) —
-                      การคำนวณคาร์บอนสาธิตสดผ่าน API ในการนำเสนอ Reviewed core demo แบบ synthetic
-                      ที่ใช้ตรวจ reproducibility พบ {CORE_DEMO_EVIDENCE.coreDemo.totalTrees} ต้น ·
-                      คาร์บอน {CORE_DEMO_EVIDENCE.coreDemo.totalCarbonKg} กก. · CO₂e{' '}
-                      {CORE_DEMO_EVIDENCE.coreDemo.totalCo2eqKg} กก. ตัวเลขนี้ไม่ใช่ accuracy
-                      benchmark หรือ carbon-credit certification
+                      การแยกลำต้น / ใบ / พื้นดิน ที่เห็นด้านบนทำในเบราว์เซอร์ ส่วนการคำนวณคาร์บอน
+                      ต้องรัน pipeline ทั้งเส้น (ground → tree → wood/leaf → QSM → allometric)
+                      ซึ่งยังไม่มี deployment สาธารณะ
+                    </p>
+                    <p className="mt-3 text-sm text-canopy">
+                      ผลที่ตรวจสอบแล้วดูได้ที่{' '}
+                      <a href="/demo" className="underline underline-offset-2">
+                        หน้าสาธิต
+                      </a>{' '}
+                      ซึ่งเสิร์ฟ artefact ที่ตรวจ checksum ทุกครั้ง
+                    </p>
+                    <p className="mt-3 text-xs text-canopy">
+                      อ้างอิงคนละชุด: core demo เป็น fixture สังเคราะห์ seed คงที่
+                      ที่ใช้พิสูจน์ว่า pipeline รันซ้ำได้ผลเดิม —{' '}
+                      {CORE_DEMO_EVIDENCE.coreDemo.totalTrees} ต้น · คาร์บอน{' '}
+                      {CORE_DEMO_EVIDENCE.coreDemo.totalCarbonKg} กก. · CO₂e{' '}
+                      {CORE_DEMO_EVIDENCE.coreDemo.totalCo2eqKg} กก.
+                      <strong className="font-medium"> ไม่ใช่</strong> การวัดความแม่นยำ
+                      และไม่ใช่คาร์บอนเครดิตที่ผ่านการรับรอง
                     </p>
                   </div>
                 )}

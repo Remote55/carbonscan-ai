@@ -18,7 +18,11 @@ describe('Landing evidence contract', () => {
 
     expect(getAnchorHrefByLabel(markup, 'ดูผลการประเมิน')).toBe('/demo');
 
-    expect(getAnchorHrefByLabel(markup, 'ทดลองอัปโหลดไฟล์')).toBe(
+    // Label changed from 'ทดลองอัปโหลดไฟล์' when the API URL was removed from
+    // production. Uploading still works and still runs the separation in the
+    // browser; what it no longer does is produce a carbon figure, and the old
+    // label promised the whole flow.
+    expect(getAnchorHrefByLabel(markup, 'อัปโหลดดูการแยก 3 มิติ')).toBe(
       '/dashboard/viewer',
     );
 
